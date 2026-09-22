@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {buildIntelligenceSnapshot} from "../src/intelligence/engine.ts";
 import {answerDeterministically} from "../src/ai/deterministic.ts";
 import {connectionAfterFailure} from "../src/state/connection.ts";
-import {addressPosition, shortTransactionHash, significantTransferIds, transferIdentity, uniqueTransfers} from "../src/visualization/network-model.ts";
+import {addressPosition, selectLabelCandidates, shortTransactionHash, significantTransferIds, transferIdentity, uniqueTransfers} from "../src/visualization/network-model.ts";
 
 const address = suffix => `0x${suffix.padStart(40, "0")}`;
 const hash = suffix => `0x${suffix.padStart(64, "0")}`;
@@ -96,4 +96,26 @@ test("transfer visual identity and compact hash use verified fields", () => {
 test("significant transfer ranking is relative and visual identities are unique", () => {
   assert.deepEqual(significantTransferIds(transfers, 2), [transferIdentity(transfers[2]), transferIdentity(transfers[1])]);
   assert.deepEqual(uniqueTransfers([...transfers, transfers[0]]).map(transferIdentity), transfers.map(transferIdentity));
+});
+
+test("label selection deduplicates identities and obeys its global maximum", () => {
+  const candidates = [
+    {id: "a", amount: 10, significant: true},
+    {id: "a", amount: 10, significant: true},
+    {id: "b", amount: 30, significant: true},
+    {id: "c", amount: 20, significant: true},
+  ];
+  assert.deepEqual(selectLabelCandidates(candidates, {limit: 2}).map(item => item.id), ["b", "c"]);
+  assert.equal(new Set(selectLabelCandidates(candidates, {limit: 3}).map(item => item.id)).size, 3);
+});
+
+test("selected and hovered labels displace lower-priority automatic labels", () => {
+  const candidates = [
+    {id: "largest", amount: 100, significant: true},
+    {id: "agent", amount: 5, agentHighlighted: true},
+    {id: "hovered", amount: 1},
+    {id: "selected", amount: 0.5},
+  ];
+  assert.deepEqual(selectLabelCandidates(candidates, {selectedId: "selected", hoveredId: "hovered", limit: 3}).map(item => item.id), ["selected", "hovered", "agent"]);
+  assert.deepEqual(selectLabelCandidates(candidates, {hoveredId: "hovered", limit: 1}).map(item => item.id), ["hovered"]);
 });

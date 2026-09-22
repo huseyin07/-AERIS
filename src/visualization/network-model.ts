@@ -41,3 +41,41 @@ export function significantTransferIds(transfers: readonly Transfer[], limit: nu
 export function uniqueTransfers(transfers: readonly Transfer[]) {
   return [...new Map(transfers.map(transfer => [transferIdentity(transfer), transfer])).values()];
 }
+
+export type LabelCandidate = {
+  id: string;
+  amount: number;
+  significant?: boolean;
+  agentHighlighted?: boolean;
+};
+
+type LabelSelection = {
+  selectedId?: string | null;
+  hoveredId?: string | null;
+  limit: number;
+};
+
+/** One canonical, bounded label pipeline. Interaction always displaces automation. */
+export function selectLabelCandidates<T extends LabelCandidate>(candidates: readonly T[], selection: LabelSelection): T[] {
+  const deduplicated = new Map<string, T>();
+  for (const candidate of candidates) {
+    const existing = deduplicated.get(candidate.id);
+    if (!existing) deduplicated.set(candidate.id, candidate);
+    else deduplicated.set(candidate.id, {
+      ...(candidate.amount > existing.amount ? candidate : existing),
+      significant: Boolean(existing.significant || candidate.significant),
+      agentHighlighted: Boolean(existing.agentHighlighted || candidate.agentHighlighted),
+    } as T);
+  }
+  const selectedId = selection.selectedId ?? "";
+  const hoveredId = selection.hoveredId ?? "";
+  return [...deduplicated.values()]
+    .filter(candidate => candidate.id === selectedId || candidate.id === hoveredId || candidate.agentHighlighted || candidate.significant)
+    .sort((left, right) =>
+      Number(right.id === selectedId) - Number(left.id === selectedId) ||
+      Number(right.id === hoveredId) - Number(left.id === hoveredId) ||
+      Number(Boolean(right.agentHighlighted)) - Number(Boolean(left.agentHighlighted)) ||
+      Number(Boolean(right.significant)) - Number(Boolean(left.significant)) ||
+      right.amount - left.amount || left.id.localeCompare(right.id))
+    .slice(0, Math.max(0, selection.limit));
+}
