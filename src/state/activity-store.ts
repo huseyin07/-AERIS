@@ -1,16 +1,20 @@
 import {create} from "zustand";
 import type {EntityType, Transfer} from "@/data/types";
+import type {VisualizationIntent} from "@/intelligence/intents";
+import {connectionAfterFailure, type Connection} from "./connection";
 
-type Connection = "connecting" | "live" | "error";
 type State = {
   transfers: Transfer[];
   connection: Connection;
   selected: string | null;
   query: string;
+  visualizationIntent: VisualizationIntent;
   mergeTransfers: (transfers: Transfer[]) => void;
-  setConnection: (connection: Connection) => void;
+  markRequestSucceeded: () => void;
+  markRequestFailed: () => void;
   select: (address: string | null) => void;
   setQuery: (query: string) => void;
+  setVisualizationIntent: (intent: VisualizationIntent) => void;
 };
 
 const entityTypes = new Set<EntityType>(["wallet", "contract", "unknown"]);
@@ -35,6 +39,7 @@ export const useActivity = create<State>(set => ({
   connection: "connecting",
   selected: null,
   query: "",
+  visualizationIntent: {type: "reset"},
   mergeTransfers: incoming => set(state => {
     const merged = new Map(state.transfers.map(transfer => [transfer.id, transfer]));
     incoming.filter(validTransfer).forEach(transfer => merged.set(transfer.id, transfer));
@@ -46,7 +51,9 @@ export const useActivity = create<State>(set => ({
         .slice(-240),
     };
   }),
-  setConnection: connection => set({connection}),
+  markRequestSucceeded: () => set({connection: "live"}),
+  markRequestFailed: () => set(state => ({connection: connectionAfterFailure(state.transfers.length)})),
   select: selected => set({selected}),
   setQuery: query => set({query}),
+  setVisualizationIntent: visualizationIntent => set({visualizationIntent}),
 }));

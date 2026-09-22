@@ -2,12 +2,15 @@
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
+import {useMemo, useState} from "react";
 import {LiveActivity} from "./live-activity";
 import {VisualizationBoundary} from "./visualization-boundary";
+import {IntelligencePanel} from "./intelligence-panel";
 import {useActivity} from "@/state/activity-store";
 import {money, short} from "@/lib/format";
 import {ARC} from "@/data/arc";
 import type {Transfer} from "@/data/types";
+import {buildIntelligenceSnapshot} from "@/intelligence/engine";
 
 const NetworkScene = dynamic(
   () => import("@/visualization/network-scene").then(module => module.NetworkScene),
@@ -36,18 +39,15 @@ export function Dashboard() {
   const select = useActivity(state => state.select);
   const query = useActivity(state => state.query);
   const setQuery = useActivity(state => state.setQuery);
+  const intent = useActivity(state => state.visualizationIntent);
+  const setIntent = useActivity(state => state.setVisualizationIntent);
+  const [insightsOpen, setInsightsOpen] = useState(false);
+  const snapshot = useMemo(() => buildIntelligenceSnapshot(transfers), [transfers]);
 
-  const volume = transfers.reduce((total, transfer) => total + finiteAmount(transfer), 0);
-  const addresses = new Set(transfers.flatMap(transfer => [transfer.from, transfer.to])).size;
-  const contracts = new Set(
-    transfers.flatMap(transfer => [[transfer.from, transfer.fromType], [transfer.to, transfer.toType]] as const)
-      .filter(([, type]) => type === "contract")
-      .map(([address]) => address),
-  ).size;
-  const largest = transfers.reduce<Transfer | undefined>(
-    (current, transfer) => !current || finiteAmount(transfer) > finiteAmount(current) ? transfer : current,
-    undefined,
-  );
+  const volume = snapshot.totalVolume;
+  const addresses = snapshot.uniqueAddresses;
+  const contracts = snapshot.activeContracts;
+  const largest = transfers.find(transfer => transfer.id === snapshot.largestTransfer?.id);
 
   const normalizedQuery = query.trim().toLowerCase();
   const filtered = normalizedQuery ? transfers.filter(transfer =>
@@ -67,18 +67,15 @@ export function Dashboard() {
   const entityType = selected
     ? related.find(transfer => transfer.from === selected)?.fromType ?? related.find(transfer => transfer.to === selected)?.toType ?? "unknown"
     : "unknown";
-  const emptyMessage = status === "error" ? "Live data temporarily unavailable" : "Waiting for verified Arc Mainnet activity";
-  const signal = largest
-    ? `Largest observed transfer: ${money(largest.value)} USDC`
-    : status === "error"
-      ? "Arc Mainnet telemetry is temporarily unavailable"
-      : "Waiting for enough live activity to form a signal";
+  const emptyMessage = status === "unavailable" ? "Live data temporarily unavailable" : "Waiting for verified Arc Mainnet activity";
+  const signal = snapshot.signals[0];
+  const statusLabel = status === "live" ? "LIVE" : status === "stale" ? "STALE" : status === "unavailable" ? "UNAVAILABLE" : "CONNECTING";
 
   return <main>
     <LiveActivity/>
     <header>
       <div className="brand"><i/>AERIS</div>
-      <nav><b>LIVE</b><span>EXPLORE</span><span>INSIGHTS</span><span>REPLAY</span></nav>
+      <nav><b>LIVE</b><span>EXPLORE</span><button onClick={() => setInsightsOpen(value => !value)}>INSIGHTS</button><span>REPLAY</span></nav>
       <input
         className="search"
         value={query}
@@ -86,13 +83,13 @@ export function Dashboard() {
         placeholder="Search address, transaction or entity"
         aria-label="Search address, transaction or entity"
       />
-      <div className={`status ${status}`}><i/><span>ARC MAINNET</span></div>
+      <div className={`status ${status}`}><i/><span>ARC MAINNET · {statusLabel}</span></div>
     </header>
 
     <section className="observatory">
       <div className="scene" aria-label="Live Arc Mainnet entity network">
         <VisualizationBoundary>
-          <NetworkScene transfers={transfers} selected={selected} onSelect={select}/>
+          <NetworkScene transfers={transfers} selected={selected} intent={intent} onSelect={select}/>
         </VisualizationBoundary>
       </div>
 
@@ -124,17 +121,17 @@ export function Dashboard() {
               <span>{transfer.from === selected ? "SENT" : "RECEIVED"}</span><b className="coinValue"><UsdcIcon/>{money(transfer.value)}</b>
             </a>)}
           </div>
-          <a className="explorerLink" href={`${ARC.explorer}/address/${selected}`} target="_blank" rel="noreferrer">VIEW ON ARC EXPLORER ↗</a>
+          <button className="askAddress" onClick={() => setInsightsOpen(true)}>ASK AERIS ABOUT THIS ADDRESS</button><a className="explorerLink" href={`${ARC.explorer}/address/${selected}`} target="_blank" rel="noreferrer">VIEW ON ARC EXPLORER ↗</a>
         </> : <>
           <small>ARC MAINNET</small>
           <h2>Arc Mainnet</h2>
-          <div className={`networkState ${status}`}><i/>{status === "live" ? "LIVE" : status === "error" ? "DATA UNAVAILABLE" : "CONNECTING"}</div>
+          <div className={`networkState ${status}`}><i/>{statusLabel}</div>
           <dl>
             <div><dt>CHAIN ID</dt><dd>5042</dd></div>
             <div><dt>ASSET</dt><dd className="coinValue"><UsdcIcon/>USDC</dd></div>
             <div><dt>BUFFER</dt><dd>{transfers.length} transfers</dd></div>
           </dl>
-          <p className="panelNote">{transfers.length ? "Displaying verified activity from the current live window." : emptyMessage}</p>
+          <p className="panelNote">{status === "stale" ? "Using the last successfully verified observation window." : transfers.length ? "Displaying verified activity from the current live window." : emptyMessage}</p>
         </>}
       </section>
 
@@ -154,8 +151,10 @@ export function Dashboard() {
         {['1H', '24H', '7D', '30D'].map(label => <button key={label} disabled title="Historical indexing is not available yet">{label}</button>)}
         <small>HISTORICAL INDEXING NOT YET AVAILABLE</small>
       </div>
-      <div className="signal"><small>AERIS SIGNAL</small><p>{signal}</p></div>
+      <button className="signal" disabled={!signal} onClick={() => signal && setIntent({type: "highlight-transfers", transferIds: signal.relatedTransferIds})}><small>AERIS SIGNAL · {signal?.title ?? "OBSERVING"}</small><p>{signal?.description ?? (status === "stale" ? "Using the last successfully verified observation window." : "No verified activity is available in the current observation window.")}</p></button><button className="askEntry" onClick={() => setInsightsOpen(true)}>ASK AERIS</button>
     </section>
+
+    {insightsOpen && <IntelligencePanel snapshot={snapshot} transfers={transfers} selected={selected} onClose={() => setInsightsOpen(false)}/>}
 
     <section className="feed">
       <div className="feedHead"><div><small>LIVE LEDGER</small><h2>Recent verified transfers</h2></div><span>{ARC.name} · USDC · REAL-TIME</span></div>

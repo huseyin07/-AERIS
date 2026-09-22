@@ -15,7 +15,8 @@ function isActivityResponse(value: unknown): value is ActivityResponse {
 
 export function LiveActivity() {
   const merge = useActivity(state => state.mergeTransfers);
-  const setConnection = useActivity(state => state.setConnection);
+  const markRequestSucceeded = useActivity(state => state.markRequestSucceeded);
+  const markRequestFailed = useActivity(state => state.markRequestFailed);
 
   useEffect(() => {
     let active = true;
@@ -32,10 +33,10 @@ export function LiveActivity() {
         if (!isActivityResponse(data)) throw new Error("Malformed Arc Mainnet activity response");
         if (active) {
           merge(data.transfers);
-          setConnection("live");
+          markRequestSucceeded();
         }
       } catch {
-        if (active) setConnection("error");
+        if (active) markRequestFailed();
       } finally {
         clearTimeout(timeout);
         if (active) timer = setTimeout(load, POLL_INTERVAL_MS);
@@ -48,7 +49,7 @@ export function LiveActivity() {
       controller?.abort();
       if (timer) clearTimeout(timer);
     };
-  }, [merge, setConnection]);
+  }, [merge, markRequestFailed, markRequestSucceeded]);
 
   return null;
 }
