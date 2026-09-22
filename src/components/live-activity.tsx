@@ -1,1 +1,54 @@
-"use client";import {useEffect} from "react";import type {ActivityResponse} from "@/data/types";import {useActivity} from "@/state/activity-store";export function LiveActivity(){const merge=useActivity(s=>s.mergeTransfers),setConnection=useActivity(s=>s.setConnection);useEffect(()=>{let alive=true,busy=false;async function load(){if(busy)return;busy=true;try{const r=await fetch("/api/activity",{cache:"no-store"});if(!r.ok)throw new Error();const d:ActivityResponse=await r.json();if(alive){merge(d.transfers);setConnection("live")}}catch{if(alive)setConnection("error")}finally{busy=false}}load();const id=setInterval(load,1500);return()=>{alive=false;clearInterval(id)}},[merge,setConnection]);return null}
+"use client";
+
+import {useEffect} from "react";
+import type {ActivityResponse} from "@/data/types";
+import {useActivity} from "@/state/activity-store";
+
+const POLL_INTERVAL_MS = 5_000;
+const REQUEST_TIMEOUT_MS = 9_000;
+
+function isActivityResponse(value: unknown): value is ActivityResponse {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<ActivityResponse>;
+  return candidate.chainId === 5042 && Array.isArray(candidate.transfers);
+}
+
+export function LiveActivity() {
+  const merge = useActivity(state => state.mergeTransfers);
+  const setConnection = useActivity(state => state.setConnection);
+
+  useEffect(() => {
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let controller: AbortController | undefined;
+
+    async function load() {
+      controller = new AbortController();
+      const timeout = setTimeout(() => controller?.abort(), REQUEST_TIMEOUT_MS);
+      try {
+        const response = await fetch("/api/activity", {cache: "no-store", signal: controller.signal});
+        if (!response.ok) throw new Error(`Activity request failed (${response.status})`);
+        const data: unknown = await response.json();
+        if (!isActivityResponse(data)) throw new Error("Malformed Arc Mainnet activity response");
+        if (active) {
+          merge(data.transfers);
+          setConnection("live");
+        }
+      } catch {
+        if (active) setConnection("error");
+      } finally {
+        clearTimeout(timeout);
+        if (active) timer = setTimeout(load, POLL_INTERVAL_MS);
+      }
+    }
+
+    void load();
+    return () => {
+      active = false;
+      controller?.abort();
+      if (timer) clearTimeout(timer);
+    };
+  }, [merge, setConnection]);
+
+  return null;
+}

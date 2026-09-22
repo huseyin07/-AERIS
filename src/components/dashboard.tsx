@@ -1,1 +1,172 @@
-"use client";import dynamic from "next/dynamic";import {LiveActivity} from "./live-activity";import {useActivity} from "@/state/activity-store";import {money,short} from "@/lib/format";import {ARC} from "@/data/arc";const NetworkScene=dynamic(()=>import("@/visualization/network-scene").then(m=>m.NetworkScene),{ssr:false});export function Dashboard(){const t=useActivity(s=>s.transfers),status=useActivity(s=>s.connection),selected=useActivity(s=>s.selected),select=useActivity(s=>s.select),query=useActivity(s=>s.query),setQuery=useActivity(s=>s.setQuery);const volume=t.reduce((a,x)=>a+Number(x.value),0),addresses=new Set(t.flatMap(x=>[x.from,x.to])).size,contracts=new Set(t.flatMap(x=>[[x.from,x.fromType],[x.to,x.toType]] as const).filter(x=>x[1]==="contract").map(x=>x[0])).size,largest=t.reduce((m,x)=>Number(x.value)>Number(m?.value??0)?x:m,t[0]),filtered=query?t.filter(x=>x.txHash.toLowerCase().includes(query.toLowerCase())||x.from.toLowerCase().includes(query.toLowerCase())||x.to.toLowerCase().includes(query.toLowerCase())):t;const related=selected?t.filter(x=>x.from===selected||x.to===selected).slice(-6).reverse():[];return <main><LiveActivity/><header><div className="brand"><i/>AERIS</div><nav><b>LIVE</b><span>EXPLORE</span><span>ABOUT</span></nav><input className="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Address or transaction"/><div className={"status "+status}><i/>{status.toUpperCase()} · {ARC.mode==="mainnet"?"ARC MAINNET":"ARC TESTNET"}</div></header><section className="hero"><div className="copy"><p className="eyebrow">REAL-TIME ARC ECONOMY</p><h1>Watch money<br/>move.</h1><p>A living map of verified USDC movement across Arc.</p></div><div className="scene"><NetworkScene transfers={t} selected={selected} onSelect={select}/></div><div className="legend"><span><i className="wallet"/>WALLET</span><span><i className="contract"/>CONTRACT</span><span><i className="flow"/>USDC FLOW</span></div><div className="metrics"><div><small>USDC FLOW</small><strong>{"$"+money(String(volume))}</strong></div><div><small>TRANSFERS</small><strong>{t.length}</strong></div><div><small>ACTIVE ENTITIES</small><strong>{addresses}</strong></div><div><small>CONTRACTS</small><strong>{contracts}</strong></div><div><small>LARGEST TRANSFER</small><strong>{largest?money(largest.value)+" USDC":"—"}</strong></div></div>{selected&&<aside><button onClick={()=>select(null)}>×</button><small>ENTITY SIGNAL</small><h3>{short(selected)}</h3><p>{selected}</p><div className="asideStats"><span>RECENT FLOW</span><b>{related.length} transfers</b></div>{related.map(x=><a key={x.id} href={ARC.explorer+"/tx/"+x.txHash} target="_blank" rel="noreferrer">{short(x.from)} → {short(x.to)} <b>{money(x.value)}</b></a>)}</aside>}</section><section className="timebar"><div><b>LIVE</b><span>1H</span><span>24H</span><span>7D</span><span>30D</span></div><em>{ARC.mode==="mainnet"?"ARC MAINNET · VERIFIED ONCHAIN":"DEVELOPER FALLBACK · ARC TESTNET"}</em></section><section className="feed"><div className="feedHead"><div><small>NETWORK ACTIVITY</small><h2>Latest USDC signals</h2></div><span>Streaming from {ARC.name}</span></div>{filtered.slice().reverse().slice(0,16).map(x=><a key={x.id} href={ARC.explorer+"/tx/"+x.txHash} target="_blank" rel="noreferrer"><i/><span>{short(x.from)} <em>→</em> {short(x.to)}</span><b>{money(x.value)} USDC</b><small>BLOCK {x.blockNumber}</small></a>)}{!filtered.length&&<p className="empty">Waiting for verified Arc activity…</p>}</section><footer><b>AERIS</b><span>Observe the network. Never invent the data.</span></footer></main>}
+"use client";
+
+import dynamic from "next/dynamic";
+import {LiveActivity} from "./live-activity";
+import {VisualizationBoundary} from "./visualization-boundary";
+import {useActivity} from "@/state/activity-store";
+import {money, short} from "@/lib/format";
+import {ARC} from "@/data/arc";
+import type {Transfer} from "@/data/types";
+
+const NetworkScene = dynamic(
+  () => import("@/visualization/network-scene").then(module => module.NetworkScene),
+  {ssr: false, loading: () => <div className="sceneFallback">Loading observatory…</div>},
+);
+
+function finiteAmount(transfer: Transfer) {
+  const amount = Number(transfer.value);
+  return Number.isFinite(amount) && amount >= 0 ? amount : 0;
+}
+
+function transferType(transfer: Transfer) {
+  if (transfer.toType === "contract") return "CONTRACT IN";
+  if (transfer.fromType === "contract") return "CONTRACT OUT";
+  return "TRANSFER";
+}
+
+export function Dashboard() {
+  const transfers = useActivity(state => state.transfers);
+  const status = useActivity(state => state.connection);
+  const selected = useActivity(state => state.selected);
+  const select = useActivity(state => state.select);
+  const query = useActivity(state => state.query);
+  const setQuery = useActivity(state => state.setQuery);
+
+  const volume = transfers.reduce((total, transfer) => total + finiteAmount(transfer), 0);
+  const addresses = new Set(transfers.flatMap(transfer => [transfer.from, transfer.to])).size;
+  const contracts = new Set(
+    transfers.flatMap(transfer => [[transfer.from, transfer.fromType], [transfer.to, transfer.toType]] as const)
+      .filter(([, type]) => type === "contract")
+      .map(([address]) => address),
+  ).size;
+  const largest = transfers.reduce<Transfer | undefined>(
+    (current, transfer) => !current || finiteAmount(transfer) > finiteAmount(current) ? transfer : current,
+    undefined,
+  );
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filtered = normalizedQuery ? transfers.filter(transfer =>
+    transfer.txHash.toLowerCase().includes(normalizedQuery) ||
+    transfer.from.toLowerCase().includes(normalizedQuery) ||
+    transfer.to.toLowerCase().includes(normalizedQuery)) : transfers;
+
+  const related = selected
+    ? transfers.filter(transfer => transfer.from === selected || transfer.to === selected)
+    : [];
+  const sent = selected
+    ? related.reduce((total, transfer) => total + (transfer.from === selected ? finiteAmount(transfer) : 0), 0)
+    : 0;
+  const received = selected
+    ? related.reduce((total, transfer) => total + (transfer.to === selected ? finiteAmount(transfer) : 0), 0)
+    : 0;
+  const entityType = selected
+    ? related.find(transfer => transfer.from === selected)?.fromType ?? related.find(transfer => transfer.to === selected)?.toType ?? "unknown"
+    : "unknown";
+  const emptyMessage = status === "error" ? "Live data temporarily unavailable" : "Waiting for verified Arc Mainnet activity";
+  const signal = largest
+    ? `Largest observed transfer: ${money(largest.value)} USDC`
+    : status === "error"
+      ? "Arc Mainnet telemetry is temporarily unavailable"
+      : "Waiting for enough live activity to form a signal";
+
+  return <main>
+    <LiveActivity/>
+    <header>
+      <div className="brand"><i/>AERIS</div>
+      <nav><b>LIVE</b><span>EXPLORE</span><span>INSIGHTS</span><span>REPLAY</span></nav>
+      <input
+        className="search"
+        value={query}
+        onChange={event => setQuery(event.target.value)}
+        placeholder="Search address, transaction or entity"
+        aria-label="Search address, transaction or entity"
+      />
+      <div className={`status ${status}`}><i/><span>ARC MAINNET</span></div>
+    </header>
+
+    <section className="observatory">
+      <div className="scene" aria-label="Live Arc Mainnet entity network">
+        <VisualizationBoundary>
+          <NetworkScene transfers={transfers} selected={selected} onSelect={select}/>
+        </VisualizationBoundary>
+      </div>
+
+      <section className="intro">
+        <p className="eyebrow">REAL-TIME ARC ECONOMY</p>
+        <h1>Live USDC<br/>observatory</h1>
+        <p>Verified movement across Arc Mainnet, mapped as it happens.</p>
+      </section>
+
+      <section className="metrics" aria-label="Live metrics">
+        <Metric label="USDC FLOW" value={`$${money(String(volume))}`}/>
+        <Metric label="TRANSFERS" value={String(transfers.length)}/>
+        <Metric label="ACTIVE ADDRESSES" value={String(addresses)}/>
+        <Metric label="ACTIVE CONTRACTS" value={String(contracts)}/>
+        <Metric label="LARGEST TRANSFER" value={largest ? `${money(largest.value)} USDC` : "—"}/>
+      </section>
+
+      <section className="entityPanel">
+        {selected ? <>
+          <button className="close" onClick={() => select(null)} aria-label="Close selected entity">×</button>
+          <small>SELECTED ENTITY</small>
+          <h2>{short(selected)}</h2>
+          <p className="address">{selected}</p>
+          <dl>
+            <div><dt>TYPE</dt><dd>{entityType.toUpperCase()}</dd></div>
+            <div><dt>RECENT TRANSACTIONS</dt><dd>{related.length}</dd></div>
+            <div><dt>USDC SENT</dt><dd>{money(String(sent))}</dd></div>
+            <div><dt>USDC RECEIVED</dt><dd>{money(String(received))}</dd></div>
+          </dl>
+          <div className="recentEntityTransfers">
+            {related.slice(-4).reverse().map(transfer => <a key={transfer.id} href={`${ARC.explorer}/tx/${transfer.txHash}`} target="_blank" rel="noreferrer">
+              <span>{transfer.from === selected ? "SENT" : "RECEIVED"}</span><b>{money(transfer.value)} USDC</b>
+            </a>)}
+          </div>
+          <a className="explorerLink" href={`${ARC.explorer}/address/${selected}`} target="_blank" rel="noreferrer">VIEW ON ARC EXPLORER ↗</a>
+        </> : <>
+          <small>NETWORK STATUS</small>
+          <h2>Arc Mainnet</h2>
+          <div className={`networkState ${status}`}><i/>{status === "live" ? "LIVE TELEMETRY" : status === "error" ? "DATA UNAVAILABLE" : "CONNECTING"}</div>
+          <dl>
+            <div><dt>CHAIN ID</dt><dd>5042</dd></div>
+            <div><dt>ASSET</dt><dd>USDC</dd></div>
+            <div><dt>LIVE BUFFER</dt><dd>{transfers.length} transfers</dd></div>
+          </dl>
+          <p className="panelNote">{transfers.length ? "Displaying verified activity from the current live window." : emptyMessage}</p>
+        </>}
+      </section>
+
+      {!transfers.length && <div className="sceneEmpty"><span>{emptyMessage}</span><small>No simulated activity is shown</small></div>}
+
+      <div className="legend">
+        <span><i className="wallet"/>WALLET</span>
+        <span><i className="contract"/>CONTRACT</span>
+        <span><i className="flow"/>USDC FLOW</span>
+      </div>
+    </section>
+
+    <section className="lowerBar">
+      <div className="timeControls" aria-label="Activity time range">
+        <button className="active">LIVE</button>
+        {['1H', '24H', '7D', '30D'].map(label => <button key={label} disabled title="Historical indexing is not available yet">{label}</button>)}
+        <small>HISTORICAL INDEXING NOT YET AVAILABLE</small>
+      </div>
+      <div className="signal"><small>AERIS SIGNAL</small><p>{signal}</p></div>
+    </section>
+
+    <section className="feed">
+      <div className="feedHead"><div><small>LIVE LEDGER</small><h2>Recent verified transfers</h2></div><span>{ARC.name} · USDC</span></div>
+      <div className="feedColumns"><span>FROM</span><span>TO</span><span>AMOUNT</span><span>TYPE</span><span>BLOCK</span></div>
+      {filtered.slice().reverse().slice(0, 16).map(transfer => <a className="feedRow" key={transfer.id} href={`${ARC.explorer}/tx/${transfer.txHash}`} target="_blank" rel="noreferrer">
+        <span>{short(transfer.from)}</span><span>{short(transfer.to)}</span><b>{money(transfer.value)} USDC</b><span>{transferType(transfer)}</span><small>{transfer.blockNumber}</small>
+      </a>)}
+      {!filtered.length && <p className="empty">{normalizedQuery ? "No matching verified transfers" : emptyMessage}</p>}
+    </section>
+
+    <footer><b>AERIS</b><span>Observe the network. Never invent the data.</span></footer>
+  </main>;
+}
+
+function Metric({label, value}: {label: string; value: string}) {
+  return <div><small>{label}</small><strong>{value}</strong></div>;
+}

@@ -1,1 +1,52 @@
-import {create} from "zustand";import type {Transfer} from "@/data/types";type C="connecting"|"live"|"error";type S={transfers:Transfer[];connection:C;selected:string|null;query:string;mergeTransfers:(x:Transfer[])=>void;setConnection:(x:C)=>void;select:(x:string|null)=>void;setQuery:(x:string)=>void};export const useActivity=create<S>(set=>({transfers:[],connection:"connecting",selected:null,query:"",mergeTransfers:x=>set(s=>{const m=new Map(s.transfers.map(t=>[t.id,t]));x.forEach(t=>m.set(t.id,t));return{transfers:[...m.values()].sort((a,b)=>Number(BigInt(a.blockNumber)-BigInt(b.blockNumber))).slice(-240)}}),setConnection:x=>set({connection:x}),select:x=>set({selected:x}),setQuery:x=>set({query:x})}));
+import {create} from "zustand";
+import type {EntityType, Transfer} from "@/data/types";
+
+type Connection = "connecting" | "live" | "error";
+type State = {
+  transfers: Transfer[];
+  connection: Connection;
+  selected: string | null;
+  query: string;
+  mergeTransfers: (transfers: Transfer[]) => void;
+  setConnection: (connection: Connection) => void;
+  select: (address: string | null) => void;
+  setQuery: (query: string) => void;
+};
+
+const entityTypes = new Set<EntityType>(["wallet", "contract", "unknown"]);
+const addressPattern = /^0x[\da-f]{40}$/i;
+const hashPattern = /^0x[\da-f]{64}$/i;
+
+function validTransfer(value: unknown): value is Transfer {
+  if (!value || typeof value !== "object") return false;
+  const transfer = value as Partial<Transfer>;
+  return typeof transfer.id === "string" &&
+    typeof transfer.from === "string" && addressPattern.test(transfer.from) &&
+    typeof transfer.to === "string" && addressPattern.test(transfer.to) &&
+    typeof transfer.txHash === "string" && hashPattern.test(transfer.txHash) &&
+    typeof transfer.blockNumber === "string" && /^\d+$/.test(transfer.blockNumber) &&
+    typeof transfer.value === "string" && Number.isFinite(Number(transfer.value)) && Number(transfer.value) >= 0 &&
+    typeof transfer.logIndex === "number" && Number.isSafeInteger(transfer.logIndex) &&
+    entityTypes.has(transfer.fromType as EntityType) && entityTypes.has(transfer.toType as EntityType);
+}
+
+export const useActivity = create<State>(set => ({
+  transfers: [],
+  connection: "connecting",
+  selected: null,
+  query: "",
+  mergeTransfers: incoming => set(state => {
+    const merged = new Map(state.transfers.map(transfer => [transfer.id, transfer]));
+    incoming.filter(validTransfer).forEach(transfer => merged.set(transfer.id, transfer));
+    return {
+      transfers: [...merged.values()]
+        .sort((left, right) => left.blockNumber === right.blockNumber
+          ? left.logIndex - right.logIndex
+          : left.blockNumber.length - right.blockNumber.length || left.blockNumber.localeCompare(right.blockNumber))
+        .slice(-240),
+    };
+  }),
+  setConnection: connection => set({connection}),
+  select: selected => set({selected}),
+  setQuery: query => set({query}),
+}));
