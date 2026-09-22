@@ -1,6 +1,6 @@
 import {defineChain, getAddress, isAddress} from "viem";
 
-const DEFAULT_MAINNET_RPC = "https://rpc.mainnet.arc.network";
+const DEFAULT_MAINNET_RPC = "https://rpc.mainnet.arc.io";
 const DEFAULT_MAINNET_EXPLORER = "https://arcscan.app";
 const NATIVE_USDC = "0x3600000000000000000000000000000000000000";
 
