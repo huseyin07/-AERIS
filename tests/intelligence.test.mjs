@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {buildIntelligenceSnapshot} from "../src/intelligence/engine.ts";
 import {answerDeterministically} from "../src/ai/deterministic.ts";
 import {connectionAfterFailure} from "../src/state/connection.ts";
+import {addressPosition, shortTransactionHash, significantTransferIds, transferIdentity, uniqueTransfers} from "../src/visualization/network-model.ts";
 
 const address = suffix => `0x${suffix.padStart(40, "0")}`;
 const hash = suffix => `0x${suffix.padStart(64, "0")}`;
@@ -77,4 +78,22 @@ test("analyzes addresses only from the verified observation window", () => {
   const absent = answerDeterministically(`Explain ${address("9")}`, snapshot, transfers);
   assert.equal(absent.intent.type, "reset");
   assert.equal(absent.message, "This address is not present in the current verified observation window.");
+});
+
+test("network positions are stable across polling order and buffer growth", () => {
+  const before = addressPosition(a);
+  addressPosition(address("999"));
+  assert.deepEqual(addressPosition(a), before);
+  assert.notDeepEqual(addressPosition(a), addressPosition(b));
+});
+
+test("transfer visual identity and compact hash use verified fields", () => {
+  const item = transfers[0];
+  assert.equal(transferIdentity(item), `${item.txHash.toLowerCase()}:${item.logIndex}`);
+  assert.equal(shortTransactionHash(item.txHash), `${item.txHash.slice(0, 6)}...${item.txHash.slice(-4)}`);
+});
+
+test("significant transfer ranking is relative and visual identities are unique", () => {
+  assert.deepEqual(significantTransferIds(transfers, 2), [transferIdentity(transfers[2]), transferIdentity(transfers[1])]);
+  assert.deepEqual(uniqueTransfers([...transfers, transfers[0]]).map(transferIdentity), transfers.map(transferIdentity));
 });

@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import {useMemo, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import {LiveActivity} from "./live-activity";
 import {VisualizationBoundary} from "./visualization-boundary";
 import {IntelligencePanel} from "./intelligence-panel";
@@ -11,6 +11,7 @@ import {money, short} from "@/lib/format";
 import {ARC} from "@/data/arc";
 import type {Transfer} from "@/data/types";
 import {buildIntelligenceSnapshot} from "@/intelligence/engine";
+import {shortTransactionHash, transferIdentity} from "@/visualization/network-model";
 
 const NetworkScene = dynamic(
   () => import("@/visualization/network-scene").then(module => module.NetworkScene),
@@ -43,6 +44,8 @@ export function Dashboard() {
   const setIntent = useActivity(state => state.setVisualizationIntent);
   const [agentOpen, setAgentOpen] = useState(false);
   const [agentRequest, setAgentRequest] = useState<{id: number; query: string} | null>(null);
+  const [selectedTransferId, setSelectedTransferId] = useState<string | null>(null);
+  const [hoveredTransferId, setHoveredTransferId] = useState<string | null>(null);
   const snapshot = useMemo(() => buildIntelligenceSnapshot(transfers), [transfers]);
 
   const volume = snapshot.totalVolume;
@@ -55,6 +58,16 @@ export function Dashboard() {
     transfer.txHash.toLowerCase().includes(normalizedQuery) ||
     transfer.from.toLowerCase().includes(normalizedQuery) ||
     transfer.to.toLowerCase().includes(normalizedQuery)) : transfers;
+  const activeTransferId = hoveredTransferId ?? selectedTransferId;
+  const selectedTransfer = transfers.find(transfer => transferIdentity(transfer) === selectedTransferId) ?? null;
+
+  useEffect(() => {
+    if (!normalizedQuery) return;
+    const match = transfers.find(transfer => transfer.txHash.toLowerCase() === normalizedQuery || transferIdentity(transfer) === normalizedQuery);
+    if (match) { setSelectedTransferId(transferIdentity(match)); return; }
+    const addressMatch = transfers.find(transfer => transfer.from.toLowerCase() === normalizedQuery || transfer.to.toLowerCase() === normalizedQuery);
+    if (addressMatch) select(addressMatch.from.toLowerCase() === normalizedQuery ? addressMatch.from : addressMatch.to);
+  }, [normalizedQuery, transfers, select]);
 
   const related = selected
     ? transfers.filter(transfer => transfer.from === selected || transfer.to === selected)
@@ -90,7 +103,7 @@ export function Dashboard() {
     <section className="observatory">
       <div className="scene" aria-label="Live Arc Mainnet entity network">
         <VisualizationBoundary>
-          <NetworkScene transfers={transfers} selected={selected} intent={intent} onSelect={select}/>
+          <NetworkScene transfers={transfers} selectedAddress={selected} selectedTransferId={activeTransferId} intent={intent} onSelectAddress={address => {select(address); setSelectedTransferId(null);}} onSelectTransfer={setSelectedTransferId}/>
         </VisualizationBoundary>
       </div>
 
@@ -139,6 +152,13 @@ export function Dashboard() {
 
       {!transfers.length && <div className="sceneEmpty"><span>{emptyMessage}</span><small>No simulated activity is shown</small></div>}
 
+      {selectedTransfer && <aside className="transferPanel" aria-label="Selected verified transfer">
+        <button className="close" onClick={() => setSelectedTransferId(null)} aria-label="Close selected transfer">×</button>
+        <small>SELECTED TRANSFER</small><h3>{shortTransactionHash(selectedTransfer.txHash)}</h3>
+        <dl><div><dt>AMOUNT</dt><dd>{money(selectedTransfer.value)} USDC</dd></div><div><dt>FROM</dt><dd>{short(selectedTransfer.from)}</dd></div><div><dt>TO</dt><dd>{short(selectedTransfer.to)}</dd></div><div><dt>BLOCK</dt><dd>{selectedTransfer.blockNumber}</dd></div><div><dt>TYPE</dt><dd>{selectedTransfer.fromType.toUpperCase()} → {selectedTransfer.toType.toUpperCase()}</dd></div></dl>
+        <a href={`${ARC.explorer}/tx/${selectedTransfer.txHash}`} target="_blank" rel="noreferrer">VIEW TRANSACTION ↗</a>
+      </aside>}
+
       <div className="legend">
         <span><i className="wallet"/>WALLET</span>
         <span><i className="contract"/>CONTRACT</span>
@@ -160,9 +180,9 @@ export function Dashboard() {
     <section className="feed">
       <div className="feedHead"><div><small>LIVE LEDGER</small><h2>Recent verified transfers</h2></div><span>{ARC.name} · USDC · REAL-TIME</span></div>
       <div className="feedColumns"><span>FROM</span><span>TO</span><span>AMOUNT</span><span>TYPE</span><span>BLOCK</span></div>
-      {filtered.slice().reverse().slice(0, 16).map(transfer => <a className="feedRow" key={transfer.id} href={`${ARC.explorer}/tx/${transfer.txHash}`} target="_blank" rel="noreferrer">
+      {filtered.slice().reverse().slice(0, 16).map(transfer => <button className={`feedRow ${activeTransferId === transferIdentity(transfer) ? "active" : ""}`} key={transferIdentity(transfer)} onMouseEnter={() => setHoveredTransferId(transferIdentity(transfer))} onMouseLeave={() => setHoveredTransferId(null)} onFocus={() => setHoveredTransferId(transferIdentity(transfer))} onBlur={() => setHoveredTransferId(null)} onClick={() => setSelectedTransferId(transferIdentity(transfer))}>
         <span className={`party ${transfer.fromType}`}><i/>{short(transfer.from)}</span><span className={`party ${transfer.toType}`}><i/>{short(transfer.to)}</span><b className="coinValue"><UsdcIcon/>{money(transfer.value)} <em>USDC</em></b><span>{transferType(transfer)}</span><small>{transfer.blockNumber}</small>
-      </a>)}
+      </button>)}
       {!filtered.length && <p className="empty">{normalizedQuery ? "No matching verified transfers" : emptyMessage}</p>}
     </section>
 
