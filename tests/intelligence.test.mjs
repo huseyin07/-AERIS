@@ -54,3 +54,27 @@ test("connection failures preserve verified data as stale", () => {
   assert.equal(connectionAfterFailure(3), "stale");
   assert.equal(connectionAfterFailure(0), "unavailable");
 });
+
+test("matches natural query variants and rejects unsupported scope", () => {
+  const snapshot = buildIntelligenceSnapshot(transfers, 0);
+  for (const query of ["Show me the largest transfer", "Largest flow", "Biggest transfer!"]) {
+    assert.equal(answerDeterministically(query, snapshot, transfers).intent.type, "highlight-transfers");
+  }
+  for (const query of ["What contracts are active?", "Active contracts", "Top contracts"]) {
+    assert.equal(answerDeterministically(query, snapshot, transfers).intent.type, "highlight-addresses");
+  }
+  assert.equal(answerDeterministically("Who is receiving the most USDC?", snapshot, transfers).intent.type, "highlight-addresses");
+  assert.equal(answerDeterministically("Show wallet to contract activity", snapshot, transfers).intent.type, "highlight-transfers");
+  assert.match(answerDeterministically("what is bitcoin's price?", snapshot, transfers).message, /live AERIS observation window/);
+  assert.match(answerDeterministically("show 24h activity", snapshot, transfers).message, /live verified observation window/);
+});
+
+test("analyzes addresses only from the verified observation window", () => {
+  const snapshot = buildIntelligenceSnapshot(transfers, 0);
+  const known = answerDeterministically(`Explain ${contract}`, snapshot, transfers);
+  assert.equal(known.intent.type, "focus-address-activity");
+  assert.match(known.message, /contract.*2 transfers.*sending 70 USDC.*receiving 20 USDC.*2 unique counterparties.*70 USDC/i);
+  const absent = answerDeterministically(`Explain ${address("9")}`, snapshot, transfers);
+  assert.equal(absent.intent.type, "reset");
+  assert.equal(absent.message, "This address is not present in the current verified observation window.");
+});

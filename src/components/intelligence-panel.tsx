@@ -9,6 +9,7 @@ import {useActivity} from "@/state/activity-store";
 import type {Connection} from "@/state/connection";
 
 type AgentRequest = {id: number; query: string} | null;
+type Exchange = {query: string; answer: AerisAnswer};
 type Props = {snapshot: IntelligenceSnapshot; transfers: Transfer[]; selected: string | null; connection: Connection; expanded: boolean; request: AgentRequest; onExpand: () => void; onClose: () => void};
 const suggestions = ["What’s happening?", "Largest flows", "Active contracts"];
 const connectionCopy: Record<Connection, string> = {
@@ -17,10 +18,12 @@ const connectionCopy: Record<Connection, string> = {
 
 export function IntelligencePanel({snapshot, transfers, selected, connection, expanded, request, onExpand, onClose}: Props) {
   const [query, setQuery] = useState("");
-  const [submitted, setSubmitted] = useState("");
+  const [pendingQuery, setPendingQuery] = useState("");
   const [answer, setAnswer] = useState<AerisAnswer | null>(null);
+  const [history, setHistory] = useState<Exchange[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
+  const processing = useRef(false);
   const setIntent = useActivity(state => state.setVisualizationIntent);
   const intent = useActivity(state => state.visualizationIntent);
   const fragments = useMemo(() => {
@@ -35,22 +38,36 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
 
   function ask(value: string) {
     const next = value.trim();
-    if (!next) return;
-    onExpand(); setSubmitted(next); setQuery(""); setAnalyzing(true); setAnswer(null);
+    if (!next || processing.current) return;
+    processing.current = true;
+    onExpand(); setPendingQuery(next); setQuery(""); setAnalyzing(true); setAnswer(null);
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      const result = answerDeterministically(next, snapshot, transfers, selected);
-      setAnswer(result); setIntent(result.intent); setAnalyzing(false);
+      try {
+        const result = connection === "connecting" && !transfers.length
+          ? {message: "Connecting to Arc Mainnet...", intent: {type: "reset"} as const, scope: "current-window" as const}
+          : connection === "unavailable" && !transfers.length
+            ? {message: "Verified Arc activity is currently unavailable.", intent: {type: "reset"} as const, scope: "current-window" as const}
+            : answerDeterministically(next, snapshot, transfers, selected);
+        setAnswer(result); setHistory(current => [...current, {query: next, answer: result}].slice(-6)); setIntent(result.intent);
+      } catch (error) {
+        console.error("AERIS deterministic analysis failed", error);
+        const failure: AerisAnswer = {message: "AERIS could not analyze the current observation. Try again.", intent: {type: "reset"}, scope: "current-window"};
+        setAnswer(failure); setHistory(current => [...current, {query: next, answer: failure}].slice(-6));
+      } finally {
+        processing.current = false; setAnalyzing(false);
+      }
     }, 180);
   }
   useEffect(() => {
     if (request) ask(request.query);
-    return () => { if (timer.current) clearTimeout(timer.current); };
+    return () => { if (timer.current) clearTimeout(timer.current); processing.current = false; };
     // A request id deliberately triggers repeated analysis of the same selected address.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request?.id]);
   function submit(event: FormEvent) { event.preventDefault(); ask(query); }
   const topFlow = answer?.intent.type === "highlight-transfers" ? snapshot.topFlows.find(flow => answer.intent.type === "highlight-transfers" && answer.intent.transferIds.includes(flow.id)) : null;
+  const previousExchanges = analyzing ? history : history.slice(0, -1);
 
   return <section className={`agentModule ${expanded ? "expanded" : "compact"} ${analyzing ? "analyzing" : ""}`} aria-label="AERIS Agent">
     <div className="agentStream" aria-hidden="true">{fragments.map((fragment, index) => <span key={`${fragment}-${index}`} style={{"--row": index, "--speed": `${34 + index % 4 * 7}s`} as CSSProperties}>{fragment}</span>)}</div>
@@ -62,13 +79,14 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
     </div>
     {expanded && <div className="agentReport">
       <small>{connection === "live" ? "● LIVE · OBSERVING ARC" : connectionCopy[connection].toUpperCase()}</small>
-      {submitted && <div className="reportQuery"><label>USER</label><p>{submitted}</p></div>}
-      <div className="reportAnswer"><label>AERIS AGENT · CURRENT OBSERVATION</label><p>{analyzing ? "ANALYZING VERIFIED ACTIVITY..." : answer?.message ?? connectionCopy[connection]}</p>
+      <div className="agentHistory">{previousExchanges.map((exchange, index) => <div className="pastExchange" key={`${exchange.query}-${index}`}><label>USER</label><p>{exchange.query}</p><label>AERIS AGENT</label><p>{exchange.answer.message}</p></div>)}</div>
+      {(analyzing || history.at(-1)) && <div className="reportQuery"><label>USER</label><p>{analyzing ? pendingQuery : history.at(-1)?.query}</p></div>}
+      <div className="reportAnswer"><label>AERIS AGENT · {connection === "stale" ? "LAST VERIFIED OBSERVATION" : "CURRENT OBSERVATION"}</label><p>{analyzing ? "ANALYZING VERIFIED ACTIVITY..." : answer?.message ?? connectionCopy[connection]}</p>
         {topFlow && !analyzing && <dl><div><dt>AMOUNT</dt><dd>{money(String(topFlow.amount))} USDC</dd></div><div><dt>FROM</dt><dd>{short(topFlow.from)}</dd></div><div><dt>TO</dt><dd>{short(topFlow.to)}</dd></div><div><dt>BLOCK</dt><dd>{topFlow.blockNumber}</dd></div></dl>}
       </div>
     </div>}
-    <form className="agentInput" onSubmit={submit}><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Ask about current Arc activity..." aria-label="Ask AERIS Agent about current Arc activity"/><button aria-label="Submit question">→</button></form>
-    <div className="agentCommands">{suggestions.map(item => <button key={item} onClick={() => ask(item)}>{item}</button>)}</div>
+    <form className="agentInput" onSubmit={submit}><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Ask about current Arc activity..." aria-label="Ask AERIS Agent about current Arc activity" disabled={analyzing}/><button type="submit" aria-label="Submit question" disabled={!query.trim() || analyzing}>→</button></form>
+    <div className="agentCommands">{suggestions.map(item => <button type="button" key={item} disabled={analyzing} onClick={() => ask(item)}>{item}</button>)}</div>
     <div className="agentFoot"><span>{connectionCopy[connection]}</span>{intent.type !== "reset" && <button onClick={() => setIntent({type: "reset"})}>RESET VIEW</button>}</div>
   </section>;
 }
