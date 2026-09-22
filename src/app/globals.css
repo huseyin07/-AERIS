@@ -25,3 +25,13 @@ nav button{appearance:none;border:0;background:none;padding:0;color:inherit;font
 @media(prefers-reduced-motion:reduce){.agentStream span{animation:none}.agentModule.analyzing .agentGlow{animation:none}}
 /* V4.3 interaction visibility: fixed expansion must escape the compact rail. */
 .entityPanel:has(.agentModule.expanded){overflow:visible;backdrop-filter:none}.agentInput button:disabled,.agentCommands button:disabled{opacity:.35;cursor:not-allowed}.agentHistory{max-height:180px;overflow:auto;mask-image:linear-gradient(transparent,#000 18%)}.pastExchange{padding:10px 0;border-bottom:1px solid #ffffff08;opacity:.55}.pastExchange label{color:#557b91;font-size:6px;letter-spacing:.12em}.pastExchange p{margin:4px 0 8px;color:#8da5b4;font-size:8px;line-height:1.45}
+
+/* V5 live transaction annotations and linked ledger state. */
+.feedRow{width:100%;background:none;border-left:0;border-right:0;border-top:0;text-align:left;cursor:pointer}
+.feedRow:hover,.feedRow:focus-visible,.feedRow.active{background:#4ba9dc0d;color:#c4dce9;outline:none}
+.feedRow.active{box-shadow:inset 2px 0 #55baff99}
+.txLabel{min-width:104px;padding:7px 9px;border:1px solid #70bfff30;background:#020811dc;box-shadow:0 0 18px #329dd51a;color:#b8cfdd;font:7px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;transform:translateY(-13px)}
+.txLabel code,.txLabel strong,.txLabel span{display:block}.txLabel code{color:#87bddd}.txLabel strong{color:#eef8ff;font-size:8px}.txLabel span{margin-top:2px;color:#c9a66d;font-size:6px;letter-spacing:.08em}.txLabel.selected{border-color:#84d0ff70;box-shadow:0 0 24px #329dd52b}
+.transferPanel{position:absolute;z-index:8;left:50%;bottom:25px;width:206px;transform:translateX(-50%);padding:13px 14px;border:1px solid #65bfff26;background:#020911e8;box-shadow:0 14px 40px #0008;backdrop-filter:blur(8px)}
+.transferPanel>.close{position:absolute;right:7px;top:5px;border:0;background:none;color:#6c8495;cursor:pointer}.transferPanel>small{font-size:6px;letter-spacing:.16em;color:#5dbaff}.transferPanel h3{margin:7px 0 10px;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:#e2f3fc}.transferPanel dl{margin:0}.transferPanel dl div{display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid #ffffff0a}.transferPanel dt{font-size:6px;letter-spacing:.1em;color:#526b7c}.transferPanel dd{margin:0;font-size:7px;color:#b7ccd9}.transferPanel>a{display:block;margin-top:10px;color:#65bfff;text-decoration:none;font-size:7px;letter-spacing:.1em}
+@media(max-width:760px){.transferPanel{bottom:224px;width:190px}}
