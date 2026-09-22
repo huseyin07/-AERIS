@@ -20,7 +20,7 @@ export type EntityIntelligence = RankedAddress & {
 export type SignalEvidence = {label: string; value: number; unit: "USDC" | "percent" | "count"};
 export type AerisSignal = {
   id: string;
-  type: "large-flow" | "flow-concentration" | "receiver-concentration" | "sender-concentration" | "contract-activity" | "high-counterparty-activity" | "contract-flow" | "activity-mix";
+  type: "large-flow" | "flow-concentration" | "receiver-concentration" | "sender-concentration" | "contract-activity" | "high-counterparty-activity" | "contract-flow" | "activity-mix" | "new-contract-activity";
   severity: "information" | "notable";
   importance: number;
   title: string;
@@ -47,5 +47,6 @@ export type IntelligenceSnapshot = {
   entities: EntityIntelligence[];
   concentration: {largestTransferPercent: number; topThreePercent: number; topReceiverPercent: number; topSenderPercent: number; contractInteractionPercent: number};
   activityBreakdown: ActivitySlice[];
+  networkActivity: {observedEvents: number; observedTransactions: number; contractInteractions: number; contractDeployments: number; activeContracts: number; uniqueInteractingAddresses: number; topContractInteractionCount: number; interactionConcentrationPercent: number};
   signals: AerisSignal[];
 };

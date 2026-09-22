@@ -10,11 +10,11 @@ const REQUEST_TIMEOUT_MS = 9_000;
 function isActivityResponse(value: unknown): value is ActivityResponse {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<ActivityResponse>;
-  return candidate.chainId === 5042 && Array.isArray(candidate.transfers);
+  return candidate.chainId === 5042 && Array.isArray(candidate.events) && Array.isArray(candidate.transfers);
 }
 
 export function LiveActivity() {
-  const merge = useActivity(state => state.mergeTransfers);
+  const merge = useActivity(state => state.mergeActivity);
   const markRequestSucceeded = useActivity(state => state.markRequestSucceeded);
   const markRequestFailed = useActivity(state => state.markRequestFailed);
 
@@ -32,7 +32,7 @@ export function LiveActivity() {
         const data: unknown = await response.json();
         if (!isActivityResponse(data)) throw new Error("Malformed Arc Mainnet activity response");
         if (active) {
-          merge(data.transfers);
+          merge(data.events);
           markRequestSucceeded();
         }
       } catch {

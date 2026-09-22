@@ -24,9 +24,10 @@ export function normalizeTransfer(log: TransferLog): Transfer | null {
     txHash: log.transactionHash as `0x${string}`,
     blockNumber: log.blockNumber.toString(),
     logIndex: log.logIndex,
-    from: from as `0x${string}`,
-    to: to as `0x${string}`,
+    from: from.toLowerCase() as `0x${string}`,
+    to: to.toLowerCase() as `0x${string}`,
     value: formatUnits(value, 6),
+    amountRaw: value.toString(),
     fromType: "unknown",
     toType: "unknown",
   };

@@ -11,7 +11,7 @@ import {money, short} from "@/lib/format";
 import {ARC} from "@/data/arc";
 import type {Transfer} from "@/data/types";
 import {buildIntelligenceSnapshot, getEntityIntelligence} from "@/intelligence/engine";
-import {shortTransactionHash, transferIdentity} from "@/visualization/network-model";
+import {selectSignificantTransfers, shortTransactionHash, transferIdentity, VISUAL_CAPS} from "@/visualization/network-model";
 
 const NetworkScene = dynamic(
   () => import("@/visualization/network-scene").then(module => module.NetworkScene),
@@ -30,6 +30,7 @@ function transferType(transfer: Transfer) {
 
 export function Dashboard() {
   const transfers = useActivity(state => state.transfers);
+  const events = useActivity(state => state.events);
   const status = useActivity(state => state.connection);
   const selected = useActivity(state => state.selected);
   const select = useActivity(state => state.select);
@@ -42,7 +43,8 @@ export function Dashboard() {
   const [selectedTransferId, setSelectedTransferId] = useState<string | null>(null);
   const [hoveredTransferId, setHoveredTransferId] = useState<string | null>(null);
   const [signalIndex, setSignalIndex] = useState(0);
-  const snapshot = useMemo(() => buildIntelligenceSnapshot(transfers), [transfers]);
+  const snapshot = useMemo(() => buildIntelligenceSnapshot(transfers, Date.now(), events), [transfers, events]);
+  const visualizationCandidates = useMemo(() => selectSignificantTransfers(transfers, 500), [transfers]);
 
   const volume = snapshot.totalVolume;
   const addresses = snapshot.uniqueAddresses;
@@ -97,7 +99,7 @@ export function Dashboard() {
     <section className="observatory">
       <div className="scene" aria-label="Live Arc Mainnet entity network">
         <VisualizationBoundary>
-          <NetworkScene transfers={transfers} annotations={annotations} selectedAddress={selected} selectedTransferId={activeTransferId} intent={intent} onSelectAddress={address => {select(address); setSelectedTransferId(null);}} onSelectTransfer={setSelectedTransferId}/>
+          <NetworkScene transfers={visualizationCandidates} annotations={annotations} selectedAddress={selected} selectedTransferId={activeTransferId} intent={intent} onSelectAddress={address => {select(address); setSelectedTransferId(null);}} onSelectTransfer={setSelectedTransferId}/>
         </VisualizationBoundary>
       </div>
 
@@ -136,7 +138,8 @@ export function Dashboard() {
           <dl>
             <div><dt>CHAIN ID</dt><dd>5042</dd></div>
             <div><dt>ASSET</dt><dd className="coinValue"><UsdcIcon/>USDC</dd></div>
-            <div><dt>BUFFER</dt><dd>{transfers.length} transfers</dd></div>
+            <div><dt>OBSERVED</dt><dd>{events.length} activities</dd></div>
+            <div><dt>VISUALIZED</dt><dd>{Math.min(visualizationCandidates.length, VISUAL_CAPS.desktop.flows)} significant flows</dd></div>
           </dl>
           <p className="panelNote">{status === "stale" ? "Using the last successfully verified observation window." : transfers.length ? "Displaying verified activity from the current live window." : emptyMessage}</p>
         </>}
