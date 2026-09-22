@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import {LiveActivity} from "./live-activity";
 import {VisualizationBoundary} from "./visualization-boundary";
 import {useActivity} from "@/state/activity-store";
@@ -16,6 +17,10 @@ const NetworkScene = dynamic(
 function finiteAmount(transfer: Transfer) {
   const amount = Number(transfer.value);
   return Number.isFinite(amount) && amount >= 0 ? amount : 0;
+}
+
+function UsdcIcon({className = ""}: {className?: string}) {
+  return <Image className={`usdcIcon ${className}`} src="/usdc.svg" alt="" width={16} height={16}/>;
 }
 
 function transferType(transfer: Transfer) {
@@ -93,11 +98,12 @@ export function Dashboard() {
 
       <section className="metrics" aria-label="Live metrics">
         <p className="eyebrow">LIVE ACTIVITY</p>
-        <Metric label="USDC FLOW" value={`$${money(String(volume))}`}/>
+        <div className="assetHeading"><UsdcIcon/><span>ARC MAINNET USDC</span></div>
+        <Metric icon label="USDC FLOW" value={`$${money(String(volume))}`}/>
         <Metric label="TRANSFERS" value={String(transfers.length)}/>
-        <Metric label="ADDRESSES" value={String(addresses)}/>
-        <Metric label="CONTRACTS" value={String(contracts)}/>
-        <Metric label="LARGEST" value={largest ? `${money(largest.value)} USDC` : "—"}/>
+        <Metric label="ACTIVE ADDRESSES" value={String(addresses)}/>
+        <Metric label="ACTIVE CONTRACTS" value={String(contracts)}/>
+        <Metric icon label="LARGEST TRANSFER" value={largest ? `${money(largest.value)} USDC` : "—"}/>
       </section>
 
       <section className="entityPanel">
@@ -109,13 +115,13 @@ export function Dashboard() {
           <dl>
             <div><dt>TYPE</dt><dd>{entityType.toUpperCase()}</dd></div>
             <div><dt>TRANSFERS</dt><dd>{related.length}</dd></div>
-            <div><dt>SENT</dt><dd>{money(String(sent))} USDC</dd></div>
-            <div><dt>RECEIVED</dt><dd>{money(String(received))} USDC</dd></div>
+            <div><dt>USDC SENT</dt><dd className="coinValue"><UsdcIcon/>{money(String(sent))}</dd></div>
+            <div><dt>USDC RECEIVED</dt><dd className="coinValue"><UsdcIcon/>{money(String(received))}</dd></div>
           </dl>
           <small className="recentLabel">RECENT FLOWS</small>
           <div className="recentEntityTransfers">
             {related.slice(-4).reverse().map(transfer => <a key={transfer.id} href={`${ARC.explorer}/tx/${transfer.txHash}`} target="_blank" rel="noreferrer">
-              <span>{transfer.from === selected ? "SENT" : "RECEIVED"}</span><b>{money(transfer.value)} USDC</b>
+              <span>{transfer.from === selected ? "SENT" : "RECEIVED"}</span><b className="coinValue"><UsdcIcon/>{money(transfer.value)}</b>
             </a>)}
           </div>
           <a className="explorerLink" href={`${ARC.explorer}/address/${selected}`} target="_blank" rel="noreferrer">VIEW ON ARC EXPLORER ↗</a>
@@ -124,9 +130,9 @@ export function Dashboard() {
           <h2>Arc Mainnet</h2>
           <div className={`networkState ${status}`}><i/>{status === "live" ? "LIVE" : status === "error" ? "DATA UNAVAILABLE" : "CONNECTING"}</div>
           <dl>
-            <div><dt>CHAIN</dt><dd>5042</dd></div>
-            <div><dt>ASSET</dt><dd>USDC</dd></div>
-            <div><dt>BUFFER</dt><dd>{transfers.length}</dd></div>
+            <div><dt>CHAIN ID</dt><dd>5042</dd></div>
+            <div><dt>ASSET</dt><dd className="coinValue"><UsdcIcon/>USDC</dd></div>
+            <div><dt>BUFFER</dt><dd>{transfers.length} transfers</dd></div>
           </dl>
           <p className="panelNote">{transfers.length ? "Displaying verified activity from the current live window." : emptyMessage}</p>
         </>}
@@ -155,7 +161,7 @@ export function Dashboard() {
       <div className="feedHead"><div><small>LIVE LEDGER</small><h2>Recent verified transfers</h2></div><span>{ARC.name} · USDC · REAL-TIME</span></div>
       <div className="feedColumns"><span>FROM</span><span>TO</span><span>AMOUNT</span><span>TYPE</span><span>BLOCK</span></div>
       {filtered.slice().reverse().slice(0, 16).map(transfer => <a className="feedRow" key={transfer.id} href={`${ARC.explorer}/tx/${transfer.txHash}`} target="_blank" rel="noreferrer">
-        <span className={`party ${transfer.fromType}`}><i/>{short(transfer.from)}</span><span className={`party ${transfer.toType}`}><i/>{short(transfer.to)}</span><b>{money(transfer.value)} <em>USDC</em></b><span>{transferType(transfer)}</span><small>{transfer.blockNumber}</small>
+        <span className={`party ${transfer.fromType}`}><i/>{short(transfer.from)}</span><span className={`party ${transfer.toType}`}><i/>{short(transfer.to)}</span><b className="coinValue"><UsdcIcon/>{money(transfer.value)} <em>USDC</em></b><span>{transferType(transfer)}</span><small>{transfer.blockNumber}</small>
       </a>)}
       {!filtered.length && <p className="empty">{normalizedQuery ? "No matching verified transfers" : emptyMessage}</p>}
     </section>
@@ -164,6 +170,6 @@ export function Dashboard() {
   </main>;
 }
 
-function Metric({label, value}: {label: string; value: string}) {
-  return <div><small>{label}</small><strong>{value}</strong></div>;
+function Metric({label, value, icon = false}: {label: string; value: string; icon?: boolean}) {
+  return <div className="metric"><small>{icon && <UsdcIcon/>}{label}</small><strong>{value}</strong></div>;
 }
