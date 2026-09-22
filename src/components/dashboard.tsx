@@ -10,18 +10,13 @@ import {useActivity} from "@/state/activity-store";
 import {money, short} from "@/lib/format";
 import {ARC} from "@/data/arc";
 import type {Transfer} from "@/data/types";
-import {buildIntelligenceSnapshot} from "@/intelligence/engine";
+import {buildIntelligenceSnapshot, getEntityIntelligence} from "@/intelligence/engine";
 import {shortTransactionHash, transferIdentity} from "@/visualization/network-model";
 
 const NetworkScene = dynamic(
   () => import("@/visualization/network-scene").then(module => module.NetworkScene),
   {ssr: false, loading: () => <div className="sceneFallback">Loading observatory…</div>},
 );
-
-function finiteAmount(transfer: Transfer) {
-  const amount = Number(transfer.value);
-  return Number.isFinite(amount) && amount >= 0 ? amount : 0;
-}
 
 function UsdcIcon({className = ""}: {className?: string}) {
   return <Image className={`usdcIcon ${className}`} src="/usdc.svg" alt="" width={16} height={16}/>;
@@ -46,6 +41,7 @@ export function Dashboard() {
   const [agentRequest, setAgentRequest] = useState<{id: number; query: string} | null>(null);
   const [selectedTransferId, setSelectedTransferId] = useState<string | null>(null);
   const [hoveredTransferId, setHoveredTransferId] = useState<string | null>(null);
+  const [signalIndex, setSignalIndex] = useState(0);
   const snapshot = useMemo(() => buildIntelligenceSnapshot(transfers), [transfers]);
 
   const volume = snapshot.totalVolume;
@@ -72,18 +68,16 @@ export function Dashboard() {
   const related = selected
     ? transfers.filter(transfer => transfer.from === selected || transfer.to === selected)
     : [];
-  const sent = selected
-    ? related.reduce((total, transfer) => total + (transfer.from === selected ? finiteAmount(transfer) : 0), 0)
-    : 0;
-  const received = selected
-    ? related.reduce((total, transfer) => total + (transfer.to === selected ? finiteAmount(transfer) : 0), 0)
-    : 0;
-  const entityType = selected
-    ? related.find(transfer => transfer.from === selected)?.fromType ?? related.find(transfer => transfer.to === selected)?.toType ?? "unknown"
-    : "unknown";
+  const entity = selected ? getEntityIntelligence(snapshot, selected) : null;
   const emptyMessage = status === "unavailable" ? "Live data temporarily unavailable" : "Waiting for verified Arc Mainnet activity";
-  const signal = snapshot.signals[0];
+  const signal = snapshot.signals[signalIndex % Math.max(1, snapshot.signals.length)];
   const statusLabel = status === "live" ? "LIVE" : status === "stale" ? "STALE" : status === "unavailable" ? "UNAVAILABLE" : "CONNECTING";
+  const annotations = [...new Map([
+    ...(selected ? [{address: selected, label: "SELECTED ENTITY"}] : []),
+    ...(intent.type === "highlight-addresses" ? intent.addresses.map(address => ({address, label: "AERIS FOCUS"})) : []),
+    ...(signal?.relatedAddresses.slice(0, 1).map(address => ({address, label: signal.title})) ?? []),
+    ...(snapshot.entities.length >= 3 && snapshot.mostActiveByCount[0]?.transferCount > 1 ? [{address: snapshot.mostActiveByCount[0].address, label: snapshot.mostActiveByCount[0].type === "contract" ? "CONTRACT HUB" : "HIGH ACTIVITY"}] : []),
+  ].map(item => [item.address.toLowerCase(), item])).values()];
 
   return <main>
     <LiveActivity/>
@@ -103,7 +97,7 @@ export function Dashboard() {
     <section className="observatory">
       <div className="scene" aria-label="Live Arc Mainnet entity network">
         <VisualizationBoundary>
-          <NetworkScene transfers={transfers} selectedAddress={selected} selectedTransferId={activeTransferId} intent={intent} onSelectAddress={address => {select(address); setSelectedTransferId(null);}} onSelectTransfer={setSelectedTransferId}/>
+          <NetworkScene transfers={transfers} annotations={annotations} selectedAddress={selected} selectedTransferId={activeTransferId} intent={intent} onSelectAddress={address => {select(address); setSelectedTransferId(null);}} onSelectTransfer={setSelectedTransferId}/>
         </VisualizationBoundary>
       </div>
 
@@ -120,21 +114,20 @@ export function Dashboard() {
       <section className="entityPanel">
         {selected ? <>
           <button className="close" onClick={() => select(null)} aria-label="Close selected entity">×</button>
-          <small>ENTITY</small>
+          <small>ADDRESS · {entity?.type.toUpperCase() ?? "UNKNOWN"}</small>
           <h2>{short(selected)}</h2>
           <p className="address">{selected}</p>
-          <dl>
-            <div><dt>TYPE</dt><dd>{entityType.toUpperCase()}</dd></div>
-            <div><dt>TRANSFERS</dt><dd>{related.length}</dd></div>
-            <div><dt>USDC SENT</dt><dd className="coinValue"><UsdcIcon/>{money(String(sent))}</dd></div>
-            <div><dt>USDC RECEIVED</dt><dd className="coinValue"><UsdcIcon/>{money(String(received))}</dd></div>
+          <small className="recentLabel">OBSERVED ACTIVITY</small>
+          <dl className="entityIntelligence">
+            <div onMouseEnter={() => setIntent({type: "highlight-transfers", transferIds: related.filter(item => item.from === selected).map(item => item.id)})} onMouseLeave={() => setIntent({type: "reset"})}><dt>SENT</dt><dd>{money(String(entity?.sent ?? 0))} USDC</dd></div>
+            <div onMouseEnter={() => setIntent({type: "highlight-transfers", transferIds: related.filter(item => item.to === selected).map(item => item.id)})} onMouseLeave={() => setIntent({type: "reset"})}><dt>RECEIVED</dt><dd>{money(String(entity?.received ?? 0))} USDC</dd></div>
+            <div><dt>NET FLOW</dt><dd>{(entity?.netFlow ?? 0) >= 0 ? "+" : ""}{money(String(entity?.netFlow ?? 0))} USDC</dd></div>
+            <div><dt>TRANSFERS</dt><dd>{entity?.transferCount ?? related.length}</dd></div>
+            <div><dt>COUNTERPARTIES</dt><dd>{entity?.uniqueCounterparties ?? 0}</dd></div>
+            {entity?.largestRelated && <div onMouseEnter={() => setIntent({type: "highlight-transfers", transferIds: [entity.largestRelated!.id]})} onMouseLeave={() => setIntent({type: "reset"})}><dt>LARGEST FLOW</dt><dd>{money(String(entity.largestRelated.amount))} USDC</dd></div>}
           </dl>
-          <small className="recentLabel">RECENT FLOWS</small>
-          <div className="recentEntityTransfers">
-            {related.slice(-4).reverse().map(transfer => <a key={transfer.id} href={`${ARC.explorer}/tx/${transfer.txHash}`} target="_blank" rel="noreferrer">
-              <span>{transfer.from === selected ? "SENT" : "RECEIVED"}</span><b className="coinValue"><UsdcIcon/>{money(transfer.value)}</b>
-            </a>)}
-          </div>
+          <small className="recentLabel">WHY THIS NODE MATTERS</small>
+          <p className="entityWhy">{entity?.whyItMatters}</p>
           <button className="askAddress" onClick={() => {setAgentRequest(current => ({id: (current?.id ?? 0) + 1, query: "Explain this address"})); setAgentOpen(true);}}>ASK AERIS ABOUT THIS ADDRESS</button><a className="explorerLink" href={`${ARC.explorer}/address/${selected}`} target="_blank" rel="noreferrer">VIEW ON ARC EXPLORER ↗</a>
         </> : <>
           <small>ARC MAINNET</small>
@@ -147,7 +140,7 @@ export function Dashboard() {
           </dl>
           <p className="panelNote">{status === "stale" ? "Using the last successfully verified observation window." : transfers.length ? "Displaying verified activity from the current live window." : emptyMessage}</p>
         </>}
-        <IntelligencePanel snapshot={snapshot} transfers={transfers} selected={selected} connection={status} expanded={agentOpen} request={agentRequest} onExpand={() => setAgentOpen(true)} onClose={() => setAgentOpen(false)}/>
+        <IntelligencePanel snapshot={snapshot} transfers={transfers} selected={selected} connection={status} expanded={agentOpen} request={agentRequest} onExpand={() => setAgentOpen(true)} onClose={() => setAgentOpen(false)} onSelectAddress={address => {select(address); setSelectedTransferId(null);}} onSelectTransfer={id => {const transfer = transfers.find(item => item.id === id); setSelectedTransferId(transfer ? transferIdentity(transfer) : id);}}/>
       </section>
 
       {!transfers.length && <div className="sceneEmpty"><span>{emptyMessage}</span><small>No simulated activity is shown</small></div>}
@@ -173,7 +166,7 @@ export function Dashboard() {
         {['1H', '24H', '7D', '30D'].map(label => <button key={label} disabled title="Historical indexing is not available yet">{label}</button>)}
         <small>HISTORICAL INDEXING NOT YET AVAILABLE</small>
       </div>
-      <button className="signal" disabled={!signal} onClick={() => signal && setIntent({type: "highlight-transfers", transferIds: signal.relatedTransferIds})}><small>AERIS SIGNAL · {signal?.title ?? "OBSERVING"}</small><p>{signal?.description ?? (status === "stale" ? "Using the last successfully verified observation window." : "No verified activity is available in the current observation window.")}</p></button>
+      <div className="signalRail"><button className="signal" disabled={!signal} onMouseEnter={() => signal && setIntent(signal.intent)} onMouseLeave={() => setIntent({type: "reset"})} onClick={() => signal && setIntent(signal.intent)}><small>AERIS SIGNAL · {signal?.title ?? "OBSERVING"}</small><p>{signal?.description ?? (status === "stale" ? "Using the last successfully verified observation window." : "No verified activity is available in the current observation window.")}</p></button>{snapshot.signals.length > 1 && <div className="signalSteps"><button onClick={() => setSignalIndex(index => (index - 1 + snapshot.signals.length) % snapshot.signals.length)} aria-label="Previous AERIS signal">‹</button><span>{signalIndex % snapshot.signals.length + 1}/{snapshot.signals.length}</span><button onClick={() => setSignalIndex(index => (index + 1) % snapshot.signals.length)} aria-label="Next AERIS signal">›</button></div>}</div>
     </section>
 
 

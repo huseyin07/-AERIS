@@ -1,18 +1,35 @@
 import type {EntityType, Transfer} from "@/data/types";
+import type {VisualizationIntent} from "./intents";
 
 export type RankedAddress = {address: string; type: EntityType; sent: number; received: number; transferCount: number; uniqueCounterparties: number};
 export type RankedFlow = {id: string; txHash: Transfer["txHash"]; from: Transfer["from"]; to: Transfer["to"]; amount: number; blockNumber: string};
 export type ActivityCategory = `${EntityType}-to-${EntityType}`;
 export type ActivitySlice = {category: ActivityCategory; count: number; volume: number; transferPercent: number; volumePercent: number};
+export type EntityIntelligence = RankedAddress & {
+  netFlow: number;
+  observedVolume: number;
+  observedVolumeShare: number;
+  activityRank: number | null;
+  volumeRank: number | null;
+  largestSent: RankedFlow | null;
+  largestReceived: RankedFlow | null;
+  largestRelated: RankedFlow | null;
+  relatedTransferIds: string[];
+  whyItMatters: string;
+};
+export type SignalEvidence = {label: string; value: number; unit: "USDC" | "percent" | "count"};
 export type AerisSignal = {
   id: string;
-  type: "large-flow" | "flow-concentration" | "receiver-concentration" | "contract-activity" | "activity-mix";
+  type: "large-flow" | "flow-concentration" | "receiver-concentration" | "sender-concentration" | "contract-activity" | "high-counterparty-activity" | "contract-flow" | "activity-mix";
   severity: "information" | "notable";
+  importance: number;
   title: string;
   description: string;
   relatedAddresses: string[];
   relatedTransferIds: string[];
-  metric: {value: number; unit: "USDC" | "percent" | "count"};
+  evidence: SignalEvidence[];
+  intent: VisualizationIntent;
+  metric: SignalEvidence;
 };
 export type IntelligenceSnapshot = {
   generatedAt: number;
@@ -22,10 +39,13 @@ export type IntelligenceSnapshot = {
   activeContracts: number;
   largestTransfer: RankedFlow | null;
   topFlows: RankedFlow[];
-  topSenders: RankedAddress[];
-  topReceivers: RankedAddress[];
-  topContracts: RankedAddress[];
-  concentration: {largestTransferPercent: number; topThreePercent: number; topReceiverPercent: number};
+  topSenders: EntityIntelligence[];
+  topReceivers: EntityIntelligence[];
+  topContracts: EntityIntelligence[];
+  mostActiveByCount: EntityIntelligence[];
+  mostActiveByVolume: EntityIntelligence[];
+  entities: EntityIntelligence[];
+  concentration: {largestTransferPercent: number; topThreePercent: number; topReceiverPercent: number; topSenderPercent: number; contractInteractionPercent: number};
   activityBreakdown: ActivitySlice[];
   signals: AerisSignal[];
 };

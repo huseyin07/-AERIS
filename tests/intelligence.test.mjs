@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {buildIntelligenceSnapshot} from "../src/intelligence/engine.ts";
-import {answerDeterministically} from "../src/ai/deterministic.ts";
+import {answerDeterministically, withObservationStatus} from "../src/ai/deterministic.ts";
 import {connectionAfterFailure} from "../src/state/connection.ts";
 import {addressPosition, selectLabelCandidates, shortTransactionHash, significantTransferIds, transferIdentity, uniqueTransfers} from "../src/visualization/network-model.ts";
 
@@ -118,4 +118,62 @@ test("selected and hovered labels displace lower-priority automatic labels", () 
   ];
   assert.deepEqual(selectLabelCandidates(candidates, {selectedId: "selected", hoveredId: "hovered", limit: 3}).map(item => item.id), ["selected", "hovered", "agent"]);
   assert.deepEqual(selectLabelCandidates(candidates, {hoveredId: "hovered", limit: 1}).map(item => item.id), ["hovered"]);
+});
+
+test("derives complete entity intelligence from the verified window", () => {
+  const snapshot = buildIntelligenceSnapshot(transfers, 0);
+  const entity = snapshot.entities.find(item => item.address === contract);
+  assert.equal(entity.sent, 70);
+  assert.equal(entity.received, 20);
+  assert.equal(entity.netFlow, -50);
+  assert.equal(entity.transferCount, 2);
+  assert.equal(entity.uniqueCounterparties, 2);
+  assert.equal(entity.largestSent.amount, 70);
+  assert.equal(entity.largestReceived.amount, 20);
+  assert.match(entity.whyItMatters, /largest observed transfer/);
+});
+
+test("ranks and deduplicates at most three deterministic signals", () => {
+  const first = buildIntelligenceSnapshot(transfers, 0).signals;
+  const second = buildIntelligenceSnapshot(transfers, 999).signals;
+  assert.ok(first.some(signal => signal.type === "large-flow"));
+  assert.ok(first.some(signal => signal.type === "flow-concentration"));
+  assert.ok(first.some(signal => signal.type === "contract-activity"));
+  assert.ok(first.length <= 3);
+  assert.equal(new Set(first.map(signal => signal.type)).size, first.length);
+  assert.deepEqual(first.map(signal => signal.id), second.map(signal => signal.id));
+  assert.ok(first.every((signal, index) => index === 0 || first[index - 1].importance >= signal.importance));
+});
+
+test("agent supports sender, receiver, counterparties, incoming, outgoing, and structured evidence", () => {
+  const snapshot = buildIntelligenceSnapshot(transfers, 0);
+  const queries = ["What's happening right now?", "Who is sending the most USDC?", "Who is receiving the most USDC?", "Which entity has the most counterparties?", "Show contract activity"];
+  for (const query of queries) {
+    const result = answerDeterministically(query, snapshot, transfers, contract);
+    assert.ok(result.summary.length > 0);
+    assert.ok(Array.isArray(result.evidence));
+    if (result.intent.type === "highlight-transfers") assert.ok(result.intent.transferIds.every(id => transfers.some(item => item.id === id)));
+    if (result.intent.type === "highlight-addresses") assert.ok(result.intent.addresses.every(id => snapshot.entities.some(item => item.address === id)));
+  }
+  assert.deepEqual(answerDeterministically("Show this address's incoming flows", snapshot, transfers, contract).relatedTransferIds, ["2"]);
+  assert.deepEqual(answerDeterministically("Show this address's outgoing flows", snapshot, transfers, contract).relatedTransferIds, ["3"]);
+});
+
+test("status-aware answers never present stale or unavailable data as live", () => {
+  const base = answerDeterministically("what's happening?", buildIntelligenceSnapshot(transfers, 0), transfers);
+  assert.match(withObservationStatus(base, "stale").summary, /last successfully verified observation window/i);
+  assert.match(withObservationStatus(base, "unavailable").summary, /unavailable/i);
+  assert.equal(withObservationStatus(base, "unavailable").intent.type, "reset");
+});
+
+test("zero and small windows remain finite and preserve multi-log identities", () => {
+  const empty = buildIntelligenceSnapshot([], 0);
+  assert.equal(empty.entities.length, 0);
+  assert.deepEqual(empty.signals, []);
+  const one = buildIntelligenceSnapshot([transfers[0]], 0);
+  assert.ok(Number.isFinite(one.concentration.topSenderPercent));
+  assert.equal(one.entities.every(entity => entity.activityRank === null), true);
+  const sameHash = [{...transfers[0], id: `${transfers[0].txHash}:0`, logIndex: 0}, {...transfers[0], id: `${transfers[0].txHash}:1`, logIndex: 1}];
+  assert.equal(buildIntelligenceSnapshot(sameHash, 0).transferCount, 2);
+  assert.equal(new Set(sameHash.map(transferIdentity)).size, 2);
 });
