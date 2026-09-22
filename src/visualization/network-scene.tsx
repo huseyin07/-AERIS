@@ -16,8 +16,11 @@ const CONTRACT = new THREE.Color("#d8a55f");
 const UNKNOWN = new THREE.Color("#718896");
 const GOLD = new THREE.Color("#efbd76");
 
+type IntelligenceAnnotation = {address: string; label: string};
+
 type Props = {
   transfers: Transfer[];
+  annotations?: IntelligenceAnnotation[];
   selectedAddress: string | null;
   selectedTransferId: string | null;
   intent: VisualizationIntent;
@@ -36,7 +39,7 @@ function nodeColor(type: string) { return type === "contract" ? CONTRACT : type 
 function flowColor(transfer: Transfer) { return transfer.fromType === "contract" || transfer.toType === "contract" ? CONTRACT : transfer.fromType === "unknown" || transfer.toType === "unknown" ? UNKNOWN : BLUE; }
 
 function Observatory(props: Props & {interacting: MutableRefObject<boolean>; lastInteraction: MutableRefObject<number>}) {
-  const {transfers, selectedAddress, selectedTransferId, intent, onSelectAddress, onSelectTransfer, interacting, lastInteraction} = props;
+  const {transfers, annotations = [], selectedAddress, selectedTransferId, intent, onSelectAddress, onSelectTransfer, interacting, lastInteraction} = props;
   const group = useRef<THREE.Group>(null);
   const nodeMesh = useRef<THREE.InstancedMesh>(null);
   const haloMesh = useRef<THREE.InstancedMesh>(null);
@@ -176,6 +179,11 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
     <Sparkles count={compact ? 42 : 100} scale={[8, 6.8, 7.8]} size={0.38} speed={0.035} opacity={0.16}/>
     {flows.map(flow => <Line key={flow.id} points={flow.curve.getPoints(28)} color={`#${flow.color.getHexString()}`} transparent opacity={isFlowRelated(flow) ? (inspectedFlowId === flow.id ? 0.92 : flow.significant ? 0.36 : 0.055 + flow.recency * 0.13) : 0.028} lineWidth={inspectedFlowId === flow.id ? 1.75 : flow.significant ? 0.82 : 0.42} onPointerOver={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredFlow(flow.id);}} onPointerOut={() => setHoveredFlow(null)} onClick={(event: ThreeEvent<MouseEvent>) => {event.stopPropagation(); onSelectTransfer(flow.id);}}/>) }
     {labelled.map(flow => <TransferLabel key={flow.id} flow={flow} selected={flow.id === selectedTransferId} hovered={flow.id === hoveredFlow} occupied={labelRects}/>) }
+    {annotations.slice(0, compact ? 0 : tablet ? 1 : 2).map(annotation => {
+      const node = nodes.find(item => item.address.toLowerCase() === annotation.address.toLowerCase());
+      if (!node) return null;
+      return <group key={`annotation:${annotation.address}`} position={node.position as [number, number, number]}><Html center distanceFactor={8} zIndexRange={[6, 0]} style={{pointerEvents: "none"}}><div className="entityAnnotation">{annotation.label}</div></Html></group>;
+    })}
     <instancedMesh ref={trailMesh} args={[undefined, undefined, MAX_FLOWS * TRAIL_STEPS]} count={flows.length * TRAIL_STEPS}><sphereGeometry args={[0.018, 6, 6]}/><meshBasicMaterial transparent opacity={0.34} depthWrite={false} toneMapped={false}/></instancedMesh>
     <instancedMesh ref={pulseMesh} args={[undefined, undefined, MAX_FLOWS]} count={flows.length} onPointerOver={event => {event.stopPropagation(); const flow = flows[event.instanceId ?? -1]; if (flow) setHoveredFlow(flow.id);}} onPointerOut={() => setHoveredFlow(null)} onClick={event => {event.stopPropagation(); const flow = flows[event.instanceId ?? -1]; if (flow) onSelectTransfer(flow.id);}}><sphereGeometry args={[0.03, 8, 8]}/><meshBasicMaterial toneMapped={false}/></instancedMesh>
     <instancedMesh ref={pulseHaloMesh} args={[undefined, undefined, MAX_FLOWS]} count={flows.length}><sphereGeometry args={[0.03, 8, 8]}/><meshBasicMaterial transparent opacity={0.16} depthWrite={false} toneMapped={false}/></instancedMesh>
