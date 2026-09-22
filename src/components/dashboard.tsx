@@ -41,7 +41,8 @@ export function Dashboard() {
   const setQuery = useActivity(state => state.setQuery);
   const intent = useActivity(state => state.visualizationIntent);
   const setIntent = useActivity(state => state.setVisualizationIntent);
-  const [insightsOpen, setInsightsOpen] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(false);
+  const [agentRequest, setAgentRequest] = useState<{id: number; query: string} | null>(null);
   const snapshot = useMemo(() => buildIntelligenceSnapshot(transfers), [transfers]);
 
   const volume = snapshot.totalVolume;
@@ -75,7 +76,7 @@ export function Dashboard() {
     <LiveActivity/>
     <header>
       <div className="brand"><i/>AERIS</div>
-      <nav><b>LIVE</b><span>EXPLORE</span><button onClick={() => setInsightsOpen(value => !value)}>INSIGHTS</button><span>REPLAY</span></nav>
+      <nav><b>LIVE</b><span>EXPLORE</span><button onClick={() => setAgentOpen(true)}>INSIGHTS</button><span>REPLAY</span></nav>
       <input
         className="search"
         value={query}
@@ -121,7 +122,7 @@ export function Dashboard() {
               <span>{transfer.from === selected ? "SENT" : "RECEIVED"}</span><b className="coinValue"><UsdcIcon/>{money(transfer.value)}</b>
             </a>)}
           </div>
-          <button className="askAddress" onClick={() => setInsightsOpen(true)}>ASK AERIS ABOUT THIS ADDRESS</button><a className="explorerLink" href={`${ARC.explorer}/address/${selected}`} target="_blank" rel="noreferrer">VIEW ON ARC EXPLORER ↗</a>
+          <button className="askAddress" onClick={() => {setAgentRequest(current => ({id: (current?.id ?? 0) + 1, query: "Explain this address"})); setAgentOpen(true);}}>ASK AERIS ABOUT THIS ADDRESS</button><a className="explorerLink" href={`${ARC.explorer}/address/${selected}`} target="_blank" rel="noreferrer">VIEW ON ARC EXPLORER ↗</a>
         </> : <>
           <small>ARC MAINNET</small>
           <h2>Arc Mainnet</h2>
@@ -133,6 +134,7 @@ export function Dashboard() {
           </dl>
           <p className="panelNote">{status === "stale" ? "Using the last successfully verified observation window." : transfers.length ? "Displaying verified activity from the current live window." : emptyMessage}</p>
         </>}
+        <IntelligencePanel snapshot={snapshot} transfers={transfers} selected={selected} connection={status} expanded={agentOpen} request={agentRequest} onExpand={() => setAgentOpen(true)} onClose={() => setAgentOpen(false)}/>
       </section>
 
       {!transfers.length && <div className="sceneEmpty"><span>{emptyMessage}</span><small>No simulated activity is shown</small></div>}
@@ -151,10 +153,9 @@ export function Dashboard() {
         {['1H', '24H', '7D', '30D'].map(label => <button key={label} disabled title="Historical indexing is not available yet">{label}</button>)}
         <small>HISTORICAL INDEXING NOT YET AVAILABLE</small>
       </div>
-      <button className="signal" disabled={!signal} onClick={() => signal && setIntent({type: "highlight-transfers", transferIds: signal.relatedTransferIds})}><small>AERIS SIGNAL · {signal?.title ?? "OBSERVING"}</small><p>{signal?.description ?? (status === "stale" ? "Using the last successfully verified observation window." : "No verified activity is available in the current observation window.")}</p></button><button className="askEntry" onClick={() => setInsightsOpen(true)}>ASK AERIS</button>
+      <button className="signal" disabled={!signal} onClick={() => signal && setIntent({type: "highlight-transfers", transferIds: signal.relatedTransferIds})}><small>AERIS SIGNAL · {signal?.title ?? "OBSERVING"}</small><p>{signal?.description ?? (status === "stale" ? "Using the last successfully verified observation window." : "No verified activity is available in the current observation window.")}</p></button>
     </section>
 
-    {insightsOpen && <IntelligencePanel snapshot={snapshot} transfers={transfers} selected={selected} onClose={() => setInsightsOpen(false)}/>}
 
     <section className="feed">
       <div className="feedHead"><div><small>LIVE LEDGER</small><h2>Recent verified transfers</h2></div><span>{ARC.name} · USDC · REAL-TIME</span></div>
