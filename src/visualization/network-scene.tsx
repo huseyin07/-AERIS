@@ -2,9 +2,10 @@
 
 import {Canvas, type ThreeEvent, useFrame, useThree} from "@react-three/fiber";
 import {Line, OrbitControls, Sparkles} from "@react-three/drei";
-import {useEffect, useMemo, useRef, useState, type MutableRefObject} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject} from "react";
 import * as THREE from "three";
 import type {Transfer} from "@/data/types";
+import type {VisualizationIntent} from "@/intelligence/intents";
 
 const MAX_NODES = 84;
 const MAX_FLOWS = 44;
@@ -14,7 +15,7 @@ const CONTRACT = new THREE.Color("#d8a55f");
 const UNKNOWN = new THREE.Color("#718896");
 const GOLD = new THREE.Color("#efbd76");
 
-type Props = {transfers: Transfer[]; selected: string | null; onSelect: (address: string) => void};
+type Props = {transfers: Transfer[]; selected: string | null; intent: VisualizationIntent; onSelect: (address: string) => void};
 type Node = {address: string; type: string; position: [number, number, number]; volume: number};
 type Flow = {id: string; from: string; to: string; curve: THREE.QuadraticBezierCurve3; amount: number; phase: number; large: boolean};
 
@@ -33,7 +34,7 @@ function nodeColor(type: string) {
   return type === "contract" ? CONTRACT : type === "wallet" ? BLUE : UNKNOWN;
 }
 
-function Observatory({transfers, selected, onSelect, interacting}: Props & {interacting: MutableRefObject<boolean>}) {
+function Observatory({transfers, selected, intent, onSelect, interacting}: Props & {interacting: MutableRefObject<boolean>}) {
   const group = useRef<THREE.Group>(null);
   const nodeMesh = useRef<THREE.InstancedMesh>(null);
   const haloMesh = useRef<THREE.InstancedMesh>(null);
@@ -94,12 +95,18 @@ function Observatory({transfers, selected, onSelect, interacting}: Props & {inte
     return {nodes: nextNodes, flows: nextFlows};
   }, [transfers, compact]);
 
+  const intentFlowIds = useMemo(() => new Set(intent.type === "highlight-transfers" ? intent.transferIds : []), [intent]);
+  const intentAddresses = useMemo(() => new Set(intent.type === "highlight-addresses" ? intent.addresses : intent.type === "focus-address-activity" ? [intent.address] : []), [intent]);
+  const hasIntentFocus = intent.type !== "reset";
+  const flowFocused = useCallback((flow: Flow) => !hasIntentFocus || (intent.type === "highlight-transfers" && intentFlowIds.has(flow.id)) || (intent.type !== "highlight-transfers" && (intentAddresses.has(flow.from) || intentAddresses.has(flow.to))), [hasIntentFocus, intent, intentAddresses, intentFlowIds]);
+  const nodeFocused = useCallback((node: Node) => !hasIntentFocus || intentAddresses.has(node.address) || (intent.type === "highlight-transfers" && flows.some(flow => intentFlowIds.has(flow.id) && (flow.from === node.address || flow.to === node.address))) || (intent.type === "filter-entity-type" && node.type === intent.entityType), [flows, hasIntentFocus, intent, intentAddresses, intentFlowIds]);
+
   useEffect(() => {
     if (!nodeMesh.current || !haloMesh.current) return;
     nodes.forEach((node, index) => {
       const activity = Math.min(1, Math.log10(node.volume + 1) / 6);
       const focused = selected === node.address;
-      const unrelated = Boolean(selected && !flows.some(flow => (flow.from === selected || flow.to === selected) && (flow.from === node.address || flow.to === node.address)));
+      const unrelated = Boolean((selected && !flows.some(flow => (flow.from === selected || flow.to === selected) && (flow.from === node.address || flow.to === node.address))) || !nodeFocused(node));
       const hoverScale = hovered === index ? 1.24 : 1;
       const depth = THREE.MathUtils.clamp((node.position[2] + 2.7) / 5.4, 0, 1);
       const scale = (0.67 + activity * 0.78) * (0.9 + depth * 0.17) * (focused ? 1.55 : 1) * hoverScale;
@@ -121,7 +128,7 @@ function Observatory({transfers, selected, onSelect, interacting}: Props & {inte
     const selectedNode = nodes.find(node => node.address === selected);
     if (selectionRing.current) selectionRing.current.visible = Boolean(selectedNode);
     if (selectedNode && selectionRing.current) selectionRing.current.position.set(...selectedNode.position);
-  }, [nodes, flows, selected, hovered, matrix, color]);
+  }, [nodes, flows, selected, hovered, matrix, color, nodeFocused]);
 
   useEffect(() => {
     document.body.style.cursor = hovered === null ? "" : "pointer";
@@ -144,7 +151,7 @@ function Observatory({transfers, selected, onSelect, interacting}: Props & {inte
     flows.forEach((flow, index) => {
       const speed = 0.045 + Math.min(0.055, Math.log10(flow.amount + 1) * 0.006);
       const progress = (flow.phase + elapsed * speed) % 1;
-      const isRelated = !selected || flow.from === selected || flow.to === selected;
+      const isRelated = (!selected || flow.from === selected || flow.to === selected) && flowFocused(flow);
       flow.curve.getPointAt(progress, point);
       matrix.position.copy(point);
       matrix.scale.setScalar(flow.large ? 1.35 : 0.86);
@@ -176,7 +183,7 @@ function Observatory({transfers, selected, onSelect, interacting}: Props & {inte
     if (impactMesh.current.instanceColor) impactMesh.current.instanceColor.needsUpdate = true;
   });
 
-  const related = (flow: Flow) => !selected || flow.from === selected || flow.to === selected;
+  const related = (flow: Flow) => (!selected || flow.from === selected || flow.to === selected) && flowFocused(flow);
   return <group ref={group}>
     <ambientLight intensity={0.22}/><pointLight position={[1.5, 3, 4]} intensity={20} color="#a6d9ff"/>
     <mesh><icosahedronGeometry args={[2.34, 4]}/><meshBasicMaterial color="#428ab3" wireframe transparent opacity={0.075} depthWrite={false}/></mesh>
