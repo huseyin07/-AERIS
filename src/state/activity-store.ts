@@ -1,0 +1,1 @@
+import {create} from "zustand";import type {Transfer} from "@/data/types";type C="connecting"|"live"|"error";type S={transfers:Transfer[];connection:C;setTransfers:(x:Transfer[])=>void;setConnection:(x:C)=>void};export const useActivity=create<S>(set=>({transfers:[],connection:"connecting",setTransfers:x=>set({transfers:x.slice(-200)}),setConnection:x=>set({connection:x})}));
