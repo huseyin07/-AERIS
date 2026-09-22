@@ -91,32 +91,28 @@ export function Dashboard() {
         </VisualizationBoundary>
       </div>
 
-      <section className="intro">
-        <p className="eyebrow">REAL-TIME ARC ECONOMY</p>
-        <h1>Live USDC<br/>observatory</h1>
-        <p>Verified movement across Arc Mainnet, mapped as it happens.</p>
-      </section>
-
       <section className="metrics" aria-label="Live metrics">
+        <p className="eyebrow">LIVE ACTIVITY</p>
         <Metric label="USDC FLOW" value={`$${money(String(volume))}`}/>
         <Metric label="TRANSFERS" value={String(transfers.length)}/>
-        <Metric label="ACTIVE ADDRESSES" value={String(addresses)}/>
-        <Metric label="ACTIVE CONTRACTS" value={String(contracts)}/>
-        <Metric label="LARGEST TRANSFER" value={largest ? `${money(largest.value)} USDC` : "—"}/>
+        <Metric label="ADDRESSES" value={String(addresses)}/>
+        <Metric label="CONTRACTS" value={String(contracts)}/>
+        <Metric label="LARGEST" value={largest ? `${money(largest.value)} USDC` : "—"}/>
       </section>
 
       <section className="entityPanel">
         {selected ? <>
           <button className="close" onClick={() => select(null)} aria-label="Close selected entity">×</button>
-          <small>SELECTED ENTITY</small>
+          <small>ENTITY</small>
           <h2>{short(selected)}</h2>
           <p className="address">{selected}</p>
           <dl>
             <div><dt>TYPE</dt><dd>{entityType.toUpperCase()}</dd></div>
-            <div><dt>RECENT TRANSACTIONS</dt><dd>{related.length}</dd></div>
-            <div><dt>USDC SENT</dt><dd>{money(String(sent))}</dd></div>
-            <div><dt>USDC RECEIVED</dt><dd>{money(String(received))}</dd></div>
+            <div><dt>TRANSFERS</dt><dd>{related.length}</dd></div>
+            <div><dt>SENT</dt><dd>{money(String(sent))} USDC</dd></div>
+            <div><dt>RECEIVED</dt><dd>{money(String(received))} USDC</dd></div>
           </dl>
+          <small className="recentLabel">RECENT FLOWS</small>
           <div className="recentEntityTransfers">
             {related.slice(-4).reverse().map(transfer => <a key={transfer.id} href={`${ARC.explorer}/tx/${transfer.txHash}`} target="_blank" rel="noreferrer">
               <span>{transfer.from === selected ? "SENT" : "RECEIVED"}</span><b>{money(transfer.value)} USDC</b>
@@ -124,13 +120,13 @@ export function Dashboard() {
           </div>
           <a className="explorerLink" href={`${ARC.explorer}/address/${selected}`} target="_blank" rel="noreferrer">VIEW ON ARC EXPLORER ↗</a>
         </> : <>
-          <small>NETWORK STATUS</small>
+          <small>ARC MAINNET</small>
           <h2>Arc Mainnet</h2>
-          <div className={`networkState ${status}`}><i/>{status === "live" ? "LIVE TELEMETRY" : status === "error" ? "DATA UNAVAILABLE" : "CONNECTING"}</div>
+          <div className={`networkState ${status}`}><i/>{status === "live" ? "LIVE" : status === "error" ? "DATA UNAVAILABLE" : "CONNECTING"}</div>
           <dl>
-            <div><dt>CHAIN ID</dt><dd>5042</dd></div>
+            <div><dt>CHAIN</dt><dd>5042</dd></div>
             <div><dt>ASSET</dt><dd>USDC</dd></div>
-            <div><dt>LIVE BUFFER</dt><dd>{transfers.length} transfers</dd></div>
+            <div><dt>BUFFER</dt><dd>{transfers.length}</dd></div>
           </dl>
           <p className="panelNote">{transfers.length ? "Displaying verified activity from the current live window." : emptyMessage}</p>
         </>}
@@ -141,6 +137,7 @@ export function Dashboard() {
       <div className="legend">
         <span><i className="wallet"/>WALLET</span>
         <span><i className="contract"/>CONTRACT</span>
+        <span><i className="unknown"/>UNKNOWN</span>
         <span><i className="flow"/>USDC FLOW</span>
       </div>
     </section>
@@ -155,10 +152,10 @@ export function Dashboard() {
     </section>
 
     <section className="feed">
-      <div className="feedHead"><div><small>LIVE LEDGER</small><h2>Recent verified transfers</h2></div><span>{ARC.name} · USDC</span></div>
+      <div className="feedHead"><div><small>LIVE LEDGER</small><h2>Recent verified transfers</h2></div><span>{ARC.name} · USDC · REAL-TIME</span></div>
       <div className="feedColumns"><span>FROM</span><span>TO</span><span>AMOUNT</span><span>TYPE</span><span>BLOCK</span></div>
       {filtered.slice().reverse().slice(0, 16).map(transfer => <a className="feedRow" key={transfer.id} href={`${ARC.explorer}/tx/${transfer.txHash}`} target="_blank" rel="noreferrer">
-        <span>{short(transfer.from)}</span><span>{short(transfer.to)}</span><b>{money(transfer.value)} USDC</b><span>{transferType(transfer)}</span><small>{transfer.blockNumber}</small>
+        <span className={`party ${transfer.fromType}`}><i/>{short(transfer.from)}</span><span className={`party ${transfer.toType}`}><i/>{short(transfer.to)}</span><b>{money(transfer.value)} <em>USDC</em></b><span>{transferType(transfer)}</span><small>{transfer.blockNumber}</small>
       </a>)}
       {!filtered.length && <p className="empty">{normalizedQuery ? "No matching verified transfers" : emptyMessage}</p>}
     </section>
