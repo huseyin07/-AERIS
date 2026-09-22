@@ -1,0 +1,3 @@
+import {defineChain} from "viem";
+export const ARC={mode:"testnet" as const,name:"Arc Testnet",chainId:5042002,rpcUrl:process.env.ARC_RPC_URL??"https://rpc.testnet.arc.network",wsUrl:process.env.ARC_WS_URL??"wss://rpc.testnet.arc.network",explorer:"https://testnet.arcscan.app",usdc:"0x3600000000000000000000000000000000000000" as const,decimals:6,docs:"https://docs.arc.io",note:"Mainnet configuration is intentionally not guessed."};
+export const arcChain=defineChain({id:ARC.chainId,name:ARC.name,nativeCurrency:{name:"USDC",symbol:"USDC",decimals:18},rpcUrls:{default:{http:[ARC.rpcUrl]}},blockExplorers:{default:{name:"ArcScan",url:ARC.explorer}}});
