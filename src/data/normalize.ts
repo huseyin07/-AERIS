@@ -1,0 +1,2 @@
+import {formatUnits} from "viem";import type {Transfer} from "./types";
+export function normalizeTransfer(log:any):Transfer|null{const {from,to,value}=log.args??{};if(!from||!to||value===undefined||!log.transactionHash||log.blockNumber===null)return null;return{id:`${log.transactionHash}:${log.logIndex}`,txHash:log.transactionHash,blockNumber:log.blockNumber.toString(),logIndex:log.logIndex,from,to,value:formatUnits(value,6),fromType:"unknown",toType:"unknown"};}
