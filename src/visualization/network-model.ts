@@ -38,6 +38,29 @@ export function significantTransferIds(transfers: readonly Transfer[], limit: nu
     .map(transferIdentity);
 }
 
+export const VISUAL_CAPS = {
+  desktop: {flows: 60, nodes: 120, labels: 3, annotations: 2},
+  tablet: {flows: 40, nodes: 80, labels: 2, annotations: 1},
+  mobile: {flows: 20, nodes: 45, labels: 1, annotations: 0},
+} as const;
+
+/** Deterministic money-flow selection with pair and entity concentration limits. */
+export function selectSignificantTransfers(transfers: readonly Transfer[], limit = 500): Transfer[] {
+  const unique = uniqueTransfers(transfers);
+  if (!unique.length || limit <= 0) return [];
+  const ordered = unique.map((transfer, index) => ({transfer, index, amount: Number.isFinite(Number(transfer.value)) ? Number(transfer.value) : 0}))
+    .sort((a, b) => b.amount - a.amount || b.index - a.index || transferIdentity(a.transfer).localeCompare(transferIdentity(b.transfer)));
+  const pairMax = Math.max(2, Math.ceil(limit * .12)); const entityMax = Math.max(3, Math.ceil(limit * .35));
+  const pairs = new Map<string, number>(); const entities = new Map<string, number>(); const selected: Transfer[] = [];
+  for (const {transfer} of ordered) {
+    const from = transfer.from.toLowerCase(); const to = transfer.to.toLowerCase(); const pair = `${from}>${to}`;
+    if ((pairs.get(pair) ?? 0) >= pairMax || (entities.get(from) ?? 0) >= entityMax || (entities.get(to) ?? 0) >= entityMax) continue;
+    selected.push(transfer); pairs.set(pair, (pairs.get(pair) ?? 0) + 1); entities.set(from, (entities.get(from) ?? 0) + 1); entities.set(to, (entities.get(to) ?? 0) + 1);
+    if (selected.length === limit) break;
+  }
+  return selected.sort((a, b) => unique.indexOf(a) - unique.indexOf(b));
+}
+
 export function uniqueTransfers(transfers: readonly Transfer[]) {
   return [...new Map(transfers.map(transfer => [transferIdentity(transfer), transfer])).values()];
 }

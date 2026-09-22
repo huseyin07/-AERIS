@@ -1,15 +1,17 @@
 import {create} from "zustand";
-import type {EntityType, Transfer} from "@/data/types";
+import type {ArcActivityEvent, EntityType, Transfer} from "@/data/types";
+import {eventsToTransfers, pruneObservation} from "@/data/activity-engine";
 import type {VisualizationIntent} from "@/intelligence/intents";
 import {connectionAfterFailure, type Connection} from "./connection";
 
 type State = {
   transfers: Transfer[];
+  events: ArcActivityEvent[];
   connection: Connection;
   selected: string | null;
   query: string;
   visualizationIntent: VisualizationIntent;
-  mergeTransfers: (transfers: Transfer[]) => void;
+  mergeActivity: (events: ArcActivityEvent[]) => void;
   markRequestSucceeded: () => void;
   markRequestFailed: () => void;
   select: (address: string | null) => void;
@@ -36,23 +38,17 @@ function validTransfer(value: unknown): value is Transfer {
 
 export const useActivity = create<State>(set => ({
   transfers: [],
+  events: [],
   connection: "connecting",
   selected: null,
   query: "",
   visualizationIntent: {type: "reset"},
-  mergeTransfers: incoming => set(state => {
-    const merged = new Map(state.transfers.map(transfer => [transfer.id, transfer]));
-    incoming.filter(validTransfer).forEach(transfer => merged.set(transfer.id, transfer));
-    return {
-      transfers: [...merged.values()]
-        .sort((left, right) => left.blockNumber === right.blockNumber
-          ? left.logIndex - right.logIndex
-          : left.blockNumber.length - right.blockNumber.length || left.blockNumber.localeCompare(right.blockNumber))
-        .slice(-240),
-    };
+  mergeActivity: incoming => set(state => {
+    const events = pruneObservation([...state.events, ...incoming]);
+    return {events, transfers: eventsToTransfers(events).filter(validTransfer)};
   }),
   markRequestSucceeded: () => set({connection: "live"}),
-  markRequestFailed: () => set(state => ({connection: connectionAfterFailure(state.transfers.length)})),
+  markRequestFailed: () => set(state => ({connection: connectionAfterFailure(state.events.length)})),
   select: selected => set({selected}),
   setQuery: query => set({query}),
   setVisualizationIntent: visualizationIntent => set({visualizationIntent}),

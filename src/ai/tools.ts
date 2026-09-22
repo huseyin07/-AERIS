@@ -4,8 +4,8 @@ import type {IntelligenceSnapshot} from "@/intelligence/types";
 
 export function createIntelligenceTools(snapshot: IntelligenceSnapshot, transfers: readonly Transfer[]) {
   return {
-    getCurrentActivitySummary: () => ({observationWindow: "current-verified-buffer" as const, transferCount: snapshot.transferCount, totalVolume: snapshot.totalVolume, uniqueAddresses: snapshot.uniqueAddresses, activeContracts: snapshot.activeContracts, concentration: snapshot.concentration}),
-    getNetworkSummary: () => ({transferCount: snapshot.transferCount, totalVolume: snapshot.totalVolume, uniqueAddresses: snapshot.uniqueAddresses, activeContracts: snapshot.activeContracts}),
+    getCurrentActivitySummary: () => ({observationWindow: "rolling-10-minutes" as const, economic: {transferCount: snapshot.transferCount, totalVolumeUSDC: snapshot.totalVolume, uniqueAddresses: snapshot.uniqueAddresses}, activity: snapshot.networkActivity, concentration: snapshot.concentration}),
+    getNetworkSummary: () => ({economic: {transferCount: snapshot.transferCount, totalVolumeUSDC: snapshot.totalVolume}, activity: snapshot.networkActivity}),
     getLargestFlows: (limit = 5) => snapshot.topFlows.slice(0, Math.max(0, Math.min(limit, 20))),
     getTopSenders: (limit = 5) => snapshot.topSenders.slice(0, Math.max(0, Math.min(limit, 20))),
     getTopReceivers: (limit = 5) => snapshot.topReceivers.slice(0, Math.max(0, Math.min(limit, 20))),
@@ -16,5 +16,6 @@ export function createIntelligenceTools(snapshot: IntelligenceSnapshot, transfer
     getTransferDetails: (id: string) => transfers.find(item => item.id === id) ?? null,
     getFlowConcentration: () => snapshot.concentration,
     getActivityBreakdown: () => snapshot.activityBreakdown,
+    getContractActivity: () => ({interactions: snapshot.networkActivity.contractInteractions, deployments: snapshot.networkActivity.contractDeployments, activeContracts: snapshot.networkActivity.activeContracts, concentrationPercent: snapshot.networkActivity.interactionConcentrationPercent}),
   };
 }

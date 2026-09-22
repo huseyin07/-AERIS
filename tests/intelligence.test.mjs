@@ -177,3 +177,84 @@ test("zero and small windows remain finite and preserve multi-log identities", (
   assert.equal(buildIntelligenceSnapshot(sameHash, 0).transferCount, 2);
   assert.equal(new Set(sameHash.map(transferIdentity)).size, 2);
 });
+
+import {AddressClassificationCache, BlockCursor, MAX_OBSERVED_EVENTS, OBSERVATION_WINDOW_MS, contractCallActivityId, deploymentActivityId, normalizeTransactionActivity, pruneObservation, receiptStatus, transferToActivity, transactionActivityId, usdcActivityId} from "../src/data/activity-engine.ts";
+import {selectSignificantTransfers, VISUAL_CAPS} from "../src/visualization/network-model.ts";
+
+const baseTx = (overrides = {}) => ({hash: hash("abc"), blockNumber: 10n, blockHash: hash("b10"), transactionIndex: 2, from: a, to: contract, input: "0x12345678", ...overrides});
+
+test("activity identities are deterministic and preserve distinct USDC log children", () => {
+  assert.equal(usdcActivityId(hash("a"), 4), usdcActivityId(hash("a"), 4));
+  assert.notEqual(usdcActivityId(hash("a"), 4), usdcActivityId(hash("a"), 5));
+  assert.match(transactionActivityId(hash("a")), /:tx:/);
+  assert.match(contractCallActivityId(hash("a")), /:call:/);
+  assert.match(deploymentActivityId(hash("a"), contract), /:deployment:/);
+});
+
+test("contract calls require confirmed contract classification and carry receipt status", () => {
+  const context = {timestamp: 1_000, observedAt: 2_000};
+  const call = normalizeTransactionActivity(baseTx(), {status: "success"}, "contract", context);
+  assert.equal(call?.type, "CONTRACT_CALL");
+  assert.equal(call?.inputSelector, "0x12345678");
+  assert.equal(call?.parentTransactionId, transactionActivityId(baseTx().hash));
+  assert.equal(normalizeTransactionActivity(baseTx(), {status: "success"}, "wallet", context), null);
+  assert.equal(receiptStatus("reverted"), "failed");
+  assert.equal(receiptStatus(undefined), "unknown");
+});
+
+test("only successful receipt-backed contract creations become deployments", () => {
+  const tx = baseTx({to: null}); const context = {timestamp: 1_000, observedAt: 2_000};
+  assert.equal(normalizeTransactionActivity(tx, {status: "reverted", contractAddress: contract}, "unknown", context), null);
+  assert.equal(normalizeTransactionActivity(tx, {status: "success"}, "unknown", context), null);
+  const deployment = normalizeTransactionActivity(tx, {status: "success", contractAddress: contract}, "unknown", context);
+  assert.equal(deployment?.type, "CONTRACT_DEPLOYMENT");
+  assert.equal(deployment?.to, contract);
+});
+
+test("observation window dedupes, expires by chain timestamp, and enforces 20k ceiling", () => {
+  const now = 2_000_000;
+  const make = (index, timestamp = now) => transferToActivity({...transfer(String(index), a, b, "1"), txHash: hash(String(index)), logIndex: index}, {blockHash: hash("beef"), transactionIndex: index, timestamp, observedAt: now});
+  const duplicate = make(1);
+  assert.equal(pruneObservation([duplicate, duplicate], now).length, 1);
+  assert.equal(pruneObservation([make(2, now - OBSERVATION_WINDOW_MS - 1)], now).length, 0);
+  const large = Array.from({length: MAX_OBSERVED_EVENTS + 7}, (_, index) => make(index));
+  assert.equal(pruneObservation(large, now).length, MAX_OBSERVED_EVENTS);
+});
+
+test("incremental cursor rejects duplicate blocks but accepts recent reorg hash changes", () => {
+  const cursor = new BlockCursor();
+  assert.equal(cursor.shouldProcess(10n, hash("1")), true);
+  cursor.record(10n, hash("1"));
+  assert.equal(cursor.lastProcessedBlock, 10n);
+  assert.equal(cursor.shouldProcess(10n, hash("1")), false);
+  assert.equal(cursor.shouldProcess(10n, hash("2")), true);
+});
+
+test("bounded address cache normalizes keys and evicts least recently used entries", () => {
+  const cache = new AddressClassificationCache(2);
+  cache.set(a.toUpperCase(), "wallet"); cache.set(b, "contract");
+  assert.equal(cache.get(a), "wallet");
+  cache.set(c, "unknown");
+  assert.equal(cache.get(b), undefined);
+  assert.equal(cache.size, 2);
+});
+
+test("contract activity never double counts verified USDC economic volume", () => {
+  const item = transfers[1];
+  const moneyEvent = transferToActivity(item, {blockHash: hash("10"), transactionIndex: 0, timestamp: 1000, observedAt: 1000});
+  const call = normalizeTransactionActivity(baseTx({hash: item.txHash}), {status: "success"}, "contract", {timestamp: 1000, observedAt: 1000});
+  const snapshot = buildIntelligenceSnapshot([item], 1000, [moneyEvent, call]);
+  assert.equal(snapshot.totalVolume, 20);
+  assert.equal(snapshot.networkActivity.observedEvents, 2);
+  assert.equal(snapshot.networkActivity.contractInteractions, 1);
+  assert.equal(snapshot.networkActivity.observedTransactions, 1);
+});
+
+test("significance selection is deterministic, diverse, and visual caps match V7 targets", () => {
+  const crowded = Array.from({length: 20}, (_, index) => transfer(String(index + 10), a, b, String(1000 - index)));
+  const diverse = Array.from({length: 10}, (_, index) => transfer(String(index + 50), address(String(index + 10)), address(String(index + 30)), String(100 - index)));
+  const first = selectSignificantTransfers([...crowded, ...diverse], 10);
+  assert.deepEqual(first, selectSignificantTransfers([...crowded, ...diverse], 10));
+  assert.ok(first.some(item => item.from !== a));
+  assert.deepEqual(VISUAL_CAPS, {desktop: {flows: 60, nodes: 120, labels: 3, annotations: 2}, tablet: {flows: 40, nodes: 80, labels: 2, annotations: 1}, mobile: {flows: 20, nodes: 45, labels: 1, annotations: 0}});
+});
