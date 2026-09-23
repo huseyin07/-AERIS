@@ -36,7 +36,9 @@ async function processBlock(blockNumber: bigint, observedAt: number) {
   // A changed hash invalidates every previously normalized child of this recent block.
   observed = observed.filter(event => event.blockNumber !== block.number.toString());
   const timestamp = Number(block.timestamp) * 1_000;
-  // Keep RPC work bounded on unusually busy blocks so the activity endpoint cannot stall indefinitely.\n  // We prefer the newest transactions; USDC transfers are still collected independently from the full block logs below.\n  const transactions = block.transactions.slice(-MAX_TRANSACTIONS_PER_BLOCK);
+  // Keep RPC work bounded on unusually busy blocks so the activity endpoint cannot stall indefinitely.
+  // We prefer the newest transactions; USDC transfers are still collected independently from the full block logs below.
+  const transactions = block.transactions.slice(-MAX_TRANSACTIONS_PER_BLOCK);
   const receipts = await mapConcurrent(transactions, 6, tx => client.getTransactionReceipt({hash: tx.hash}).catch(() => null));
   const receiptByHash = new Map(receipts.flatMap(receipt => receipt ? [[receipt.transactionHash.toLowerCase(), receipt] as const] : []));
   const destinations = [...new Set(transactions.flatMap(tx => tx.to ? [tx.to.toLowerCase() as HexAddress] : []))];
