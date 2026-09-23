@@ -18,7 +18,7 @@ export async function GET() {
       observationWindowMs: OBSERVATION_WINDOW_MS,
       fetchedAt: Date.now(),
       ...data.diagnostics,
-    }, {headers: {"Cache-Control": "no-store", "Vercel-CDN-Cache-Control": "public, s-maxage=12, stale-while-revalidate=24"}});
+    }, {headers: {"Cache-Control": "no-store", "Vercel-CDN-Cache-Control": data.diagnostics.status === "ok" ? "public, s-maxage=6, stale-while-revalidate=3" : "no-store"}});
   } catch (error) {
     console.error("Arc Mainnet activity request failed", error);
     return NextResponse.json({
