@@ -44,6 +44,16 @@ export function pruneObservation(events: readonly ArcActivityEvent[], now = Date
   return [...deduped.values()].sort((a, b) => a.timestamp - b.timestamp || Number(BigInt(a.blockNumber) - BigInt(b.blockNumber)) || a.transactionIndex - b.transactionIndex || a.id.localeCompare(b.id)).slice(-limit);
 }
 
+/** Preserve still-valid verified observations across empty or partial polls. */
+export function reconcileObservation(current: readonly ArcActivityEvent[], incoming: readonly ArcActivityEvent[], now = Date.now()) {
+  return pruneObservation([...incoming, ...current], now);
+}
+
+/** Observation time may advance, but an out-of-order response may never move it backwards. */
+export function observationReference(current: number | null, incoming: number | undefined, wallClock = Date.now()) {
+  return Math.max(current ?? Number.NEGATIVE_INFINITY, incoming ?? current ?? wallClock);
+}
+
 export class BlockCursor {
   private hashes = new Map<string, string>();
   lastProcessedBlock: bigint | null = null;

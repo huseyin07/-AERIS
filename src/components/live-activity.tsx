@@ -35,7 +35,7 @@ export function LiveActivity() {
         if (!isActivityResponse(data)) throw new Error("Malformed Arc Mainnet activity response");
         if (!response.ok || data.status === "error") { failedResponse = data; throw new Error(`Activity request failed (${response.status})`); }
         if (active) {
-          merge(data.events);
+          merge(data.events, data.windowReferenceTimestamp);
           consecutiveFailures = 0;
           markRequestSucceeded(data);
         }
