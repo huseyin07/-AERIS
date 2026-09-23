@@ -75,4 +75,11 @@ export type ActivityResponse = {
   windowEndTimestamp?: number;
   windowCovered?: boolean;
   blocksScanned?: number;
+  headAgeMs?: number;
+  headStale?: boolean;
+  windowReferenceTimestamp?: number;
+  headFutureSkewMs?: number;
+  headFutureSkewed?: boolean;
+  rpcRequestCount?: {chainIdentity: number; latestHead: number; timestampHeaders: number; fullBlocks: number; logs: number; receipts: number; bytecode: number; total: number};
+  stageTimingsMs?: {headLookup: number; windowDiscovery: number; contractBlocks: number; usdcLogs: number; metadata: number; normalization: number; total: number};
 };

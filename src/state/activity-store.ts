@@ -1,7 +1,7 @@
 import {create} from "zustand";
 import type {ActivityResponse, ArcActivityEvent, EntityType, Transfer} from "@/data/types";
 import type {ActivityHealth} from "@/lib/activity-ui";
-import {eventsToTransfers, reconcileObservation} from "@/data/activity-engine";
+import {eventsToTransfers, observationReference, reconcileObservation} from "@/data/activity-engine";
 import type {VisualizationIntent} from "@/intelligence/intents";
 import {connectionAfterFailure, type Connection} from "./connection";
 
@@ -13,7 +13,8 @@ type State = {
   selected: string | null;
   query: string;
   visualizationIntent: VisualizationIntent;
-  mergeActivity: (events: ArcActivityEvent[]) => void;
+  observationReferenceTimestamp: number | null;
+  mergeActivity: (events: ArcActivityEvent[], referenceTimestamp?: number) => void;
   markRequestSucceeded: (response: ActivityResponse) => void;
   markRequestFailed: (response?: ActivityResponse) => void;
   select: (address: string | null) => void;
@@ -46,13 +47,15 @@ export const useActivity = create<State>(set => ({
   selected: null,
   query: "",
   visualizationIntent: {type: "reset"},
-  mergeActivity: incoming => set(state => {
+  observationReferenceTimestamp: null,
+  mergeActivity: (incoming, referenceTimestamp) => set(state => {
     // Existing canonical events win over overlapping polling responses. This
     // keeps the observation objects stable while still admitting new events
     // and pruning expired ones from the rolling window.
-    const events = reconcileObservation(state.events, incoming);
-    if (events.length === state.events.length && events.every((event, index) => event === state.events[index])) return state;
-    return {events, transfers: eventsToTransfers(events).filter(validTransfer)};
+    const nextReference = observationReference(state.observationReferenceTimestamp, referenceTimestamp);
+    const events = reconcileObservation(state.events, incoming, nextReference);
+    if (nextReference === state.observationReferenceTimestamp && events.length === state.events.length && events.every((event, index) => event === state.events[index])) return state;
+    return {events, transfers: eventsToTransfers(events).filter(validTransfer), observationReferenceTimestamp: nextReference};
   }),
   markRequestSucceeded: response => set({
     connection: "live",

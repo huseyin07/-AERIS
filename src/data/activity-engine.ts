@@ -49,6 +49,11 @@ export function reconcileObservation(current: readonly ArcActivityEvent[], incom
   return pruneObservation([...incoming, ...current], now);
 }
 
+/** Observation time may advance, but an out-of-order response may never move it backwards. */
+export function observationReference(current: number | null, incoming: number | undefined, wallClock = Date.now()) {
+  return Math.max(current ?? Number.NEGATIVE_INFINITY, incoming ?? current ?? wallClock);
+}
+
 export class BlockCursor {
   private hashes = new Map<string, string>();
   lastProcessedBlock: bigint | null = null;
