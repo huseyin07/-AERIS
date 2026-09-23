@@ -28,7 +28,7 @@ type Props = {
   onSelectTransfer: (id: string | null) => void;
 };
 type Node = {address: string; type: string; position: readonly [number, number, number]; volume: number; count: number};
-type Flow = {id: string; transfer: Transfer; from: string; to: string; curve: THREE.QuadraticBezierCurve3; points: THREE.Vector3[]; amount: number; phase: number; significant: boolean; recency: number; color: THREE.Color; enteredAt: number};
+type Flow = {id: string; transfer: Transfer; from: string; to: string; curve: THREE.QuadraticBezierCurve3; points: THREE.Vector3[]; amount: number; strength: number; phase: number; significant: boolean; recency: number; color: THREE.Color; enteredAt: number};
 type LabelRect = {left: number; right: number; top: number; bottom: number};
 
 function safeAmount(value: string) {
@@ -117,7 +117,8 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
         resource = {curve, points: curve.getPoints(28), phase: (stableHash(id) % 1000) / 1000, color: flowColor(transfer).clone(), enteredAt: performance.now()};
         flowResources.current.set(id, resource);
       }
-      return [{id, transfer, from, to, ...resource, amount: safeAmount(transfer.value), significant: significant.has(id), recency: (index + 1) / recent.length}];
+      const amount = safeAmount(transfer.value);
+      return [{id, transfer, from, to, ...resource, amount, strength: THREE.MathUtils.clamp(Math.log10(amount + 1) / 6, 0, 1), significant: significant.has(id), recency: (index + 1) / recent.length}];
     });
     const activeIds = new Set(orderedFlowIds);
     for (const id of flowResources.current.keys()) if (!activeIds.has(id)) flowResources.current.delete(id);
@@ -195,10 +196,12 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
   const labelled = selectLabelCandidates(flows.map(flow => ({...flow, agentHighlighted: intent.type === "highlight-transfers" && (intentFlowIds.has(flow.id) || intentFlowIds.has(flow.transfer.id))})), {selectedId: selectedTransferId, hoveredId: hoveredFlow, limit: compact ? 1 : tablet ? 2 : 3});
   return <group ref={group}>
     <ambientLight intensity={0.22}/><pointLight position={[1.5, 3, 4]} intensity={20} color="#a6d9ff"/>
-    <mesh><icosahedronGeometry args={[2.34, 4]}/><meshBasicMaterial color="#428ab3" wireframe transparent opacity={0.065} depthWrite={false}/></mesh>
-    <mesh scale={1.055}><sphereGeometry args={[2.34, 48, 32]}/><meshBasicMaterial color="#0a4c73" transparent opacity={0.055} side={THREE.BackSide} depthWrite={false}/></mesh>
+    <mesh><sphereGeometry args={[2.32, 48, 32]}/><meshStandardMaterial color="#031726" emissive="#06263b" emissiveIntensity={0.34} roughness={0.88} metalness={0.05} transparent opacity={0.24} depthWrite={false}/></mesh>
+    <mesh><icosahedronGeometry args={[2.35, 4]}/><meshBasicMaterial color="#428ab3" wireframe transparent opacity={0.062} depthWrite={false}/></mesh>
+    <mesh rotation={[0.32, 0.18, 0.12]} scale={0.992}><icosahedronGeometry args={[2.35, 2]}/><meshBasicMaterial color="#2b759e" wireframe transparent opacity={0.025} depthWrite={false}/></mesh>
+    <mesh scale={1.055}><sphereGeometry args={[2.34, 48, 32]}/><meshBasicMaterial color="#2d9ad1" transparent opacity={0.052} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false}/></mesh>
     <Sparkles count={compact ? 42 : 100} scale={[8, 6.8, 7.8]} size={0.38} speed={0.035} opacity={0.16}/>
-    {flows.map(flow => <Line key={flow.id} points={flow.points} color={`#${flow.color.getHexString()}`} transparent opacity={isFlowRelated(flow) ? (inspectedFlowId === flow.id ? 0.92 : flow.significant ? 0.36 : 0.055 + flow.recency * 0.13) : 0.028} lineWidth={inspectedFlowId === flow.id ? 1.75 : flow.significant ? 0.82 : 0.42} onPointerOver={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredFlow(flow.id);}} onPointerOut={() => setHoveredFlow(null)} onClick={(event: ThreeEvent<MouseEvent>) => {event.stopPropagation(); onSelectTransfer(flow.id);}}/>) }
+    {flows.map(flow => <Line key={flow.id} points={flow.points} color={`#${flow.color.getHexString()}`} transparent opacity={isFlowRelated(flow) ? (inspectedFlowId === flow.id ? 0.94 : flow.significant ? 0.38 + flow.strength * 0.16 : 0.07 + flow.recency * 0.11 + flow.strength * 0.08) : 0.026} lineWidth={inspectedFlowId === flow.id ? 1.75 : flow.significant ? 0.78 + flow.strength * 0.38 : 0.4 + flow.strength * 0.22} onPointerOver={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredFlow(flow.id);}} onPointerOut={() => setHoveredFlow(null)} onClick={(event: ThreeEvent<MouseEvent>) => {event.stopPropagation(); onSelectTransfer(flow.id);}}/>) }
     {labelled.map(flow => <TransferLabel key={flow.id} flow={flow} selected={flow.id === selectedTransferId} hovered={flow.id === hoveredFlow} occupied={labelRects}/>) }
     {annotations.slice(0, compact ? 0 : tablet ? 1 : 2).map(annotation => {
       const node = nodes.find(item => item.address.toLowerCase() === annotation.address.toLowerCase());
