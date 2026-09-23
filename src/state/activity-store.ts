@@ -1,7 +1,7 @@
 import {create} from "zustand";
 import type {ActivityResponse, ArcActivityEvent, EntityType, Transfer} from "@/data/types";
 import type {ActivityHealth} from "@/lib/activity-ui";
-import {eventsToTransfers, pruneObservation} from "@/data/activity-engine";
+import {eventsToTransfers, reconcileObservation} from "@/data/activity-engine";
 import type {VisualizationIntent} from "@/intelligence/intents";
 import {connectionAfterFailure, type Connection} from "./connection";
 
@@ -50,7 +50,7 @@ export const useActivity = create<State>(set => ({
     // Existing canonical events win over overlapping polling responses. This
     // keeps the observation objects stable while still admitting new events
     // and pruning expired ones from the rolling window.
-    const events = pruneObservation([...incoming, ...state.events]);
+    const events = reconcileObservation(state.events, incoming);
     if (events.length === state.events.length && events.every((event, index) => event === state.events[index])) return state;
     return {events, transfers: eventsToTransfers(events).filter(validTransfer)};
   }),

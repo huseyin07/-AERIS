@@ -44,6 +44,11 @@ export function pruneObservation(events: readonly ArcActivityEvent[], now = Date
   return [...deduped.values()].sort((a, b) => a.timestamp - b.timestamp || Number(BigInt(a.blockNumber) - BigInt(b.blockNumber)) || a.transactionIndex - b.transactionIndex || a.id.localeCompare(b.id)).slice(-limit);
 }
 
+/** Preserve still-valid verified observations across empty or partial polls. */
+export function reconcileObservation(current: readonly ArcActivityEvent[], incoming: readonly ArcActivityEvent[], now = Date.now()) {
+  return pruneObservation([...incoming, ...current], now);
+}
+
 export class BlockCursor {
   private hashes = new Map<string, string>();
   lastProcessedBlock: bigint | null = null;

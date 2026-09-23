@@ -71,4 +71,8 @@ export type ActivityResponse = {
   eventCount?: number;
   transferCount?: number;
   rpcWarnings?: string[];
+  windowStartTimestamp?: number;
+  windowEndTimestamp?: number;
+  windowCovered?: boolean;
+  blocksScanned?: number;
 };
