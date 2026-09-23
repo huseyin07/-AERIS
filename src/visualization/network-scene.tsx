@@ -6,8 +6,10 @@ import {useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject
 import * as THREE from "three";
 import type {Transfer} from "@/data/types";
 import type {VisualizationIntent} from "@/intelligence/intents";
-import {addressPosition, selectLabelCandidates, shortTransactionHash, significantTransferIds, stableHash, transferIdentity, uniqueTransfers, VISUAL_CAPS} from "./network-model";
+import {addressPosition, selectLabelCandidates, shortTransactionHash, significantTransferIds, stableHash, transferIdentity, uniqueTransfers} from "./network-model";
 
+const MAX_NODES = 84;
+const MAX_FLOWS = 44;
 const TRAIL_STEPS = 6;
 const BLUE = new THREE.Color("#52b8ff");
 const CONTRACT = new THREE.Color("#d8a55f");
@@ -78,10 +80,9 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
       volumes.set(transfer.from, (volumes.get(transfer.from) ?? 0) + amount); volumes.set(transfer.to, (volumes.get(transfer.to) ?? 0) + amount);
       counts.set(transfer.from, (counts.get(transfer.from) ?? 0) + 1); counts.set(transfer.to, (counts.get(transfer.to) ?? 0) + 1);
     }
-    const caps = compact ? VISUAL_CAPS.mobile : tablet ? VISUAL_CAPS.tablet : VISUAL_CAPS.desktop;
-    const nodeLimit = caps.nodes;
-    const flowLimit = caps.flows;
-    const recent = verified.slice(0, flowLimit);
+    const nodeLimit = compact ? 56 : MAX_NODES;
+    const flowLimit = compact ? 24 : tablet ? 34 : MAX_FLOWS;
+    const recent = verified.slice(-flowLimit);
     // Prefer addresses participating in visible flows, then fill from the window.
     const orderedAddresses = [...new Set([...recent.flatMap(item => [item.from, item.to]), ...verified.flatMap(item => [item.from, item.to])])].slice(0, nodeLimit);
     const nextNodes: Node[] = orderedAddresses.map(address => ({address, type: types.get(address) ?? "unknown", position: addressPosition(address), volume: volumes.get(address) ?? 0, count: counts.get(address) ?? 0}));
@@ -183,13 +184,13 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
       if (!node) return null;
       return <group key={`annotation:${annotation.address}`} position={node.position as [number, number, number]}><Html center distanceFactor={8} zIndexRange={[6, 0]} style={{pointerEvents: "none"}}><div className="entityAnnotation">{annotation.label}</div></Html></group>;
     })}
-    <instancedMesh ref={trailMesh} args={[undefined, undefined, VISUAL_CAPS.desktop.flows * TRAIL_STEPS]} count={flows.length * TRAIL_STEPS}><sphereGeometry args={[0.018, 6, 6]}/><meshBasicMaterial transparent opacity={0.34} depthWrite={false} toneMapped={false}/></instancedMesh>
-    <instancedMesh ref={pulseMesh} args={[undefined, undefined, VISUAL_CAPS.desktop.flows]} count={flows.length} onPointerOver={event => {event.stopPropagation(); const flow = flows[event.instanceId ?? -1]; if (flow) setHoveredFlow(flow.id);}} onPointerOut={() => setHoveredFlow(null)} onClick={event => {event.stopPropagation(); const flow = flows[event.instanceId ?? -1]; if (flow) onSelectTransfer(flow.id);}}><sphereGeometry args={[0.03, 8, 8]}/><meshBasicMaterial toneMapped={false}/></instancedMesh>
-    <instancedMesh ref={pulseHaloMesh} args={[undefined, undefined, VISUAL_CAPS.desktop.flows]} count={flows.length}><sphereGeometry args={[0.03, 8, 8]}/><meshBasicMaterial transparent opacity={0.16} depthWrite={false} toneMapped={false}/></instancedMesh>
-    <instancedMesh ref={impactMesh} args={[undefined, undefined, VISUAL_CAPS.desktop.flows]} count={flows.length}><ringGeometry args={[0.04, 0.065, 16]}/><meshBasicMaterial transparent opacity={0.25} side={THREE.DoubleSide} depthWrite={false} toneMapped={false}/></instancedMesh>
-    <instancedMesh ref={arrivalHaloMesh} args={[undefined, undefined, VISUAL_CAPS.desktop.flows]} count={flows.length}><sphereGeometry args={[0.09, 10, 10]}/><meshBasicMaterial transparent opacity={0.14} depthWrite={false} toneMapped={false}/></instancedMesh>
-    <instancedMesh ref={haloMesh} args={[undefined, undefined, VISUAL_CAPS.desktop.nodes]} count={nodes.length}><sphereGeometry args={[0.09, 10, 10]}/><meshBasicMaterial transparent opacity={0.11} depthWrite={false} toneMapped={false}/></instancedMesh>
-    <instancedMesh ref={nodeMesh} args={[undefined, undefined, VISUAL_CAPS.desktop.nodes]} count={nodes.length} onClick={event => {event.stopPropagation(); if (event.instanceId !== undefined && nodes[event.instanceId]) onSelectAddress(nodes[event.instanceId].address);}} onPointerMove={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredNode(event.instanceId ?? null);}} onPointerOut={() => setHoveredNode(null)}>
+    <instancedMesh ref={trailMesh} args={[undefined, undefined, MAX_FLOWS * TRAIL_STEPS]} count={flows.length * TRAIL_STEPS}><sphereGeometry args={[0.018, 6, 6]}/><meshBasicMaterial transparent opacity={0.34} depthWrite={false} toneMapped={false}/></instancedMesh>
+    <instancedMesh ref={pulseMesh} args={[undefined, undefined, MAX_FLOWS]} count={flows.length} onPointerOver={event => {event.stopPropagation(); const flow = flows[event.instanceId ?? -1]; if (flow) setHoveredFlow(flow.id);}} onPointerOut={() => setHoveredFlow(null)} onClick={event => {event.stopPropagation(); const flow = flows[event.instanceId ?? -1]; if (flow) onSelectTransfer(flow.id);}}><sphereGeometry args={[0.03, 8, 8]}/><meshBasicMaterial toneMapped={false}/></instancedMesh>
+    <instancedMesh ref={pulseHaloMesh} args={[undefined, undefined, MAX_FLOWS]} count={flows.length}><sphereGeometry args={[0.03, 8, 8]}/><meshBasicMaterial transparent opacity={0.16} depthWrite={false} toneMapped={false}/></instancedMesh>
+    <instancedMesh ref={impactMesh} args={[undefined, undefined, MAX_FLOWS]} count={flows.length}><ringGeometry args={[0.04, 0.065, 16]}/><meshBasicMaterial transparent opacity={0.25} side={THREE.DoubleSide} depthWrite={false} toneMapped={false}/></instancedMesh>
+    <instancedMesh ref={arrivalHaloMesh} args={[undefined, undefined, MAX_FLOWS]} count={flows.length}><sphereGeometry args={[0.09, 10, 10]}/><meshBasicMaterial transparent opacity={0.14} depthWrite={false} toneMapped={false}/></instancedMesh>
+    <instancedMesh ref={haloMesh} args={[undefined, undefined, MAX_NODES]} count={nodes.length}><sphereGeometry args={[0.09, 10, 10]}/><meshBasicMaterial transparent opacity={0.11} depthWrite={false} toneMapped={false}/></instancedMesh>
+    <instancedMesh ref={nodeMesh} args={[undefined, undefined, MAX_NODES]} count={nodes.length} onClick={event => {event.stopPropagation(); if (event.instanceId !== undefined && nodes[event.instanceId]) onSelectAddress(nodes[event.instanceId].address);}} onPointerMove={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredNode(event.instanceId ?? null);}} onPointerOut={() => setHoveredNode(null)}>
       <sphereGeometry args={[0.055, 12, 12]}/><meshStandardMaterial roughness={0.28} metalness={0.08} emissive="#194c6d" emissiveIntensity={1.7}/>
     </instancedMesh>
   </group>;
