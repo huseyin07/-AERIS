@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import {useEffect, useMemo, useState} from "react";
+import {useEffect, useMemo, useRef, useState} from "react";
 import {LiveActivity} from "./live-activity";
 import {VisualizationBoundary} from "./visualization-boundary";
 import {IntelligencePanel} from "./intelligence-panel";
@@ -12,6 +12,7 @@ import {ARC} from "@/data/arc";
 import type {Transfer} from "@/data/types";
 import {buildIntelligenceSnapshot, getEntityIntelligence} from "@/intelligence/engine";
 import {shortTransactionHash, transferIdentity} from "@/visualization/network-model";
+import {healthLabel, relativeActivityTime, searchObservation} from "@/lib/activity-ui";
 
 const NetworkScene = dynamic(
   () => import("@/visualization/network-scene").then(module => module.NetworkScene),
@@ -32,6 +33,7 @@ export function Dashboard() {
   const transfers = useActivity(state => state.transfers);
   const events = useActivity(state => state.events);
   const status = useActivity(state => state.connection);
+  const health = useActivity(state => state.health);
   const selected = useActivity(state => state.selected);
   const select = useActivity(state => state.select);
   const query = useActivity(state => state.query);
@@ -43,6 +45,9 @@ export function Dashboard() {
   const [selectedTransferId, setSelectedTransferId] = useState<string | null>(null);
   const [hoveredTransferId, setHoveredTransferId] = useState<string | null>(null);
   const [signalIndex, setSignalIndex] = useState(0);
+  const [clock, setClock] = useState(() => Date.now());
+  const feedRef = useRef<HTMLElement>(null);
+  const previousQuery = useRef("");
   const snapshot = useMemo(() => buildIntelligenceSnapshot(transfers, Date.now(), events), [transfers, events]);
 
   const volume = snapshot.totalVolume;
@@ -50,21 +55,39 @@ export function Dashboard() {
   const contracts = snapshot.activeContracts;
   const largest = transfers.find(transfer => transfer.id === snapshot.largestTransfer?.id);
 
+  const search = useMemo(() => searchObservation(transfers, events, query), [transfers, events, query]);
   const normalizedQuery = query.trim().toLowerCase();
-  const filtered = normalizedQuery ? transfers.filter(transfer =>
-    transfer.txHash.toLowerCase().includes(normalizedQuery) ||
-    transfer.from.toLowerCase().includes(normalizedQuery) ||
-    transfer.to.toLowerCase().includes(normalizedQuery)) : transfers;
+  const filtered = search.transfers;
   const activeTransferId = hoveredTransferId ?? selectedTransferId;
   const selectedTransfer = transfers.find(transfer => transferIdentity(transfer) === selectedTransferId) ?? null;
+  const selectedEvent = selectedTransfer ? events.find(event => event.type === "USDC_TRANSFER" && event.transactionHash.toLowerCase() === selectedTransfer.txHash.toLowerCase() && event.logIndex === selectedTransfer.logIndex) : null;
 
   useEffect(() => {
-    if (!normalizedQuery) return;
-    const match = transfers.find(transfer => transfer.txHash.toLowerCase() === normalizedQuery || transferIdentity(transfer) === normalizedQuery);
-    if (match) { setSelectedTransferId(transferIdentity(match)); return; }
-    const addressMatch = transfers.find(transfer => transfer.from.toLowerCase() === normalizedQuery || transfer.to.toLowerCase() === normalizedQuery);
-    if (addressMatch) select(addressMatch.from.toLowerCase() === normalizedQuery ? addressMatch.from : addressMatch.to);
-  }, [normalizedQuery, transfers, select]);
+    if (!normalizedQuery) {
+      if (previousQuery.current) { select(null); setSelectedTransferId(null); setIntent({type: "reset"}); }
+    } else if (search.kind === "transaction") {
+      const match = search.transfers[0];
+      setSelectedTransferId(match ? transferIdentity(match) : null);
+      if (match) setIntent({type: "highlight-transfers", transferIds: [match.id]});
+      else if (search.matchedEvent) { select(search.matchedEvent.to); setIntent({type: "highlight-addresses", addresses: [search.matchedEvent.to]}); }
+    } else if (search.kind === "address") {
+      select(search.matchedAddress);
+      setSelectedTransferId(null);
+      if (search.matchedAddress) setIntent({type: "highlight-addresses", addresses: [search.matchedAddress]});
+    }
+    previousQuery.current = normalizedQuery;
+  }, [normalizedQuery, search, select, setIntent]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setClock(Date.now()), 15_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedTransferId) return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    feedRef.current?.querySelector<HTMLElement>(`[data-transfer-id="${selectedTransferId}"]`)?.scrollIntoView({block: "nearest", behavior: reducedMotion ? "auto" : "smooth"});
+  }, [selectedTransferId]);
 
   const related = selected
     ? transfers.filter(transfer => transfer.from === selected || transfer.to === selected)
@@ -72,7 +95,8 @@ export function Dashboard() {
   const entity = selected ? getEntityIntelligence(snapshot, selected) : null;
   const emptyMessage = status === "unavailable" ? "Live data temporarily unavailable" : "Waiting for verified Arc Mainnet activity";
   const signal = snapshot.signals[signalIndex % Math.max(1, snapshot.signals.length)];
-  const statusLabel = status === "live" ? "LIVE" : status === "stale" ? "STALE" : status === "unavailable" ? "UNAVAILABLE" : "CONNECTING";
+  const statusLabel = healthLabel(status, health, clock);
+  const healthDetails = [health.latestBlock ? `Latest block ${health.latestBlock}` : "", health.processedBlockRange ? `Processed ${health.processedBlockRange.from}–${health.processedBlockRange.to}` : "", health.lastSuccessfulAt ? `Updated ${relativeActivityTime(health.lastSuccessfulAt, clock)}` : "", ...health.rpcWarnings].filter(Boolean).join(" · ");
   const annotations = [...new Map([
     ...(selected ? [{address: selected, label: "SELECTED ENTITY"}] : []),
     ...(intent.type === "highlight-addresses" ? intent.addresses.map(address => ({address, label: "AERIS FOCUS"})) : []),
@@ -92,7 +116,7 @@ export function Dashboard() {
         placeholder="Search address, transaction or entity"
         aria-label="Search address, transaction or entity"
       />
-      <div className={`status ${status}`}><i/><span>ARC MAINNET · {statusLabel}</span></div>
+      <div className={`status ${statusLabel.toLowerCase()}`} title={healthDetails || "Awaiting the first verified Arc Mainnet response"}><i/><span>ARC MAINNET · {statusLabel}</span></div>
     </header>
 
     <section className="observatory">
@@ -133,7 +157,7 @@ export function Dashboard() {
         </> : <>
           <small>ARC MAINNET</small>
           <h2>Arc Mainnet</h2>
-          <div className={`networkState ${status}`}><i/>{statusLabel}</div>
+          <div className={`networkState ${statusLabel.toLowerCase()}`} title={healthDetails}><i/>{statusLabel}</div>
           <dl>
             <div><dt>CHAIN ID</dt><dd>5042</dd></div>
             <div><dt>ASSET</dt><dd className="coinValue"><UsdcIcon/>USDC</dd></div>
@@ -150,8 +174,9 @@ export function Dashboard() {
       {selectedTransfer && <aside className="transferPanel" aria-label="Selected verified transfer">
         <button className="close" onClick={() => setSelectedTransferId(null)} aria-label="Close selected transfer">×</button>
         <small>SELECTED TRANSFER</small><h3>{shortTransactionHash(selectedTransfer.txHash)}</h3>
-        <dl><div><dt>AMOUNT</dt><dd>{money(selectedTransfer.value)} USDC</dd></div><div><dt>FROM</dt><dd>{short(selectedTransfer.from)}</dd></div><div><dt>TO</dt><dd>{short(selectedTransfer.to)}</dd></div><div><dt>BLOCK</dt><dd>{selectedTransfer.blockNumber}</dd></div><div><dt>TYPE</dt><dd>{selectedTransfer.fromType.toUpperCase()} → {selectedTransfer.toType.toUpperCase()}</dd></div></dl>
-        <a href={`${ARC.explorer}/tx/${selectedTransfer.txHash}`} target="_blank" rel="noreferrer">VIEW TRANSACTION ↗</a>
+        <dl><div><dt>AMOUNT</dt><dd>{money(selectedTransfer.value)} USDC</dd></div><div><dt>FROM</dt><dd title={selectedTransfer.from}>{short(selectedTransfer.from)}</dd></div><div><dt>TO</dt><dd title={selectedTransfer.to}>{short(selectedTransfer.to)}</dd></div><div><dt>BLOCK</dt><dd>{selectedTransfer.blockNumber}</dd></div><div><dt>TIME</dt><dd>{relativeActivityTime(selectedTransfer.timestamp, clock)}</dd></div><div><dt>STATUS</dt><dd>{selectedEvent?.status?.toUpperCase() ?? "UNKNOWN"}</dd></div><div><dt>ACTIVITY</dt><dd>USDC TRANSFER</dd></div><div><dt>CONTRACT</dt><dd title={ARC.usdc}>{short(ARC.usdc)}</dd></div></dl>
+        <button className="explainTransfer" onClick={() => {setAgentRequest(current => ({id: (current?.id ?? 0) + 1, query: `Explain transaction ${selectedTransfer.txHash}`})); setAgentOpen(true);}}>EXPLAIN VERIFIED TRANSFER</button>
+        <a href={`${ARC.explorer}/tx/${selectedTransfer.txHash}`} target="_blank" rel="noopener noreferrer" aria-label={`View transaction ${selectedTransfer.txHash} on Arcscan`}>VIEW ON ARCSCAN ↗</a>
       </aside>}
 
       <div className="legend">
@@ -172,13 +197,13 @@ export function Dashboard() {
     </section>
 
 
-    <section className="feed">
+    <section className="feed" ref={feedRef}>
       <div className="feedHead"><div><small>LIVE LEDGER</small><h2>Recent verified transfers</h2></div><span>{ARC.name} · USDC · REAL-TIME</span></div>
-      <div className="feedColumns"><span>FROM</span><span>TO</span><span>AMOUNT</span><span>TYPE</span><span>BLOCK</span></div>
-      {filtered.slice().reverse().slice(0, 16).map(transfer => <button className={`feedRow ${activeTransferId === transferIdentity(transfer) ? "active" : ""}`} key={transferIdentity(transfer)} onMouseEnter={() => setHoveredTransferId(transferIdentity(transfer))} onMouseLeave={() => setHoveredTransferId(null)} onFocus={() => setHoveredTransferId(transferIdentity(transfer))} onBlur={() => setHoveredTransferId(null)} onClick={() => setSelectedTransferId(transferIdentity(transfer))}>
-        <span className={`party ${transfer.fromType}`}><i/>{short(transfer.from)}</span><span className={`party ${transfer.toType}`}><i/>{short(transfer.to)}</span><b className="coinValue"><UsdcIcon/>{money(transfer.value)} <em>USDC</em></b><span>{transferType(transfer)}</span><small>{transfer.blockNumber}</small>
+      <div className="feedColumns"><span>FROM</span><span>TO</span><span>AMOUNT</span><span>TYPE</span><span>BLOCK</span><span>TIME</span></div>
+      {filtered.slice(0, 16).map(transfer => <button data-transfer-id={transferIdentity(transfer)} className={`feedRow ${activeTransferId === transferIdentity(transfer) ? "active" : ""}`} key={transferIdentity(transfer)} onMouseEnter={() => setHoveredTransferId(transferIdentity(transfer))} onMouseLeave={() => setHoveredTransferId(null)} onFocus={() => setHoveredTransferId(transferIdentity(transfer))} onBlur={() => setHoveredTransferId(null)} onClick={() => setSelectedTransferId(transferIdentity(transfer))} aria-pressed={selectedTransferId === transferIdentity(transfer)}>
+        <span className={`party ${transfer.fromType}`} title={transfer.from}><i/>{short(transfer.from)}</span><span className={`party ${transfer.toType}`} title={transfer.to}><i/>{short(transfer.to)}</span><b className="coinValue" title={`${transfer.value} USDC`}><UsdcIcon/>{money(transfer.value)} <em>USDC</em></b><span>{transferType(transfer)}</span><small>{transfer.blockNumber}</small><time dateTime={transfer.timestamp ? new Date(transfer.timestamp).toISOString() : undefined}>{relativeActivityTime(transfer.timestamp, clock)}</time>
       </button>)}
-      {!filtered.length && <p className="empty">{normalizedQuery ? "No matching verified transfers" : emptyMessage}</p>}
+      {!filtered.length && <p className="empty">{search.matchedEvent ? "Verified activity found; no matching USDC transfers." : search.kind === "address" || search.kind === "transaction" ? "No verified activity in the current observation window." : emptyMessage}</p>}
     </section>
 
     <footer><b>AERIS</b><span>Observe the network. Never invent the data.</span></footer>

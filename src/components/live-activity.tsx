@@ -28,21 +28,21 @@ export function LiveActivity() {
     async function load() {
       controller = new AbortController();
       const timeout = setTimeout(() => controller?.abort(), REQUEST_TIMEOUT_MS);
+      let failedResponse: ActivityResponse | undefined;
       try {
         const response = await fetch("/api/activity", {cache: "no-store", signal: controller.signal});
-        if (!response.ok) throw new Error(`Activity request failed (${response.status})`);
         const data: unknown = await response.json();
         if (!isActivityResponse(data)) throw new Error("Malformed Arc Mainnet activity response");
+        if (!response.ok || data.status === "error") { failedResponse = data; throw new Error(`Activity request failed (${response.status})`); }
         if (active) {
           merge(data.events);
-          if (data.status === "error") throw new Error("Arc Mainnet activity response reported an error");
           consecutiveFailures = 0;
-          markRequestSucceeded();
+          markRequestSucceeded(data);
         }
       } catch {
         if (active) {
           consecutiveFailures += 1;
-          markRequestFailed();
+          markRequestFailed(failedResponse);
         }
       } finally {
         clearTimeout(timeout);

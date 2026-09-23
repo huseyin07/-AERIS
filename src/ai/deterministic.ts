@@ -16,6 +16,7 @@ export function withObservationStatus(result: AerisAnswer, status: "live" | "sta
 }
 const format = (value: number) => value.toLocaleString("en-US", {maximumFractionDigits: 2});
 const short = (value: string) => `${value.slice(0, 6)}…${value.slice(-4)}`;
+const relative = (timestamp: number | undefined, now: number) => { if (!timestamp) return "time unavailable"; const seconds = Math.max(0, Math.floor((now - timestamp) / 1_000)); return seconds < 60 ? `${seconds}s ago` : `${Math.floor(seconds / 60)}m ago`; };
 function answer(summary: string, intent: VisualizationIntent = {type: "reset"}, evidence: AnswerEvidence[] = [], relatedAddresses: string[] = [], relatedTransferIds: string[] = []): AerisAnswer {
   return {message: summary, summary, evidence, intent, relatedAddresses, relatedTransferIds, scope: "current-window"};
 }
@@ -27,6 +28,13 @@ export function answerDeterministically(query: string, snapshot: IntelligenceSna
   if (!snapshot.transferCount) return answer("No verified activity is available in the current observation window.");
   if (/histor|yesterday|last\s+(week|month)|\b(24h|7d|30d)\b/.test(text)) return answer("AERIS currently only has access to the live verified observation window. Historical indexing is not available yet.");
   if (/\b(reset|clear)(\s+view)?\b/.test(text)) return answer("Showing all verified activity in the current observation window.");
+  const transactionHash = text.match(/0x[\da-f]{64}/)?.[0];
+  if (transactionHash) {
+    const transfer = transfers.find(item => item.txHash.toLowerCase() === transactionHash);
+    if (!transfer) return answer("This transaction is not present in the current verified observation window.");
+    const share = snapshot.totalVolume > 0 ? Number(transfer.value) / snapshot.totalVolume * 100 : 0;
+    return answer(`${format(Number(transfer.value))} USDC moved from ${short(transfer.from)} to ${short(transfer.to)} in block ${transfer.blockNumber}. This is ${format(share)}% of observed USDC volume; no identity or intent is inferred.`, {type: "highlight-transfers", transferIds: [transfer.id]}, [{text: `${format(Number(transfer.value))} USDC · ${relative(transfer.timestamp, snapshot.generatedAt)}`, transferId: transfer.id}], [transfer.from, transfer.to], [transfer.id]);
+  }
   const address = text.match(/0x[\da-f]{40}/)?.[0] ?? (/(address|explain|doing|this|node matter|incoming|outgoing)/.test(text) ? selectedAddress : null);
   if (address) {
     const entity = tools.getEntityIntelligence(address);
@@ -39,7 +47,7 @@ export function answerDeterministically(query: string, snapshot: IntelligenceSna
   }
   if (/(largest|biggest|top)\s+(verified\s+)?(flow|transfer)|largest\s+flows?/.test(text)) {
     const flows = tools.getLargestFlows(3); const ids = flows.map(item => item.id);
-    return answer(`Highlighting ${flows.length} largest observed flow${flows.length === 1 ? "" : "s"}. The largest is ${format(flows[0].amount)} USDC.`, {type: "highlight-transfers", transferIds: ids}, flows.map(item => ({text: `${format(item.amount)} USDC · ${short(item.from)} → ${short(item.to)}`, transferId: item.id})), [...new Set(flows.flatMap(item => [item.from, item.to]))], ids);
+    return answer(`Highlighting ${flows.length} largest observed flow${flows.length === 1 ? "" : "s"}. The largest is ${format(flows[0].amount)} USDC.`, {type: "highlight-transfers", transferIds: ids}, flows.map(item => ({text: `${format(item.amount)} USDC · ${short(item.from)} → ${short(item.to)} · ${relative(item.timestamp, snapshot.generatedAt)}`, transferId: item.id})), [...new Set(flows.flatMap(item => [item.from, item.to]))], ids);
   }
   if (/(active|top)\s+contracts?|contracts?\s+(are\s+)?active/.test(text)) {
     const contracts = tools.getActiveContracts(5); const addresses = contracts.map(item => item.address);
@@ -67,7 +75,7 @@ export function answerDeterministically(query: string, snapshot: IntelligenceSna
   }
   if (/wallet\s*(to|→|-)\s*contract/.test(text)) { const ids = transfers.filter(item => item.fromType === "wallet" && item.toType === "contract").map(item => item.id); return answer("Highlighting verified wallet-to-contract transfers in the current observation window.", {type: "highlight-transfers", transferIds: ids}, [], [], ids); }
   if (/(what('s|\s+is)\s+happening|happening\s+(right\s+)?now|summari[sz]e\s+(current\s+)?activity|current\s+activity)/.test(text)) {
-    const summary = `${snapshot.transferCount} verified transfers moved ${format(snapshot.totalVolume)} USDC among ${snapshot.uniqueAddresses} addresses in the current observation window.`;
+    const summary = `${snapshot.networkActivity.observedEvents} verified activities include ${snapshot.transferCount} USDC transfers moving ${format(snapshot.totalVolume)} USDC among ${snapshot.uniqueAddresses} addresses, with ${snapshot.networkActivity.contractInteractions} contract interactions in the current observation window.`;
     const primary = snapshot.signals[0];
     return answer(`${summary}${primary ? ` ${primary.description}` : ""}`, primary?.intent ?? {type: "reset"}, [{text: `${format(snapshot.totalVolume)} USDC observed`}, {text: `${snapshot.uniqueAddresses} active addresses`}, ...(primary ? [{text: primary.description, transferId: primary.relatedTransferIds[0], address: primary.relatedAddresses[0]}] : [])], primary?.relatedAddresses ?? [], primary?.relatedTransferIds ?? []);
   }
