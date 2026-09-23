@@ -6,6 +6,8 @@ type TransferLog = {
   transactionHash?: unknown;
   blockNumber?: bigint | null;
   logIndex?: number | null;
+  blockHash?: unknown;
+  transactionIndex?: number | null;
 };
 
 export function normalizeTransfer(log: TransferLog): Transfer | null {
@@ -23,6 +25,8 @@ export function normalizeTransfer(log: TransferLog): Transfer | null {
     id: `${log.transactionHash}:${log.logIndex}`,
     txHash: log.transactionHash as `0x${string}`,
     blockNumber: log.blockNumber.toString(),
+    ...typeof log.blockHash === "string" && /^0x[\da-f]{64}$/i.test(log.blockHash) ? {blockHash: log.blockHash as `0x${string}`} : {},
+    ...typeof log.transactionIndex === "number" && Number.isSafeInteger(log.transactionIndex) ? {transactionIndex: log.transactionIndex} : {},
     logIndex: log.logIndex,
     from: from.toLowerCase() as `0x${string}`,
     to: to.toLowerCase() as `0x${string}`,
