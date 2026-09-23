@@ -5,7 +5,8 @@ import type {ActivityResponse} from "@/data/types";
 import {useActivity} from "@/state/activity-store";
 
 const POLL_INTERVAL_MS = 5_000;
-const REQUEST_TIMEOUT_MS = 9_000;
+const REQUEST_TIMEOUT_MS = 20_000;
+const MAX_RETRY_DELAY_MS = 20_000;
 
 function isActivityResponse(value: unknown): value is ActivityResponse {
   if (!value || typeof value !== "object") return false;
@@ -22,6 +23,7 @@ export function LiveActivity() {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let controller: AbortController | undefined;
+    let consecutiveFailures = 0;
 
     async function load() {
       controller = new AbortController();
@@ -33,13 +35,22 @@ export function LiveActivity() {
         if (!isActivityResponse(data)) throw new Error("Malformed Arc Mainnet activity response");
         if (active) {
           merge(data.events);
+          consecutiveFailures = 0;
           markRequestSucceeded();
         }
       } catch {
-        if (active) markRequestFailed();
+        if (active) {
+          consecutiveFailures += 1;
+          markRequestFailed();
+        }
       } finally {
         clearTimeout(timeout);
-        if (active) timer = setTimeout(load, POLL_INTERVAL_MS);
+        if (active) {
+          const retryDelay = consecutiveFailures === 0
+            ? POLL_INTERVAL_MS
+            : Math.min(POLL_INTERVAL_MS * 2 ** Math.min(consecutiveFailures - 1, 2), MAX_RETRY_DELAY_MS);
+          timer = setTimeout(load, retryDelay);
+        }
       }
     }
 
