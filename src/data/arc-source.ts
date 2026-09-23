@@ -10,7 +10,8 @@ const classifications = new AddressClassificationCache();
 const cursor = new BlockCursor();
 let observed: ArcActivityEvent[] = [];
 let inFlight: Promise<{latestBlock: bigint; events: ArcActivityEvent[]}> | null = null;
-const MAX_BLOCKS_PER_POLL = 8n;
+const MAX_BLOCKS_PER_POLL = 3n;
+const MAX_TRANSACTIONS_PER_BLOCK = 96;
 const REORG_LOOKBACK = 2n;
 
 async function kind(address: HexAddress): Promise<EntityType> {
@@ -35,7 +36,7 @@ async function processBlock(blockNumber: bigint, observedAt: number) {
   // A changed hash invalidates every previously normalized child of this recent block.
   observed = observed.filter(event => event.blockNumber !== block.number.toString());
   const timestamp = Number(block.timestamp) * 1_000;
-  const transactions = block.transactions;
+  // Keep RPC work bounded on unusually busy blocks so the activity endpoint cannot stall indefinitely.\n  // We prefer the newest transactions; USDC transfers are still collected independently from the full block logs below.\n  const transactions = block.transactions.slice(-MAX_TRANSACTIONS_PER_BLOCK);
   const receipts = await mapConcurrent(transactions, 6, tx => client.getTransactionReceipt({hash: tx.hash}).catch(() => null));
   const receiptByHash = new Map(receipts.flatMap(receipt => receipt ? [[receipt.transactionHash.toLowerCase(), receipt] as const] : []));
   const destinations = [...new Set(transactions.flatMap(tx => tx.to ? [tx.to.toLowerCase() as HexAddress] : []))];
