@@ -26,7 +26,7 @@ type ActivityBase = {
   blockHash: HexHash;
   transactionHash: HexHash;
   transactionIndex: number;
-  timestamp: number;
+  timestamp?: number;
   from: HexAddress;
   status: ActivityStatus;
   source: "arc-mainnet-rpc";
@@ -83,5 +83,6 @@ export type ActivityResponse = {
   rpcRequestCount?: {chainIdentity: number; latestHead: number; timestampHeaders: number; windowDiscoveryHeaders: number; metadataHeaders: number; fullBlocks: number; logs: number; receipts: number; bytecode: number; total: number};
   enrichment?: {cacheHits: number; cacheMisses: number; queued: number; performedBlocking: number};
   logCoverage?: {chunks: number; splits: number; failedChunks: number};
+  eventMetadata?: {timestampsAvailable: number; timestampsUnavailable: number};
   stageTimingsMs?: {headLookup: number; windowDiscovery: number; contractBlocks: number; usdcLogs: number; metadata: number; normalization: number; total: number};
 };

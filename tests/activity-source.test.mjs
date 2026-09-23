@@ -332,3 +332,32 @@ test("window discovery verifies the boundary across irregular timestamps", async
   assert.equal(requestedStarts[0], expected);
   assert.equal(result.diagnostics.windowCovered, true);
 });
+
+test("thousands of log events do not fan out into per-block metadata requests", async () => {
+  const logs = Array.from({length: 2_000}, (_, index) => {
+    const blockNumber = 400n + BigInt(index % 600);
+    return {...transferLog(String(4_000 + index), blockNumber, index), args: {from: address(String(10_000 + index * 2)), to: address(String(10_001 + index * 2)), value: 1_000_000n}};
+  });
+  const result = await createActivityIngestor(mockRpc({getLogs: async ({fromBlock, toBlock}) => logs.filter(log => log.blockNumber >= fromBlock && log.blockNumber <= toBlock)}), {now: () => now, scheduleEnrichment: () => {}})();
+  const transfers = result.events.filter(event => event.type === "USDC_TRANSFER");
+  assert.equal(transfers.length, 2_000);
+  assert.equal(transfers.every(event => event.timestamp === undefined), true);
+  assert.equal(transfers.every(event => event.blockHash === hash(`b${event.blockNumber}`)), true);
+  assert.equal(result.diagnostics.rpcRequestCount.metadataHeaders, 0);
+  assert.equal(result.diagnostics.rpcRequestCount.timestampHeaders, result.diagnostics.rpcRequestCount.windowDiscoveryHeaders);
+  assert.equal(result.diagnostics.rpcRequestCount.bytecode, 0);
+  assert.equal(result.diagnostics.eventMetadata.timestampsUnavailable, 2_000);
+  assert.equal(result.diagnostics.windowCovered, true);
+});
+
+test("timestamp-free verified events reconcile and sort by chain coordinates", () => {
+  const make = (suffix, blockNumber, transactionIndex, logIndex, fromType = "unknown") => transferToActivity({id: suffix, txHash: hash(suffix), blockNumber: String(blockNumber), logIndex, from: address("3"), to: address("4"), value: "1", fromType, toType: "unknown"}, {blockHash: hash(`b${blockNumber}`), transactionIndex, observedAt: now});
+  const old = make("5001", 700, 2, 1);
+  const removed = make("5002", 699, 1, 0);
+  const enriched = make("5001", 700, 2, 1, "contract");
+  const later = make("5003", 700, 2, 2);
+  const reconciled = reconcileObservation([old, removed], [later, enriched], now, {completeWindow: true, minimumBlockNumber: 700n});
+  assert.deepEqual(reconciled.map(event => event.id), [old.id, later.id]);
+  assert.equal(reconciled[0].type === "USDC_TRANSFER" && reconciled[0].fromType, "contract");
+  assert.equal(reconciled.every(event => event.timestamp === undefined), true);
+});

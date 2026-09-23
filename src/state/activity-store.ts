@@ -14,7 +14,7 @@ type State = {
   query: string;
   visualizationIntent: VisualizationIntent;
   observationReferenceTimestamp: number | null;
-  mergeActivity: (events: ArcActivityEvent[], referenceTimestamp?: number) => void;
+  mergeActivity: (events: ArcActivityEvent[], referenceTimestamp?: number, completeWindow?: boolean, minimumBlockNumber?: string) => void;
   markRequestSucceeded: (response: ActivityResponse) => void;
   markRequestFailed: (response?: ActivityResponse) => void;
   select: (address: string | null) => void;
@@ -48,12 +48,12 @@ export const useActivity = create<State>(set => ({
   query: "",
   visualizationIntent: {type: "reset"},
   observationReferenceTimestamp: null,
-  mergeActivity: (incoming, referenceTimestamp) => set(state => {
-    // Existing canonical events win over overlapping polling responses. This
-    // keeps the observation objects stable while still admitting new events
-    // and pruning expired ones from the rolling window.
+  mergeActivity: (incoming, referenceTimestamp, completeWindow = false, minimumBlockNumber) => set(state => {
+    // Surviving canonical objects remain stable, while a complete snapshot
+    // supplies the verified block boundary needed to expire timestamp-free logs.
     const nextReference = observationReference(state.observationReferenceTimestamp, referenceTimestamp);
-    const events = reconcileObservation(state.events, incoming, nextReference);
+    const acceptsSnapshotBoundary = completeWindow && (state.observationReferenceTimestamp === null || referenceTimestamp !== undefined && referenceTimestamp >= state.observationReferenceTimestamp);
+    const events = reconcileObservation(state.events, incoming, nextReference, {completeWindow: acceptsSnapshotBoundary, minimumBlockNumber: acceptsSnapshotBoundary && minimumBlockNumber ? BigInt(minimumBlockNumber) : undefined});
     if (nextReference === state.observationReferenceTimestamp && events.length === state.events.length && events.every((event, index) => event === state.events[index])) return state;
     return {events, transfers: eventsToTransfers(events).filter(validTransfer), observationReferenceTimestamp: nextReference};
   }),

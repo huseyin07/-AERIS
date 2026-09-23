@@ -32,21 +32,40 @@ export function normalizeTransactionActivity(tx: NormalizedTransaction, receipt:
   return {...base, id: contractCallActivityId(tx.hash), type: "CONTRACT_CALL", to, ...(selector ? {inputSelector: selector} : {})};
 }
 
-export function transferToActivity(transfer: Transfer, context: {blockHash: HexHash; transactionIndex: number; timestamp: number; observedAt: number; status?: ActivityStatus}): ArcActivityEvent {
+export function transferToActivity(transfer: Transfer, context: {blockHash: HexHash; transactionIndex: number; timestamp?: number; observedAt: number; status?: ActivityStatus}): ArcActivityEvent {
   const raw = transfer.amountRaw ?? String(BigInt(Math.round(Number(transfer.value) * 1_000_000)));
-  return {id: usdcActivityId(transfer.txHash, transfer.logIndex), type: "USDC_TRANSFER", chainId: 5042, blockNumber: transfer.blockNumber, blockHash: context.blockHash, transactionHash: transfer.txHash, transactionIndex: context.transactionIndex, timestamp: context.timestamp, from: transfer.from.toLowerCase() as HexAddress, to: transfer.to.toLowerCase() as HexAddress, status: context.status ?? "unknown", source: "arc-mainnet-rpc", observedAt: context.observedAt, parentTransactionId: transactionActivityId(transfer.txHash), logIndex: transfer.logIndex, amountRaw: raw, amountUSDC: transfer.value || formatUnits(BigInt(raw), 6), fromType: transfer.fromType, toType: transfer.toType};
+  return {id: usdcActivityId(transfer.txHash, transfer.logIndex), type: "USDC_TRANSFER", chainId: 5042, blockNumber: transfer.blockNumber, blockHash: context.blockHash, transactionHash: transfer.txHash, transactionIndex: context.transactionIndex, ...(context.timestamp === undefined ? {} : {timestamp: context.timestamp}), from: transfer.from.toLowerCase() as HexAddress, to: transfer.to.toLowerCase() as HexAddress, status: context.status ?? "unknown", source: "arc-mainnet-rpc", observedAt: context.observedAt, parentTransactionId: transactionActivityId(transfer.txHash), logIndex: transfer.logIndex, amountRaw: raw, amountUSDC: transfer.value || formatUnits(BigInt(raw), 6), fromType: transfer.fromType, toType: transfer.toType};
 }
 
-export function pruneObservation(events: readonly ArcActivityEvent[], now = Date.now(), limit = MAX_OBSERVED_EVENTS) {
+function chainOrder(a: ArcActivityEvent, b: ArcActivityEvent) {
+  return Number(BigInt(a.blockNumber) - BigInt(b.blockNumber)) || a.transactionIndex - b.transactionIndex || (a.type === "USDC_TRANSFER" ? a.logIndex : -1) - (b.type === "USDC_TRANSFER" ? b.logIndex : -1) || a.id.localeCompare(b.id);
+}
+
+export function pruneObservation(events: readonly ArcActivityEvent[], now = Date.now(), limit = MAX_OBSERVED_EVENTS, minimumBlockNumber?: bigint) {
   const cutoff = now - OBSERVATION_WINDOW_MS;
   const deduped = new Map<string, ArcActivityEvent>();
-  for (const event of events) if (event.timestamp >= cutoff && event.timestamp <= now + 60_000) deduped.set(event.id, event);
-  return [...deduped.values()].sort((a, b) => a.timestamp - b.timestamp || Number(BigInt(a.blockNumber) - BigInt(b.blockNumber)) || a.transactionIndex - b.transactionIndex || a.id.localeCompare(b.id)).slice(-limit);
+  for (const event of events) {
+    const inBlockWindow = minimumBlockNumber === undefined || BigInt(event.blockNumber) >= minimumBlockNumber;
+    const inTimeWindow = event.timestamp === undefined || event.timestamp >= cutoff && event.timestamp <= now + 60_000;
+    if (inBlockWindow && inTimeWindow) deduped.set(event.id, event);
+  }
+  return [...deduped.values()].sort(chainOrder).slice(-limit);
 }
 
 /** Preserve still-valid verified observations across empty or partial polls. */
-export function reconcileObservation(current: readonly ArcActivityEvent[], incoming: readonly ArcActivityEvent[], now = Date.now()) {
-  return pruneObservation([...incoming, ...current], now);
+export function reconcileObservation(current: readonly ArcActivityEvent[], incoming: readonly ArcActivityEvent[], now = Date.now(), options: {completeWindow?: boolean; minimumBlockNumber?: bigint} = {}) {
+  const currentById = new Map(current.map(event => [event.id, event]));
+  const merged = new Map<string, ArcActivityEvent>();
+  if (!options.completeWindow) for (const event of current) merged.set(event.id, event);
+  for (const event of incoming) {
+    const existing = currentById.get(event.id);
+    if (existing?.type === "USDC_TRANSFER" && event.type === "USDC_TRANSFER") {
+      const fromType = existing.fromType === "unknown" ? event.fromType : existing.fromType;
+      const toType = existing.toType === "unknown" ? event.toType : existing.toType;
+      merged.set(event.id, fromType === existing.fromType && toType === existing.toType ? existing : {...event, fromType, toType});
+    } else merged.set(event.id, existing ?? event);
+  }
+  return pruneObservation([...merged.values()], now, MAX_OBSERVED_EVENTS, options.minimumBlockNumber);
 }
 
 /** Observation time may advance, but an out-of-order response may never move it backwards. */

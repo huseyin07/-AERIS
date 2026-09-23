@@ -48,6 +48,7 @@ export type ActivityDiagnostics = {
   rpcRequestCount: {chainIdentity: number; latestHead: number; timestampHeaders: number; windowDiscoveryHeaders: number; metadataHeaders: number; fullBlocks: number; logs: number; receipts: number; bytecode: number; total: number};
   enrichment: {cacheHits: number; cacheMisses: number; queued: number; performedBlocking: number};
   logCoverage: {chunks: number; splits: number; failedChunks: number};
+  eventMetadata: {timestampsAvailable: number; timestampsUnavailable: number};
   stageTimingsMs: {headLookup: number; windowDiscovery: number; contractBlocks: number; usdcLogs: number; metadata: number; normalization: number; total: number};
 };
 
@@ -154,7 +155,6 @@ export function createActivityIngestor(rpc: ActivityRpc, options: {now?: () => n
       throw new Error(`Arc head ${latestBlock} changed during ingestion; retrying with a fresh snapshot is required`);
     }
 
-    const blockByNumber = new Map([...headers, ...blocks.map(block => [block.number.toString(), block] as const)]);
     const candidates = blocks.flatMap(block => block.transactions
       .filter(tx => tx.to === null || tx.input !== "0x")
       .map(tx => ({tx, block})))
@@ -186,11 +186,7 @@ export function createActivityIngestor(rpc: ActivityRpc, options: {now?: () => n
     timings.usdcLogs = monotonicNow() - logsStartedAt;
     const metadataStartedAt = monotonicNow();
     const transfers = [...new Map(rawLogs.map(normalizeTransfer).filter((item): item is Transfer => item !== null).map(transfer => [`${transfer.txHash.toLowerCase()}:${transfer.logIndex}`, transfer])).values()];
-    const missingBlocks = [...new Set(transfers.map(transfer => transfer.blockNumber))].filter(number => !blockByNumber.has(number));
-    await mapConcurrent(missingBlocks, RPC_CONCURRENCY, async number => {
-      try { blockByNumber.set(number, await header(BigInt(number), "metadata")); }
-      catch (error) { warnings.push(`eth_getBlockByNumber ${number}: ${warning(error)}`); }
-    });
+    let transferMetadataCovered = true;
 
     const addresses = [...new Set([
       ...candidates.flatMap(({tx}) => tx.to ? [tx.to.toLowerCase() as HexAddress] : []),
@@ -232,21 +228,21 @@ export function createActivityIngestor(rpc: ActivityRpc, options: {now?: () => n
       return event ? [event] : [];
     });
     const transferEvents = transfers.flatMap(transfer => {
-      const block = blockByNumber.get(transfer.blockNumber);
       const receipt = receiptByHash.get(transfer.txHash.toLowerCase());
       const transactionIndex = transfer.transactionIndex ?? receipt?.transactionIndex;
-      const blockHash = transfer.blockHash ?? block?.hash;
-      if (transactionIndex === undefined || !blockHash || !block) {
+      const blockHash = transfer.blockHash;
+      if (transactionIndex === undefined || !blockHash) {
+        transferMetadataCovered = false;
         warnings.push(`Incomplete USDC log ${transfer.txHash}:${transfer.logIndex}`);
         return [];
       }
       const status: ActivityStatus = receipt?.status === "success" ? "success" : receipt?.status === "reverted" ? "failed" : "unknown";
-      return [transferToActivity({...transfer, fromType: types.get(transfer.from) ?? "unknown", toType: types.get(transfer.to) ?? "unknown"}, {blockHash, transactionIndex, timestamp: Number(block.timestamp) * 1_000, observedAt, status})];
+      return [transferToActivity({...transfer, fromType: types.get(transfer.from) ?? "unknown", toType: types.get(transfer.to) ?? "unknown"}, {blockHash, transactionIndex, observedAt, status})];
     });
 
-    const observed = pruneObservation([...txEvents, ...transferEvents], windowReferenceTimestamp);
+    const observed = pruneObservation([...txEvents, ...transferEvents], windowReferenceTimestamp, undefined, start);
     timings.normalization = monotonicNow() - normalizationStartedAt;
-    const windowCovered = rangeCovered && logsCovered;
+    const windowCovered = rangeCovered && logsCovered && transferMetadataCovered;
     counts.total = counts.chainIdentity + counts.latestHead + counts.timestampHeaders + counts.fullBlocks + counts.logs + counts.receipts + counts.bytecode;
     timings.total = monotonicNow() - startedAt;
     const diagnostics: ActivityDiagnostics = {
@@ -267,6 +263,7 @@ export function createActivityIngestor(rpc: ActivityRpc, options: {now?: () => n
       rpcRequestCount: counts,
       enrichment: {cacheHits: types.size, cacheMisses: uncached.length, queued: enrichmentAddresses.length, performedBlocking: 0},
       logCoverage,
+      eventMetadata: {timestampsAvailable: txEvents.length, timestampsUnavailable: transferEvents.length},
       stageTimingsMs: timings,
     };
     if (enrichmentAddresses.length) {
@@ -296,6 +293,7 @@ function freezeActivityResult(value: ActivityResult) {
   if (value.diagnostics.rpcRequestCount) Object.freeze(value.diagnostics.rpcRequestCount);
   if (value.diagnostics.enrichment) Object.freeze(value.diagnostics.enrichment);
   if (value.diagnostics.logCoverage) Object.freeze(value.diagnostics.logCoverage);
+  if (value.diagnostics.eventMetadata) Object.freeze(value.diagnostics.eventMetadata);
   if (value.diagnostics.stageTimingsMs) Object.freeze(value.diagnostics.stageTimingsMs);
   Object.freeze(value.diagnostics);
   return Object.freeze(value);
