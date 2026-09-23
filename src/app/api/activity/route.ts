@@ -17,7 +17,8 @@ export async function GET() {
       transfers: eventsToTransfers(data.events),
       observationWindowMs: OBSERVATION_WINDOW_MS,
       fetchedAt: Date.now(),
-    }, {headers: {"Cache-Control": "no-store"}});
+      ...data.diagnostics,
+    }, {headers: {"Cache-Control": "no-store", "Vercel-CDN-Cache-Control": "public, s-maxage=12, stale-while-revalidate=24"}});
   } catch (error) {
     console.error("Arc Mainnet activity request failed", error);
     return NextResponse.json({
@@ -26,6 +27,9 @@ export async function GET() {
       chainId: ARC.chainId,
       events: [],
       transfers: [],
+      status: "error",
+      rpcWarnings: [error instanceof Error ? error.message.slice(0, 240) : "Unknown RPC failure"],
+      fetchedAt: Date.now(),
     }, {status: 503, headers: {"Cache-Control": "no-store"}});
   }
 }
