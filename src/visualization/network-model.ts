@@ -39,9 +39,9 @@ export function significantTransferIds(transfers: readonly Transfer[], limit: nu
 }
 
 export const VISUAL_CAPS = {
-  desktop: {flows: 60, nodes: 120, labels: 3, annotations: 2},
-  tablet: {flows: 40, nodes: 80, labels: 2, annotations: 1},
-  mobile: {flows: 20, nodes: 45, labels: 1, annotations: 0},
+  desktop: {flows: 44, nodes: 84, labels: 3, annotations: 2},
+  tablet: {flows: 34, nodes: 84, labels: 2, annotations: 1},
+  mobile: {flows: 24, nodes: 56, labels: 1, annotations: 0},
 } as const;
 
 /** Deterministic money-flow selection with pair and entity concentration limits. */
@@ -63,6 +63,18 @@ export function selectSignificantTransfers(transfers: readonly Transfer[], limit
 
 export function uniqueTransfers(transfers: readonly Transfer[]) {
   return [...new Map(transfers.map(transfer => [transferIdentity(transfer), transfer])).values()];
+}
+
+/** Keep surviving identities in their existing slots and append genuinely new ones. */
+export function reconcileIdentityOrder(previous: readonly string[], incoming: readonly string[]) {
+  const next = new Set(incoming);
+  const retained = previous.filter(identity => next.has(identity));
+  const retainedSet = new Set(retained);
+  for (const identity of incoming) if (!retainedSet.has(identity)) {
+    retained.push(identity);
+    retainedSet.add(identity);
+  }
+  return retained;
 }
 
 export type LabelCandidate = {

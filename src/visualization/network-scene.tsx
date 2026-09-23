@@ -2,11 +2,11 @@
 
 import {Canvas, type ThreeEvent, useFrame, useThree} from "@react-three/fiber";
 import {Html, Line, OrbitControls, Sparkles} from "@react-three/drei";
-import {useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject} from "react";
+import {memo, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject} from "react";
 import * as THREE from "three";
 import type {Transfer} from "@/data/types";
 import type {VisualizationIntent} from "@/intelligence/intents";
-import {addressPosition, selectLabelCandidates, shortTransactionHash, significantTransferIds, stableHash, transferIdentity, uniqueTransfers} from "./network-model";
+import {addressPosition, reconcileIdentityOrder, selectLabelCandidates, shortTransactionHash, significantTransferIds, stableHash, transferIdentity, uniqueTransfers} from "./network-model";
 
 const MAX_NODES = 84;
 const MAX_FLOWS = 44;
@@ -28,7 +28,7 @@ type Props = {
   onSelectTransfer: (id: string | null) => void;
 };
 type Node = {address: string; type: string; position: readonly [number, number, number]; volume: number; count: number};
-type Flow = {id: string; transfer: Transfer; from: string; to: string; curve: THREE.QuadraticBezierCurve3; amount: number; phase: number; significant: boolean; recency: number; color: THREE.Color};
+type Flow = {id: string; transfer: Transfer; from: string; to: string; curve: THREE.QuadraticBezierCurve3; points: THREE.Vector3[]; amount: number; phase: number; significant: boolean; recency: number; color: THREE.Color; enteredAt: number};
 type LabelRect = {left: number; right: number; top: number; bottom: number};
 
 function safeAmount(value: string) {
@@ -61,6 +61,9 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
   const compact = size.width < 760;
   const tablet = size.width < 1050;
   const [reducedMotion, setReducedMotion] = useState(false);
+  const nodeOrder = useRef<string[]>([]);
+  const flowOrder = useRef<string[]>([]);
+  const flowResources = useRef(new Map<string, Pick<Flow, "curve" | "points" | "phase" | "color" | "enteredAt">>());
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -76,31 +79,48 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
     const counts = new Map<string, number>();
     for (const transfer of verified) {
       const amount = safeAmount(transfer.value);
-      types.set(transfer.from, transfer.fromType); types.set(transfer.to, transfer.toType);
-      volumes.set(transfer.from, (volumes.get(transfer.from) ?? 0) + amount); volumes.set(transfer.to, (volumes.get(transfer.to) ?? 0) + amount);
-      counts.set(transfer.from, (counts.get(transfer.from) ?? 0) + 1); counts.set(transfer.to, (counts.get(transfer.to) ?? 0) + 1);
+      const from = transfer.from.toLowerCase(); const to = transfer.to.toLowerCase();
+      types.set(from, transfer.fromType); types.set(to, transfer.toType);
+      volumes.set(from, (volumes.get(from) ?? 0) + amount); volumes.set(to, (volumes.get(to) ?? 0) + amount);
+      counts.set(from, (counts.get(from) ?? 0) + 1); counts.set(to, (counts.get(to) ?? 0) + 1);
     }
     const nodeLimit = compact ? 56 : MAX_NODES;
     const flowLimit = compact ? 24 : tablet ? 34 : MAX_FLOWS;
     const recent = verified.slice(-flowLimit);
     // Prefer addresses participating in visible flows, then fill from the window.
-    const orderedAddresses = [...new Set([...recent.flatMap(item => [item.from, item.to]), ...verified.flatMap(item => [item.from, item.to])])].slice(0, nodeLimit);
+    const candidateAddresses = [...new Set([...recent.flatMap(item => [item.from.toLowerCase(), item.to.toLowerCase()]), ...verified.flatMap(item => [item.from.toLowerCase(), item.to.toLowerCase()])])].slice(0, nodeLimit);
+    const orderedAddresses = reconcileIdentityOrder(nodeOrder.current, candidateAddresses);
+    nodeOrder.current = orderedAddresses;
     const nextNodes: Node[] = orderedAddresses.map(address => ({address, type: types.get(address) ?? "unknown", position: addressPosition(address), volume: volumes.get(address) ?? 0, count: counts.get(address) ?? 0}));
     const visible = new Set(orderedAddresses);
     const significant = new Set(significantTransferIds(recent, compact ? 1 : tablet ? 3 : 5));
-    const nextFlows: Flow[] = recent.flatMap((transfer, index) => {
-      if (!visible.has(transfer.from) || !visible.has(transfer.to)) return [];
-      const id = transferIdentity(transfer);
-      const start = new THREE.Vector3(...addressPosition(transfer.from));
-      const end = new THREE.Vector3(...addressPosition(transfer.to));
-      const midpoint = start.clone().add(end).multiplyScalar(0.5);
-      const normal = start.clone().cross(end);
-      if (normal.lengthSq() < 0.001) normal.set(0, 1, 0).cross(start);
-      normal.normalize().multiplyScalar(((stableHash(id) % 200) / 100 - 1) * 0.58);
-      const lift = 3.05 + (stableHash(`${id}:arc`) % 48) / 100;
-      const middle = (midpoint.lengthSq() > 0.001 ? midpoint.normalize() : start.clone().normalize()).multiplyScalar(lift).add(normal);
-      return [{id, transfer, from: transfer.from, to: transfer.to, curve: new THREE.QuadraticBezierCurve3(start, middle, end), amount: safeAmount(transfer.value), phase: (stableHash(id) % 1000) / 1000, significant: significant.has(id), recency: (index + 1) / recent.length, color: flowColor(transfer)}];
+    const byId = new Map(recent.map((transfer, index) => [transferIdentity(transfer), {transfer, index}]));
+    const orderedFlowIds = reconcileIdentityOrder(flowOrder.current, [...byId.keys()]);
+    flowOrder.current = orderedFlowIds;
+    const nextFlows: Flow[] = orderedFlowIds.flatMap(id => {
+      const entry = byId.get(id);
+      if (!entry) return [];
+      const {transfer, index} = entry;
+      const from = transfer.from.toLowerCase(); const to = transfer.to.toLowerCase();
+      if (!visible.has(from) || !visible.has(to)) return [];
+      let resource = flowResources.current.get(id);
+      if (!resource) {
+        const start = new THREE.Vector3(...addressPosition(from));
+        const end = new THREE.Vector3(...addressPosition(to));
+        const midpoint = start.clone().add(end).multiplyScalar(0.5);
+        const normal = start.clone().cross(end);
+        if (normal.lengthSq() < 0.001) normal.set(0, 1, 0).cross(start);
+        normal.normalize().multiplyScalar(((stableHash(id) % 200) / 100 - 1) * 0.58);
+        const lift = 3.05 + (stableHash(`${id}:arc`) % 48) / 100;
+        const middle = (midpoint.lengthSq() > 0.001 ? midpoint.normalize() : start.clone().normalize()).multiplyScalar(lift).add(normal);
+        const curve = new THREE.QuadraticBezierCurve3(start, middle, end);
+        resource = {curve, points: curve.getPoints(28), phase: (stableHash(id) % 1000) / 1000, color: flowColor(transfer).clone(), enteredAt: performance.now()};
+        flowResources.current.set(id, resource);
+      }
+      return [{id, transfer, from, to, ...resource, amount: safeAmount(transfer.value), significant: significant.has(id), recency: (index + 1) / recent.length}];
     });
+    const activeIds = new Set(orderedFlowIds);
+    for (const id of flowResources.current.keys()) if (!activeIds.has(id)) flowResources.current.delete(id);
     return {nodes: nextNodes, flows: nextFlows};
   }, [transfers, compact, tablet]);
 
@@ -141,7 +161,8 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
       const progress = (flow.phase + elapsed * (0.042 + Math.min(0.05, Math.log10(flow.amount + 1) * 0.005))) % 1;
       const active = isFlowRelated(flow);
       const inspected = flow.id === inspectedFlowId;
-      flow.curve.getPointAt(progress, point); matrix.position.copy(point); matrix.scale.setScalar(inspected ? 1.45 : flow.significant ? 1.18 : 0.82); matrix.updateMatrix();
+      const introduction = reducedMotion ? 1 : THREE.MathUtils.smoothstep(performance.now() - flow.enteredAt, 0, 420);
+      flow.curve.getPointAt(progress, point); matrix.position.copy(point); matrix.scale.setScalar((inspected ? 1.45 : flow.significant ? 1.18 : 0.82) * introduction); matrix.updateMatrix();
       pulseMesh.current!.setMatrixAt(index, matrix.matrix); pulseMesh.current!.setColorAt(index, color.copy(flow.color).multiplyScalar(active ? (inspected ? 1.25 : 1) : 0.18));
       matrix.scale.multiplyScalar(inspected ? 2.9 : flow.significant ? 2.5 : 2.1); matrix.updateMatrix();
       pulseHaloMesh.current!.setMatrixAt(index, matrix.matrix); pulseHaloMesh.current!.setColorAt(index, color.copy(flow.color).multiplyScalar(active ? (inspected ? 1 : 0.72) : 0.1));
@@ -177,7 +198,7 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
     <mesh><icosahedronGeometry args={[2.34, 4]}/><meshBasicMaterial color="#428ab3" wireframe transparent opacity={0.065} depthWrite={false}/></mesh>
     <mesh scale={1.055}><sphereGeometry args={[2.34, 48, 32]}/><meshBasicMaterial color="#0a4c73" transparent opacity={0.055} side={THREE.BackSide} depthWrite={false}/></mesh>
     <Sparkles count={compact ? 42 : 100} scale={[8, 6.8, 7.8]} size={0.38} speed={0.035} opacity={0.16}/>
-    {flows.map(flow => <Line key={flow.id} points={flow.curve.getPoints(28)} color={`#${flow.color.getHexString()}`} transparent opacity={isFlowRelated(flow) ? (inspectedFlowId === flow.id ? 0.92 : flow.significant ? 0.36 : 0.055 + flow.recency * 0.13) : 0.028} lineWidth={inspectedFlowId === flow.id ? 1.75 : flow.significant ? 0.82 : 0.42} onPointerOver={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredFlow(flow.id);}} onPointerOut={() => setHoveredFlow(null)} onClick={(event: ThreeEvent<MouseEvent>) => {event.stopPropagation(); onSelectTransfer(flow.id);}}/>) }
+    {flows.map(flow => <Line key={flow.id} points={flow.points} color={`#${flow.color.getHexString()}`} transparent opacity={isFlowRelated(flow) ? (inspectedFlowId === flow.id ? 0.92 : flow.significant ? 0.36 : 0.055 + flow.recency * 0.13) : 0.028} lineWidth={inspectedFlowId === flow.id ? 1.75 : flow.significant ? 0.82 : 0.42} onPointerOver={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredFlow(flow.id);}} onPointerOut={() => setHoveredFlow(null)} onClick={(event: ThreeEvent<MouseEvent>) => {event.stopPropagation(); onSelectTransfer(flow.id);}}/>) }
     {labelled.map(flow => <TransferLabel key={flow.id} flow={flow} selected={flow.id === selectedTransferId} hovered={flow.id === hoveredFlow} occupied={labelRects}/>) }
     {annotations.slice(0, compact ? 0 : tablet ? 1 : 2).map(annotation => {
       const node = nodes.find(item => item.address.toLowerCase() === annotation.address.toLowerCase());
@@ -223,7 +244,7 @@ function TransferLabel({flow, selected, hovered, occupied}: {flow: Flow; selecte
   return <group ref={anchor}><Html center distanceFactor={7} zIndexRange={[10, 0]} style={{pointerEvents: "none"}}><div ref={label} className={`txLabel ${selected ? "selected" : ""}`}><code>{shortTransactionHash(flow.transfer.txHash)}</code><strong>{flow.amount.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2})} USDC</strong>{selected && <span>{flow.transfer.fromType.toUpperCase()} → {flow.transfer.toType.toUpperCase()}</span>}</div></Html></group>;
 }
 
-export function NetworkScene(props: Props) {
+function NetworkSceneComponent(props: Props) {
   const interacting = useRef(false);
   const lastInteraction = useRef(Number.NEGATIVE_INFINITY);
   const interactionTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -234,3 +255,5 @@ export function NetworkScene(props: Props) {
     <OrbitControls makeDefault enablePan={false} minDistance={4.15} maxDistance={7.5} dampingFactor={0.055} enableDamping rotateSpeed={0.32} zoomSpeed={0.42} onStart={() => {if (interactionTimer.current) clearTimeout(interactionTimer.current); interacting.current = true; lastInteraction.current = performance.now();}} onChange={() => {lastInteraction.current = performance.now();}} onEnd={() => {lastInteraction.current = performance.now(); interactionTimer.current = setTimeout(() => {interacting.current = false;}, 10_000);}}/>
   </Canvas>;
 }
+
+export const NetworkScene = memo(NetworkSceneComponent);
