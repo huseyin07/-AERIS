@@ -4,7 +4,7 @@ import {useEffect} from "react";
 import type {ActivityResponse} from "@/data/types";
 import {useActivity} from "@/state/activity-store";
 
-const POLL_INTERVAL_MS = 5_000;
+const POLL_INTERVAL_MS = 15_000;
 const REQUEST_TIMEOUT_MS = 20_000;
 const MAX_RETRY_DELAY_MS = 20_000;
 
@@ -35,6 +35,7 @@ export function LiveActivity() {
         if (!isActivityResponse(data)) throw new Error("Malformed Arc Mainnet activity response");
         if (active) {
           merge(data.events);
+          if (data.status === "error") throw new Error("Arc Mainnet activity response reported an error");
           consecutiveFailures = 0;
           markRequestSucceeded();
         }

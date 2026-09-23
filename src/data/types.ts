@@ -66,4 +66,9 @@ export type ActivityResponse = {
   transfers: Transfer[];
   observationWindowMs: number;
   fetchedAt: number;
+  status?: "ok" | "partial" | "error";
+  processedBlockRange?: {from: string; to: string};
+  eventCount?: number;
+  transferCount?: number;
+  rpcWarnings?: string[];
 };

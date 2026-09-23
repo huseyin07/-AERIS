@@ -1,87 +1,156 @@
 import {createPublicClient, http, parseAbiItem} from "viem";
-import {ARC, arcChain} from "./arc";
-import {normalizeTransfer} from "./normalize";
-import {AddressClassificationCache, BlockCursor, normalizeTransactionActivity, pruneObservation, transferToActivity} from "./activity-engine";
-import type {ArcActivityEvent, EntityType, HexAddress, Transfer} from "./types";
+import {ARC, arcChain} from "./arc.ts";
+import {normalizeTransfer} from "./normalize.ts";
+import {AddressClassificationCache, normalizeTransactionActivity, pruneObservation, transferToActivity} from "./activity-engine.ts";
+import type {ActivityStatus, ArcActivityEvent, EntityType, HexAddress, HexHash, Transfer} from "./types";
 
 const transferEvent = parseAbiItem("event Transfer(address indexed from, address indexed to, uint256 value)");
-const client = createPublicClient({chain: arcChain, transport: http(ARC.rpcUrl, {timeout: 8_000, retryCount: 2, retryDelay: 300})});
-const classifications = new AddressClassificationCache();
-const cursor = new BlockCursor();
-let observed: ArcActivityEvent[] = [];
-let inFlight: Promise<{latestBlock: bigint; events: ArcActivityEvent[]}> | null = null;
-const MAX_BLOCKS_PER_POLL = 2n;
-const MAX_TRANSACTIONS_PER_BLOCK = 48;
-const RPC_CONCURRENCY = 3;
-const REORG_LOOKBACK = 2n;
+const publicClient = createPublicClient({chain: arcChain, transport: http(ARC.rpcUrl, {timeout: 8_000, retryCount: 1, retryDelay: 500})});
+const BOOTSTRAP_BLOCKS = 6n;
+const MAX_ACTIVITY_TRANSACTIONS = 32;
+const RPC_CONCURRENCY = 2;
+const RESULT_CACHE_MS = 12_000;
 
-async function kind(address: HexAddress): Promise<EntityType> {
-  const cached = classifications.get(address);
-  if (cached) return cached;
-  try {
-    const value = await client.getBytecode({address});
-    const result = value && value !== "0x" ? "contract" : "wallet";
-    classifications.set(address, result); return result;
-  } catch { classifications.set(address, "unknown"); return "unknown"; }
+type RpcTransaction = {hash: HexHash; blockNumber: bigint | null; blockHash: HexHash | null; transactionIndex: number | null; from: HexAddress; to: HexAddress | null; input: HexHash};
+type RpcBlock = {number: bigint; hash: HexHash | null; timestamp: bigint; transactions: RpcTransaction[]};
+type RpcReceipt = {transactionHash: HexHash; transactionIndex: number; status: unknown; contractAddress?: HexAddress | null};
+type RpcLog = Parameters<typeof normalizeTransfer>[0] & {blockHash?: HexHash | null; transactionIndex?: number | null};
+
+export type ActivityRpc = {
+  getChainId(): Promise<number>;
+  getBlockNumber(): Promise<bigint>;
+  getBlock(args: {blockNumber: bigint; includeTransactions: true}): Promise<RpcBlock>;
+  getTransactionReceipt(args: {hash: HexHash}): Promise<RpcReceipt>;
+  getBytecode(args: {address: HexAddress}): Promise<HexHash | undefined>;
+  getLogs(args: {address: HexAddress; event: typeof transferEvent; fromBlock: bigint; toBlock: bigint}): Promise<RpcLog[]>;
+};
+
+export type ActivityDiagnostics = {
+  status: "ok" | "partial";
+  processedBlockRange: {from: string; to: string};
+  eventCount: number;
+  transferCount: number;
+  rpcWarnings: string[];
+};
+
+export type ActivityResult = {latestBlock: bigint; events: ArcActivityEvent[]; diagnostics: ActivityDiagnostics};
+
+function warning(error: unknown) {
+  if (error instanceof Error) return error.message.slice(0, 240);
+  return String(error).slice(0, 240);
 }
 
 async function mapConcurrent<T, R>(items: readonly T[], concurrency: number, work: (item: T) => Promise<R>) {
-  const output = new Array<R>(items.length); let next = 0;
-  await Promise.all(Array.from({length: Math.min(concurrency, items.length)}, async () => { while (next < items.length) { const index = next++; output[index] = await work(items[index]); } }));
+  const output = new Array<R>(items.length);
+  let next = 0;
+  await Promise.all(Array.from({length: Math.min(concurrency, items.length)}, async () => {
+    while (next < items.length) { const index = next++; output[index] = await work(items[index]); }
+  }));
   return output;
 }
 
-async function processBlock(blockNumber: bigint, observedAt: number) {
-  const block = await client.getBlock({blockNumber, includeTransactions: true});
-  if (!block.hash || !cursor.shouldProcess(block.number, block.hash)) return [];
-  // A changed hash invalidates every previously normalized child of this recent block.
-  observed = observed.filter(event => event.blockNumber !== block.number.toString());
-  const timestamp = Number(block.timestamp) * 1_000;
-  // Keep RPC work bounded on unusually busy blocks so the activity endpoint cannot stall indefinitely.
-  // We prefer the newest transactions; USDC transfers are still collected independently from the full block logs below.
-  const transactions = block.transactions.slice(-MAX_TRANSACTIONS_PER_BLOCK);
-  const receipts = await mapConcurrent(transactions, RPC_CONCURRENCY, tx => client.getTransactionReceipt({hash: tx.hash}).catch(() => null));
-  const receiptByHash = new Map(receipts.flatMap(receipt => receipt ? [[receipt.transactionHash.toLowerCase(), receipt] as const] : []));
-  const destinations = [...new Set(transactions.flatMap(tx => tx.to ? [tx.to.toLowerCase() as HexAddress] : []))];
-  const types = new Map(await mapConcurrent(destinations, RPC_CONCURRENCY, async address => [address, await kind(address)] as const));
-  const txEvents = transactions.flatMap(tx => {
-    const receipt = receiptByHash.get(tx.hash.toLowerCase());
-    if (!receipt || !tx.blockHash || tx.blockNumber === null || tx.transactionIndex === null) return [];
-    const event = normalizeTransactionActivity({hash: tx.hash, blockNumber: tx.blockNumber, blockHash: tx.blockHash, transactionIndex: tx.transactionIndex, from: tx.from, to: tx.to, input: tx.input}, receipt, tx.to ? types.get(tx.to.toLowerCase() as HexAddress) ?? "unknown" : "unknown", {timestamp, observedAt});
-    return event ? [event] : [];
-  });
-  // USDC log enrichment is best-effort. Arc public RPC can temporarily rate-limit eth_getLogs;
-  // transaction activity must continue flowing even when that optional enrichment is unavailable.
-  const logs = await client.getLogs({address: ARC.usdc, event: transferEvent, fromBlock: block.number, toBlock: block.number}).catch(() => []);
-  const normalized = logs.map(normalizeTransfer).filter((item): item is Transfer => item !== null);
-  const transferAddresses = [...new Set(normalized.flatMap(item => [item.from, item.to]))];
-  const transferTypes = new Map(await mapConcurrent(transferAddresses, RPC_CONCURRENCY, async address => [address, await kind(address)] as const));
-  const transferEvents = normalized.flatMap(transfer => {
-    const receipt = receiptByHash.get(transfer.txHash.toLowerCase());
-    const transactionIndex = receipt?.transactionIndex;
-    if (transactionIndex === undefined) return [];
-    const classified = {...transfer, fromType: transferTypes.get(transfer.from) ?? "unknown", toType: transferTypes.get(transfer.to) ?? "unknown"};
-    return [transferToActivity(classified, {blockHash: block.hash!, transactionIndex, timestamp, observedAt, status: receipt?.status === "success" ? "success" : receipt?.status === "reverted" ? "failed" : "unknown"})];
-  });
-  cursor.record(block.number, block.hash);
-  return [...txEvents, ...transferEvents];
+/** A self-contained ingest pass. It deliberately needs no cursor, so every cold serverless invocation can bootstrap. */
+export function createActivityIngestor(rpc: ActivityRpc, options: {now?: () => number} = {}) {
+  const classifications = new AddressClassificationCache();
+  let observed: ArcActivityEvent[] = [];
+  const now = options.now ?? Date.now;
+
+  return async function ingest(): Promise<ActivityResult> {
+    const warnings: string[] = [];
+    const chainId = await rpc.getChainId();
+    if (chainId !== ARC.chainId) throw new Error(`Configured RPC returned chain ${chainId}; Arc Mainnet requires ${ARC.chainId}`);
+    const latestBlock = await rpc.getBlockNumber();
+    const start = latestBlock >= BOOTSTRAP_BLOCKS - 1n ? latestBlock - BOOTSTRAP_BLOCKS + 1n : 0n;
+    const blocks: RpcBlock[] = [];
+    for (let number = start; number <= latestBlock; number++) {
+      try { blocks.push(await rpc.getBlock({blockNumber: number, includeTransactions: true})); }
+      catch (error) { warnings.push(`eth_getBlockByNumber ${number}: ${warning(error)}`); }
+    }
+    if (!blocks.length) throw new Error(`Unable to retrieve Arc blocks ${start}-${latestBlock}`);
+
+    const blockByNumber = new Map(blocks.map(block => [block.number.toString(), block]));
+    const candidates = blocks.flatMap(block => block.transactions
+      .filter(tx => tx.to === null || tx.input !== "0x")
+      .map(tx => ({tx, block})))
+      .slice(-MAX_ACTIVITY_TRANSACTIONS);
+
+    let rawLogs: RpcLog[] = [];
+    try { rawLogs = await rpc.getLogs({address: ARC.usdc, event: transferEvent, fromBlock: start, toBlock: latestBlock}); }
+    catch (error) { warnings.push(`eth_getLogs USDC ${start}-${latestBlock}: ${warning(error)}`); }
+    const transfers = rawLogs.map(normalizeTransfer).filter((item): item is Transfer => item !== null);
+
+    const addresses = [...new Set([
+      ...candidates.flatMap(({tx}) => tx.to ? [tx.to.toLowerCase() as HexAddress] : []),
+      ...transfers.flatMap(transfer => [transfer.from, transfer.to]),
+    ])];
+    const types = new Map(await mapConcurrent(addresses, RPC_CONCURRENCY, async address => {
+      const cached = classifications.get(address);
+      if (cached) return [address, cached] as const;
+      try {
+        const code = await rpc.getBytecode({address});
+        const type: EntityType = code && code !== "0x" ? "contract" : "wallet";
+        classifications.set(address, type);
+        return [address, type] as const;
+      } catch (error) {
+        warnings.push(`eth_getCode ${address}: ${warning(error)}`);
+        return [address, "unknown" as const] as const;
+      }
+    }));
+
+    // Receipts are required for deployments, but not for ordinary calls. Missing status must not erase a valid call.
+    const deployments = candidates.filter(({tx}) => tx.to === null);
+    const deploymentReceipts = await mapConcurrent(deployments, RPC_CONCURRENCY, async ({tx}) => {
+      try { return await rpc.getTransactionReceipt({hash: tx.hash}); }
+      catch (error) { warnings.push(`eth_getTransactionReceipt ${tx.hash}: ${warning(error)}`); return null; }
+    });
+    const receiptByHash = new Map(deploymentReceipts.flatMap(receipt => receipt ? [[receipt.transactionHash.toLowerCase(), receipt] as const] : []));
+
+    // Modern log responses already contain transactionIndex. Fetch only deduplicated receipts for logs that omit it.
+    const missingLogHashes = [...new Set(transfers.filter(transfer => transfer.transactionIndex === undefined).map(transfer => transfer.txHash))];
+    const missingReceipts = await mapConcurrent(missingLogHashes, RPC_CONCURRENCY, async hash => {
+      try { return await rpc.getTransactionReceipt({hash}); }
+      catch (error) { warnings.push(`eth_getTransactionReceipt ${hash}: ${warning(error)}`); return null; }
+    });
+    for (const receipt of missingReceipts) if (receipt) receiptByHash.set(receipt.transactionHash.toLowerCase(), receipt);
+
+    const observedAt = now();
+    const txEvents = candidates.flatMap(({tx, block}) => {
+      if (!block.hash || !tx.blockHash || tx.blockNumber === null || tx.transactionIndex === null) return [];
+      const receipt = receiptByHash.get(tx.hash.toLowerCase()) ?? {status: undefined};
+      const event = normalizeTransactionActivity({hash: tx.hash, blockNumber: tx.blockNumber, blockHash: tx.blockHash, transactionIndex: tx.transactionIndex, from: tx.from, to: tx.to, input: tx.input}, receipt, tx.to ? types.get(tx.to.toLowerCase() as HexAddress) ?? "unknown" : "unknown", {timestamp: Number(block.timestamp) * 1_000, observedAt});
+      return event ? [event] : [];
+    });
+    const transferEvents = transfers.flatMap(transfer => {
+      const block = blockByNumber.get(transfer.blockNumber);
+      const receipt = receiptByHash.get(transfer.txHash.toLowerCase());
+      const transactionIndex = transfer.transactionIndex ?? receipt?.transactionIndex;
+      const blockHash = transfer.blockHash ?? block?.hash;
+      if (transactionIndex === undefined || !blockHash || !block) {
+        warnings.push(`Incomplete USDC log ${transfer.txHash}:${transfer.logIndex}`);
+        return [];
+      }
+      const status: ActivityStatus = receipt?.status === "success" ? "success" : receipt?.status === "reverted" ? "failed" : "unknown";
+      return [transferToActivity({...transfer, fromType: types.get(transfer.from) ?? "unknown", toType: types.get(transfer.to) ?? "unknown"}, {blockHash, transactionIndex, timestamp: Number(block.timestamp) * 1_000, observedAt, status})];
+    });
+
+    observed = pruneObservation([...observed, ...txEvents, ...transferEvents], observedAt);
+    const diagnostics: ActivityDiagnostics = {
+      status: warnings.length ? "partial" : "ok",
+      processedBlockRange: {from: blocks[0].number.toString(), to: blocks.at(-1)!.number.toString()},
+      eventCount: observed.length,
+      transferCount: observed.filter(event => event.type === "USDC_TRANSFER").length,
+      rpcWarnings: warnings,
+    };
+    return {latestBlock, events: observed, diagnostics};
+  };
 }
 
-async function ingest() {
-  const chainId = await client.getChainId();
-  if (chainId !== ARC.chainId) throw new Error(`Configured RPC returned chain ${chainId}; Arc Mainnet requires ${ARC.chainId}`);
-  const latestBlock = await client.getBlockNumber();
-  const initialStart = latestBlock >= 5n ? latestBlock - 5n : 0n;
-  const incrementalStart = cursor.lastProcessedBlock === null ? initialStart : cursor.lastProcessedBlock > REORG_LOOKBACK ? cursor.lastProcessedBlock - REORG_LOOKBACK + 1n : 0n;
-  const start = latestBlock - incrementalStart + 1n > MAX_BLOCKS_PER_POLL ? latestBlock - MAX_BLOCKS_PER_POLL + 1n : incrementalStart;
-  const numbers = Array.from({length: Number(latestBlock - start + 1n)}, (_, index) => start + BigInt(index));
-  // Blocks are deliberately sequential; transactions inside each block use bounded concurrency.
-  for (const number of numbers) observed.push(...await processBlock(number, Date.now()));
-  observed = pruneObservation(observed);
-  return {latestBlock, events: observed};
-}
+const ingest = createActivityIngestor(publicClient as unknown as ActivityRpc);
+let cached: {expiresAt: number; value: ActivityResult} | null = null;
+let inFlight: Promise<ActivityResult> | null = null;
 
 export function getRecentActivity() {
-  if (!inFlight) inFlight = ingest().finally(() => { inFlight = null; });
+  if (cached && cached.expiresAt > Date.now()) return Promise.resolve(cached.value);
+  if (!inFlight) inFlight = ingest().then(value => { cached = {expiresAt: Date.now() + RESULT_CACHE_MS, value}; return value; }).finally(() => { inFlight = null; });
   return inFlight;
 }
