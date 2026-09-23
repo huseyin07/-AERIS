@@ -10,8 +10,9 @@ const classifications = new AddressClassificationCache();
 const cursor = new BlockCursor();
 let observed: ArcActivityEvent[] = [];
 let inFlight: Promise<{latestBlock: bigint; events: ArcActivityEvent[]}> | null = null;
-const MAX_BLOCKS_PER_POLL = 3n;
-const MAX_TRANSACTIONS_PER_BLOCK = 96;
+const MAX_BLOCKS_PER_POLL = 2n;
+const MAX_TRANSACTIONS_PER_BLOCK = 48;
+const RPC_CONCURRENCY = 3;
 const REORG_LOOKBACK = 2n;
 
 async function kind(address: HexAddress): Promise<EntityType> {
@@ -39,20 +40,20 @@ async function processBlock(blockNumber: bigint, observedAt: number) {
   // Keep RPC work bounded on unusually busy blocks so the activity endpoint cannot stall indefinitely.
   // We prefer the newest transactions; USDC transfers are still collected independently from the full block logs below.
   const transactions = block.transactions.slice(-MAX_TRANSACTIONS_PER_BLOCK);
-  const receipts = await mapConcurrent(transactions, 6, tx => client.getTransactionReceipt({hash: tx.hash}).catch(() => null));
+  const receipts = await mapConcurrent(transactions, RPC_CONCURRENCY, tx => client.getTransactionReceipt({hash: tx.hash}).catch(() => null));
   const receiptByHash = new Map(receipts.flatMap(receipt => receipt ? [[receipt.transactionHash.toLowerCase(), receipt] as const] : []));
   const destinations = [...new Set(transactions.flatMap(tx => tx.to ? [tx.to.toLowerCase() as HexAddress] : []))];
-  const types = new Map(await mapConcurrent(destinations, 6, async address => [address, await kind(address)] as const));
+  const types = new Map(await mapConcurrent(destinations, RPC_CONCURRENCY, async address => [address, await kind(address)] as const));
   const txEvents = transactions.flatMap(tx => {
     const receipt = receiptByHash.get(tx.hash.toLowerCase());
     if (!receipt || !tx.blockHash || tx.blockNumber === null || tx.transactionIndex === null) return [];
     const event = normalizeTransactionActivity({hash: tx.hash, blockNumber: tx.blockNumber, blockHash: tx.blockHash, transactionIndex: tx.transactionIndex, from: tx.from, to: tx.to, input: tx.input}, receipt, tx.to ? types.get(tx.to.toLowerCase() as HexAddress) ?? "unknown" : "unknown", {timestamp, observedAt});
     return event ? [event] : [];
   });
-  const logs = await client.getLogs({address: ARC.usdc, event: transferEvent, fromBlock: block.number, toBlock: block.number});
+  // USDC log enrichment is best-effort. Arc public RPC can temporarily rate-limit eth_getLogs;\n  // transaction activity must continue flowing even when that optional enrichment is unavailable.\n  const logs = await client.getLogs({address: ARC.usdc, event: transferEvent, fromBlock: block.number, toBlock: block.number}).catch(() => []);
   const normalized = logs.map(normalizeTransfer).filter((item): item is Transfer => item !== null);
   const transferAddresses = [...new Set(normalized.flatMap(item => [item.from, item.to]))];
-  const transferTypes = new Map(await mapConcurrent(transferAddresses, 6, async address => [address, await kind(address)] as const));
+  const transferTypes = new Map(await mapConcurrent(transferAddresses, RPC_CONCURRENCY, async address => [address, await kind(address)] as const));
   const transferEvents = normalized.flatMap(transfer => {
     const receipt = receiptByHash.get(transfer.txHash.toLowerCase());
     const transactionIndex = receipt?.transactionIndex;
