@@ -68,3 +68,29 @@ nav{height:100%;align-items:center;gap:30px}nav b{height:100%;display:flex;align
 @media(max-width:760px){main{padding:0 14px}.observatory{height:820px;background:none}.scene{inset:0 -80px 232px}.metrics,.entityPanel{top:auto;bottom:9px;border-radius:6px}.metrics{width:48%;padding:12px}.entityPanel{width:49%;min-height:194px;max-height:205px;padding:13px}.legend{right:5px;bottom:231px;padding:6px}.feed{margin:12px 0 28px;padding:14px 10px}.feedColumns,.feedRow{grid-template-columns:1fr 1fr 1fr;gap:10px}.agentModule{margin:12px -13px -13px;padding:11px 13px}}
 @media(max-width:480px){header{gap:10px}.brandMark{width:18px;height:18px}.search{width:126px;padding:8px 11px}.observatory{height:780px}.scene{inset:0 -115px 278px}.metrics,.entityPanel{left:0;right:0;width:100%;bottom:8px}.legend{bottom:283px}.feedHead>span{display:none}}
 @media(prefers-reduced-motion:reduce){nav b:after,.feedRow,.agentCommands button,.timeControls button{transition:none}}
+
+/* Static deep-space atmosphere. Decorative layers stay behind the application and fade before the ledger. */
+html{background:#010307}
+body{position:relative;isolation:isolate;background:
+  radial-gradient(ellipse 76% 58% at 50% 16%,#06324a30 0%,#0315231a 44%,transparent 72%),
+  radial-gradient(ellipse 48% 54% at 13% 34%,#07517617 0%,transparent 70%),
+  radial-gradient(ellipse 46% 52% at 88% 31%,#0a6b9114 0%,transparent 72%),
+  linear-gradient(180deg,#010307 0%,#02060b 46%,#010409 74%,#010307 100%)}
+body:before,body:after{content:"";position:absolute;z-index:-1;inset:0 0 auto;height:790px;pointer-events:none}
+body:before{opacity:.56;background-repeat:no-repeat;background-image:
+  radial-gradient(circle at 4% 18%,#d8f2ff 0 1px,transparent 1.4px),radial-gradient(circle at 9% 43%,#8ac9e8 0 1px,transparent 1.5px),radial-gradient(circle at 14% 11%,#eaf8ff 0 1px,transparent 1.4px),radial-gradient(circle at 18% 31%,#6fa9c8 0 1px,transparent 1.5px),
+  radial-gradient(circle at 23% 52%,#d8f2ff 0 1px,transparent 1.4px),radial-gradient(circle at 27% 17%,#85bedc 0 1px,transparent 1.5px),radial-gradient(circle at 31% 7%,#d7effb 0 1px,transparent 1.4px),radial-gradient(circle at 34% 39%,#75b5d8 0 1px,transparent 1.5px),
+  radial-gradient(circle at 39% 23%,#edfaff 0 1px,transparent 1.5px),radial-gradient(circle at 43% 10%,#6cb4dc 0 1px,transparent 1.5px),radial-gradient(circle at 47% 48%,#c4e8fa 0 1px,transparent 1.4px),radial-gradient(circle at 51% 19%,#7ec5e8 0 1px,transparent 1.5px),
+  radial-gradient(circle at 56% 5%,#effbff 0 1px,transparent 1.5px),radial-gradient(circle at 59% 36%,#75afd0 0 1px,transparent 1.4px),radial-gradient(circle at 63% 15%,#cceaf8 0 1px,transparent 1.5px),radial-gradient(circle at 67% 51%,#79b9dc 0 1px,transparent 1.5px),
+  radial-gradient(circle at 72% 27%,#e5f7ff 0 1px,transparent 1.5px),radial-gradient(circle at 77% 8%,#72b3d8 0 1px,transparent 1.4px),radial-gradient(circle at 81% 42%,#d8f2ff 0 1px,transparent 1.5px),radial-gradient(circle at 86% 20%,#8bc6e5 0 1px,transparent 1.5px),
+  radial-gradient(circle at 91% 48%,#eaf9ff 0 1px,transparent 1.4px),radial-gradient(circle at 95% 13%,#72add0 0 1px,transparent 1.5px),radial-gradient(circle at 7% 61%,#83bddb 0 1.5px,transparent 2px),radial-gradient(circle at 88% 62%,#cdebf8 0 1.5px,transparent 2px);
+  mask-image:linear-gradient(to bottom,#000 0%,#000 63%,transparent 100%)}
+body:after{background:
+  radial-gradient(ellipse 34% 28% at 49% 14%,#0a6b9117 0%,#0751760d 45%,transparent 76%),
+  radial-gradient(ellipse 42% 46% at 20% 42%,#07517613 0%,#06324a0a 48%,transparent 76%),
+  radial-gradient(ellipse 40% 43% at 82% 38%,#0a6b9111 0%,#06324a08 52%,transparent 78%),
+  radial-gradient(ellipse at center,transparent 43%,#01030766 82%,#010307e8 100%);
+  filter:blur(18px);opacity:.9;mask-image:linear-gradient(to bottom,#000 0%,#000 58%,transparent 100%)}
+main{position:relative;z-index:1}
+@media(max-width:1050px){body:before{opacity:.4}body:after{opacity:.68}}
+@media(max-width:760px){body{background:radial-gradient(ellipse 90% 48% at 50% 14%,#06324a24,transparent 70%),linear-gradient(180deg,#010307,#02060b 54%,#010307)}body:before{opacity:.24;background-size:118% 82%;mask-image:linear-gradient(to bottom,#000,transparent 74%)}body:after{opacity:.45;filter:blur(22px)}}
