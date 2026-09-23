@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import {useEffect, useMemo, useRef, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {LiveActivity} from "./live-activity";
 import {VisualizationBoundary} from "./visualization-boundary";
 import {IntelligencePanel} from "./intelligence-panel";
@@ -61,6 +61,7 @@ export function Dashboard() {
   const activeTransferId = hoveredTransferId ?? selectedTransferId;
   const selectedTransfer = transfers.find(transfer => transferIdentity(transfer) === selectedTransferId) ?? null;
   const selectedEvent = selectedTransfer ? events.find(event => event.type === "USDC_TRANSFER" && event.transactionHash.toLowerCase() === selectedTransfer.txHash.toLowerCase() && event.logIndex === selectedTransfer.logIndex) : null;
+  const selectSceneAddress = useCallback((address: string) => { select(address); setSelectedTransferId(null); }, [select]);
 
   useEffect(() => {
     if (!normalizedQuery) {
@@ -97,12 +98,12 @@ export function Dashboard() {
   const signal = snapshot.signals[signalIndex % Math.max(1, snapshot.signals.length)];
   const statusLabel = healthLabel(status, health, clock);
   const healthDetails = [health.latestBlock ? `Latest block ${health.latestBlock}` : "", health.processedBlockRange ? `Processed ${health.processedBlockRange.from}–${health.processedBlockRange.to}` : "", health.lastSuccessfulAt ? `Updated ${relativeActivityTime(health.lastSuccessfulAt, clock)}` : "", ...health.rpcWarnings].filter(Boolean).join(" · ");
-  const annotations = [...new Map([
+  const annotations = useMemo(() => [...new Map([
     ...(selected ? [{address: selected, label: "SELECTED ENTITY"}] : []),
     ...(intent.type === "highlight-addresses" ? intent.addresses.map(address => ({address, label: "AERIS FOCUS"})) : []),
     ...(signal?.relatedAddresses.slice(0, 1).map(address => ({address, label: signal.title})) ?? []),
     ...(snapshot.entities.length >= 3 && snapshot.mostActiveByCount[0]?.transferCount > 1 ? [{address: snapshot.mostActiveByCount[0].address, label: snapshot.mostActiveByCount[0].type === "contract" ? "CONTRACT HUB" : "HIGH ACTIVITY"}] : []),
-  ].map(item => [item.address.toLowerCase(), item])).values()];
+  ].map(item => [item.address.toLowerCase(), item])).values()], [selected, intent, signal, snapshot.entities.length, snapshot.mostActiveByCount]);
 
   return <main>
     <LiveActivity/>
@@ -122,7 +123,7 @@ export function Dashboard() {
     <section className="observatory">
       <div className="scene" aria-label="Live Arc Mainnet entity network">
         <VisualizationBoundary>
-          <NetworkScene transfers={transfers} annotations={annotations} selectedAddress={selected} selectedTransferId={activeTransferId} intent={intent} onSelectAddress={address => {select(address); setSelectedTransferId(null);}} onSelectTransfer={setSelectedTransferId}/>
+          <NetworkScene transfers={transfers} annotations={annotations} selectedAddress={selected} selectedTransferId={activeTransferId} intent={intent} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId}/>
         </VisualizationBoundary>
       </div>
 

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {buildIntelligenceSnapshot} from "../src/intelligence/engine.ts";
 import {answerDeterministically, withObservationStatus} from "../src/ai/deterministic.ts";
 import {connectionAfterFailure} from "../src/state/connection.ts";
-import {addressPosition, selectLabelCandidates, shortTransactionHash, significantTransferIds, transferIdentity, uniqueTransfers} from "../src/visualization/network-model.ts";
+import {addressPosition, reconcileIdentityOrder, selectLabelCandidates, shortTransactionHash, significantTransferIds, transferIdentity, uniqueTransfers} from "../src/visualization/network-model.ts";
 
 const address = suffix => `0x${suffix.padStart(40, "0")}`;
 const hash = suffix => `0x${suffix.padStart(64, "0")}`;
@@ -14,6 +14,11 @@ const transfers = [
   transfer("2", a, contract, "20", "wallet", "contract"),
   transfer("3", contract, c, "70", "contract", "wallet"),
 ];
+
+test("reconciles visualization identities without moving surviving entities", () => {
+  assert.deepEqual(reconcileIdentityOrder(["a", "b", "c"], ["b", "c", "d"]), ["b", "c", "d"]);
+  assert.deepEqual(reconcileIdentityOrder(["b", "c", "d"], ["d", "b", "c", "e"]), ["b", "c", "d", "e"]);
+});
 
 test("computes totals, concentration, rankings, and activity breakdown", () => {
   const snapshot = buildIntelligenceSnapshot(transfers, 123);
@@ -251,13 +256,13 @@ test("contract activity never double counts verified USDC economic volume", () =
   assert.equal(snapshot.networkActivity.observedTransactions, 1);
 });
 
-test("significance selection is deterministic, diverse, and visual caps match V7 targets", () => {
+test("significance selection is deterministic, diverse, and visual caps match the observatory targets", () => {
   const crowded = Array.from({length: 20}, (_, index) => transfer(String(index + 10), a, b, String(1000 - index)));
   const diverse = Array.from({length: 10}, (_, index) => transfer(String(index + 50), address(String(index + 10)), address(String(index + 30)), String(100 - index)));
   const first = selectSignificantTransfers([...crowded, ...diverse], 10);
   assert.deepEqual(first, selectSignificantTransfers([...crowded, ...diverse], 10));
   assert.ok(first.some(item => item.from !== a));
-  assert.deepEqual(VISUAL_CAPS, {desktop: {flows: 60, nodes: 120, labels: 3, annotations: 2}, tablet: {flows: 40, nodes: 80, labels: 2, annotations: 1}, mobile: {flows: 20, nodes: 45, labels: 1, annotations: 0}});
+  assert.deepEqual(VISUAL_CAPS, {desktop: {flows: 44, nodes: 84, labels: 3, annotations: 2}, tablet: {flows: 34, nodes: 84, labels: 2, annotations: 1}, mobile: {flows: 24, nodes: 56, labels: 1, annotations: 0}});
 });
 
 test("ledger derives verified transfers newest-first without mutating its source", () => {

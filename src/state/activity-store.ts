@@ -47,7 +47,11 @@ export const useActivity = create<State>(set => ({
   query: "",
   visualizationIntent: {type: "reset"},
   mergeActivity: incoming => set(state => {
-    const events = pruneObservation([...state.events, ...incoming]);
+    // Existing canonical events win over overlapping polling responses. This
+    // keeps the observation objects stable while still admitting new events
+    // and pruning expired ones from the rolling window.
+    const events = pruneObservation([...incoming, ...state.events]);
+    if (events.length === state.events.length && events.every((event, index) => event === state.events[index])) return state;
     return {events, transfers: eventsToTransfers(events).filter(validTransfer)};
   }),
   markRequestSucceeded: response => set({
