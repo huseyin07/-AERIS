@@ -84,7 +84,7 @@ export function Dashboard() {
   return <main>
     <LiveActivity/>
     <header>
-      <div className="brand"><Image className="brandMark" src="/aeris-logo.svg" alt="" width={18} height={18}/>AERIS</div>
+      <div className="brand"><Image className="brandMark" src="/aeris-logo.jpg" alt="" width={18} height={18}/>AERIS</div>
       <nav><b>LIVE</b><span>EXPLORE</span><button onClick={() => setAgentOpen(true)}>INSIGHTS</button><span>REPLAY</span></nav>
       <input
         className="search"
