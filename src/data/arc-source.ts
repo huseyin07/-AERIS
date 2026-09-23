@@ -50,7 +50,9 @@ async function processBlock(blockNumber: bigint, observedAt: number) {
     const event = normalizeTransactionActivity({hash: tx.hash, blockNumber: tx.blockNumber, blockHash: tx.blockHash, transactionIndex: tx.transactionIndex, from: tx.from, to: tx.to, input: tx.input}, receipt, tx.to ? types.get(tx.to.toLowerCase() as HexAddress) ?? "unknown" : "unknown", {timestamp, observedAt});
     return event ? [event] : [];
   });
-  // USDC log enrichment is best-effort. Arc public RPC can temporarily rate-limit eth_getLogs;\n  // transaction activity must continue flowing even when that optional enrichment is unavailable.\n  const logs = await client.getLogs({address: ARC.usdc, event: transferEvent, fromBlock: block.number, toBlock: block.number}).catch(() => []);
+  // USDC log enrichment is best-effort. Arc public RPC can temporarily rate-limit eth_getLogs;
+  // transaction activity must continue flowing even when that optional enrichment is unavailable.
+  const logs = await client.getLogs({address: ARC.usdc, event: transferEvent, fromBlock: block.number, toBlock: block.number}).catch(() => []);
   const normalized = logs.map(normalizeTransfer).filter((item): item is Transfer => item !== null);
   const transferAddresses = [...new Set(normalized.flatMap(item => [item.from, item.to]))];
   const transferTypes = new Map(await mapConcurrent(transferAddresses, RPC_CONCURRENCY, async address => [address, await kind(address)] as const));
