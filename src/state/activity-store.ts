@@ -1,5 +1,6 @@
 import {create} from "zustand";
-import type {ArcActivityEvent, EntityType, Transfer} from "@/data/types";
+import type {ActivityResponse, ArcActivityEvent, EntityType, Transfer} from "@/data/types";
+import type {ActivityHealth} from "@/lib/activity-ui";
 import {eventsToTransfers, pruneObservation} from "@/data/activity-engine";
 import type {VisualizationIntent} from "@/intelligence/intents";
 import {connectionAfterFailure, type Connection} from "./connection";
@@ -8,12 +9,13 @@ type State = {
   transfers: Transfer[];
   events: ArcActivityEvent[];
   connection: Connection;
+  health: ActivityHealth;
   selected: string | null;
   query: string;
   visualizationIntent: VisualizationIntent;
   mergeActivity: (events: ArcActivityEvent[]) => void;
-  markRequestSucceeded: () => void;
-  markRequestFailed: () => void;
+  markRequestSucceeded: (response: ActivityResponse) => void;
+  markRequestFailed: (response?: ActivityResponse) => void;
   select: (address: string | null) => void;
   setQuery: (query: string) => void;
   setVisualizationIntent: (intent: VisualizationIntent) => void;
@@ -40,6 +42,7 @@ export const useActivity = create<State>(set => ({
   transfers: [],
   events: [],
   connection: "connecting",
+  health: {status: null, rpcWarnings: []},
   selected: null,
   query: "",
   visualizationIntent: {type: "reset"},
@@ -47,8 +50,11 @@ export const useActivity = create<State>(set => ({
     const events = pruneObservation([...state.events, ...incoming]);
     return {events, transfers: eventsToTransfers(events).filter(validTransfer)};
   }),
-  markRequestSucceeded: () => set({connection: "live"}),
-  markRequestFailed: () => set(state => ({connection: connectionAfterFailure(state.events.length)})),
+  markRequestSucceeded: response => set({
+    connection: "live",
+    health: {status: response.status ?? "ok", latestBlock: response.latestBlock, processedBlockRange: response.processedBlockRange, rpcWarnings: (response.rpcWarnings ?? []).slice(0, 3), lastSuccessfulAt: response.fetchedAt},
+  }),
+  markRequestFailed: response => set(state => ({connection: connectionAfterFailure(state.events.length), health: {...state.health, status: "error", rpcWarnings: (response?.rpcWarnings ?? state.health.rpcWarnings).slice(0, 3)}})),
   select: selected => set({selected}),
   setQuery: query => set({query}),
   setVisualizationIntent: visualizationIntent => set({visualizationIntent}),

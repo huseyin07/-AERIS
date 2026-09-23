@@ -2,7 +2,7 @@ import type {EntityType, Transfer} from "@/data/types";
 import type {VisualizationIntent} from "./intents";
 
 export type RankedAddress = {address: string; type: EntityType; sent: number; received: number; transferCount: number; uniqueCounterparties: number};
-export type RankedFlow = {id: string; txHash: Transfer["txHash"]; from: Transfer["from"]; to: Transfer["to"]; amount: number; blockNumber: string};
+export type RankedFlow = {id: string; txHash: Transfer["txHash"]; from: Transfer["from"]; to: Transfer["to"]; amount: number; blockNumber: string; timestamp?: number};
 export type ActivityCategory = `${EntityType}-to-${EntityType}`;
 export type ActivitySlice = {category: ActivityCategory; count: number; volume: number; transferPercent: number; volumePercent: number};
 export type EntityIntelligence = RankedAddress & {
@@ -20,7 +20,7 @@ export type EntityIntelligence = RankedAddress & {
 export type SignalEvidence = {label: string; value: number; unit: "USDC" | "percent" | "count"};
 export type AerisSignal = {
   id: string;
-  type: "large-flow" | "flow-concentration" | "receiver-concentration" | "sender-concentration" | "contract-activity" | "high-counterparty-activity" | "contract-flow" | "activity-mix" | "new-contract-activity";
+  type: "large-flow" | "flow-concentration" | "repeated-counterparty" | "receiver-concentration" | "sender-concentration" | "contract-activity" | "high-counterparty-activity" | "contract-flow" | "activity-mix" | "new-contract-activity";
   severity: "information" | "notable";
   importance: number;
   title: string;

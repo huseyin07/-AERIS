@@ -180,6 +180,7 @@ test("zero and small windows remain finite and preserve multi-log identities", (
 
 import {AddressClassificationCache, BlockCursor, MAX_OBSERVED_EVENTS, OBSERVATION_WINDOW_MS, contractCallActivityId, deploymentActivityId, normalizeTransactionActivity, pruneObservation, receiptStatus, transferToActivity, transactionActivityId, usdcActivityId} from "../src/data/activity-engine.ts";
 import {selectSignificantTransfers, VISUAL_CAPS} from "../src/visualization/network-model.ts";
+import {healthLabel, newestTransfers, relativeActivityTime, searchObservation} from "../src/lib/activity-ui.ts";
 
 const baseTx = (overrides = {}) => ({hash: hash("abc"), blockNumber: 10n, blockHash: hash("b10"), transactionIndex: 2, from: a, to: contract, input: "0x12345678", ...overrides});
 
@@ -257,4 +258,58 @@ test("significance selection is deterministic, diverse, and visual caps match V7
   assert.deepEqual(first, selectSignificantTransfers([...crowded, ...diverse], 10));
   assert.ok(first.some(item => item.from !== a));
   assert.deepEqual(VISUAL_CAPS, {desktop: {flows: 60, nodes: 120, labels: 3, annotations: 2}, tablet: {flows: 40, nodes: 80, labels: 2, annotations: 1}, mobile: {flows: 20, nodes: 45, labels: 1, annotations: 0}});
+});
+
+test("ledger derives verified transfers newest-first without mutating its source", () => {
+  const source = [
+    {...transfers[0], timestamp: 1_000, transactionIndex: 1},
+    {...transfers[1], timestamp: 3_000, transactionIndex: 2},
+    {...transfers[2], timestamp: 2_000, transactionIndex: 3},
+  ];
+  assert.deepEqual(newestTransfers(source).map(item => item.id), ["2", "3", "1"]);
+  assert.deepEqual(source.map(item => item.id), ["1", "2", "3"]);
+  assert.equal(newestTransfers([]).length, 0);
+  assert.equal(relativeActivityTime(1_000, 39_000), "38s ago");
+});
+
+test("observation search validates exact addresses and hashes and clear restores the ledger", () => {
+  const addressResult = searchObservation(transfers, [], a.toUpperCase());
+  assert.equal(addressResult.kind, "address");
+  assert.equal(addressResult.transfers.length, 2);
+  const hashResult = searchObservation(transfers, [], transfers[1].txHash);
+  assert.equal(hashResult.kind, "transaction");
+  assert.deepEqual(hashResult.transfers.map(item => item.id), ["2"]);
+  const invalid = searchObservation(transfers, [], "0x123");
+  assert.equal(invalid.kind, "invalid");
+  assert.equal(invalid.transfers.length, transfers.length);
+  assert.equal(searchObservation(transfers, [], "").transfers.length, transfers.length);
+});
+
+test("health maps successful, partial, failed, and stale observations without erasing data", () => {
+  const current = {status: "ok", rpcWarnings: [], lastSuccessfulAt: 100_000};
+  assert.equal(healthLabel("live", current, 110_000), "LIVE");
+  assert.equal(healthLabel("live", {...current, status: "partial", rpcWarnings: ["logs limited"]}, 110_000), "PARTIAL");
+  assert.equal(healthLabel("stale", current, 110_000), "DEGRADED");
+  assert.equal(healthLabel("live", current, 150_001), "DEGRADED");
+  assert.equal(connectionAfterFailure(transfers.length), "stale");
+});
+
+test("signals detect repeated directed counterparties and verified deployments", () => {
+  const repeated = [transfers[0], {...transfers[0], id: "repeat", txHash: hash("99"), logIndex: 99}, transfers[1]];
+  const deployment = normalizeTransactionActivity(baseTx({to: null}), {status: "success", contractAddress: contract}, "unknown", {timestamp: 1_000, observedAt: 1_000});
+  const repeatedSnapshot = buildIntelligenceSnapshot(repeated, 2_000);
+  assert.ok(repeatedSnapshot.signals.some(signal => signal.type === "repeated-counterparty"));
+  assert.ok(repeatedSnapshot.signals.some(signal => signal.type === "flow-concentration"));
+  const deploymentSnapshot = buildIntelligenceSnapshot(transfers, 2_000, deployment ? [deployment] : []);
+  assert.ok(deploymentSnapshot.signals.some(signal => signal.type === "new-contract-activity"));
+});
+
+test("agent transaction explanations use supplied verified data without identity claims", () => {
+  const timed = transfers.map((item, index) => ({...item, timestamp: 10_000 - index * 1_000}));
+  const snapshot = buildIntelligenceSnapshot(timed, 12_000);
+  const largest = answerDeterministically("Largest flows", snapshot, timed);
+  assert.match(largest.evidence[0].text, /USDC.*0x.*→.*ago/);
+  const explanation = answerDeterministically(`Explain transaction ${timed[0].txHash}`, snapshot, timed);
+  assert.match(explanation.summary, /USDC moved from.*block 100/);
+  assert.doesNotMatch(explanation.summary, /whale|institution|suspicious|exchange/i);
 });
