@@ -51,9 +51,9 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
       try {
         const delta = diffSnapshots(previousSnapshot.current, snapshot, previousTransfers.current, transfers);
         const result = connection === "connecting" && !transfers.length
-          ? {message: "Connecting to Arc Mainnet...", summary: "Connecting to Arc Mainnet...", evidence: [], relatedAddresses: [], relatedTransferIds: [], intent: {type: "reset"} as const, scope: "current-window" as const}
+          ? {message: "Connecting to Arc Mainnet...", summary: "Connecting to Arc Mainnet...", evidence: [], relatedAddresses: [], relatedTransferIds: [], intent: {type: "reset"} as const, scope: "current-window" as const, trace: makeAgentTrace([], 0, 0)}
           : connection === "unavailable" && !transfers.length
-            ? {message: "Verified Arc activity is currently unavailable.", summary: "Verified Arc activity is currently unavailable.", evidence: [], relatedAddresses: [], relatedTransferIds: [], intent: {type: "reset"} as const, scope: "current-window" as const}
+            ? {message: "Verified Arc activity is currently unavailable.", summary: "Verified Arc activity is currently unavailable.", evidence: [], relatedAddresses: [], relatedTransferIds: [], intent: {type: "reset"} as const, scope: "current-window" as const, trace: makeAgentTrace([], 0, 0)}
             : withObservationStatus(answerDeterministically(next, snapshot, transfers, selected, {
                 address: history.at(-1)?.answer.relatedAddresses[0] ?? selected,
                 previousAddress: history.at(-2)?.answer.relatedAddresses[0] ?? null,
