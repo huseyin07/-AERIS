@@ -4,7 +4,7 @@ import {useEffect} from "react";
 import type {ActivityResponse} from "@/data/types";
 import {useActivity} from "@/state/activity-store";
 
-const POLL_INTERVAL_MS = 15_000;
+const POLL_INTERVAL_MS = 6_000;
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_RETRY_DELAY_MS = 20_000;
 
