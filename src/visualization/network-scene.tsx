@@ -73,7 +73,8 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
   }, []);
 
   const {nodes, flows} = useMemo(() => {
-    const verified = uniqueTransfers(transfers);
+    const allVerified = uniqueTransfers(transfers);
+    const verified = intent.type === "filter-transfers" && intent.minimumAmount !== undefined ? allVerified.filter(item => safeAmount(item.value) >= intent.minimumAmount) : intent.type === "isolate-network" ? allVerified.filter(item => intent.transferIds.includes(item.id) || intent.transferIds.includes(transferIdentity(item))) : allVerified;
     const types = new Map<string, string>();
     const volumes = new Map<string, number>();
     const counts = new Map<string, number>();
@@ -123,11 +124,11 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
     const activeIds = new Set(orderedFlowIds);
     for (const id of flowResources.current.keys()) if (!activeIds.has(id)) flowResources.current.delete(id);
     return {nodes: nextNodes, flows: nextFlows};
-  }, [transfers, compact, tablet]);
+  }, [transfers, compact, tablet, intent]);
 
-  const intentFlowIds = useMemo(() => new Set(intent.type === "highlight-transfers" ? intent.transferIds : []), [intent]);
-  const intentAddresses = useMemo(() => new Set(intent.type === "highlight-addresses" ? intent.addresses : intent.type === "focus-address-activity" ? [intent.address] : []), [intent]);
-  const flowFocused = useCallback((flow: Flow) => intent.type === "reset" || (intent.type === "highlight-transfers" && (intentFlowIds.has(flow.transfer.id) || intentFlowIds.has(flow.id))) || (intent.type !== "highlight-transfers" && (intentAddresses.has(flow.from) || intentAddresses.has(flow.to))), [intent, intentAddresses, intentFlowIds]);
+  const intentFlowIds = useMemo(() => new Set(intent.type === "highlight-transfers" || intent.type === "isolate-network" ? intent.transferIds : []), [intent]);
+  const intentAddresses = useMemo(() => new Set(intent.type === "highlight-addresses" || intent.type === "isolate-network" ? intent.addresses.map(item => item.toLowerCase()) : intent.type === "focus-address-activity" ? [intent.address.toLowerCase()] : []), [intent]);
+  const flowFocused = useCallback((flow: Flow) => intent.type === "reset" || intent.type === "filter-transfers" || ((intent.type === "highlight-transfers" || intent.type === "isolate-network") && (intentFlowIds.has(flow.transfer.id) || intentFlowIds.has(flow.id))) || ((intent.type === "highlight-addresses" || intent.type === "focus-address-activity") && (intentAddresses.has(flow.from) || intentAddresses.has(flow.to))), [intent, intentAddresses, intentFlowIds]);
   const isFlowRelated = useCallback((flow: Flow) => (!selectedAddress || flow.from === selectedAddress || flow.to === selectedAddress) && (!selectedTransferId || flow.id === selectedTransferId) && flowFocused(flow), [flowFocused, selectedAddress, selectedTransferId]);
   const inspectedFlowId = selectedTransferId ?? hoveredFlow;
 
