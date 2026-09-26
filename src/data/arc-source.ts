@@ -13,7 +13,6 @@ export const CHAIN_HEAD_STALE_THRESHOLD_MS = 2 * 60 * 1_000;
 export const CHAIN_HEAD_FUTURE_SKEW_THRESHOLD_MS = 2 * 60 * 1_000;
 const MAX_ACTIVITY_TRANSACTIONS = 32;
 const RPC_CONCURRENCY = 2;
-const METADATA_RPC_CONCURRENCY = 12;
 const RESULT_CACHE_MS = 6_000;
 
 type RpcTransaction = {hash: HexHash; blockNumber: bigint | null; blockHash: HexHash | null; transactionIndex: number | null; from: HexAddress; to: HexAddress | null; input: HexHash};
@@ -146,26 +145,20 @@ export function createActivityIngestor(rpc: ActivityRpc, options: {now?: () => n
       throw new Error(`Arc head ${latestBlock} changed during ingestion; retrying with a fresh snapshot is required`);
     }
 
-    const blockByNumber = new Map([...headers, ...blocks.map(block => [block.number.toString(), block] as const)]);
     const candidates = blocks.flatMap(block => block.transactions
       .filter(tx => tx.to === null || tx.input !== "0x")
       .map(tx => ({tx, block})))
       .slice(-MAX_ACTIVITY_TRANSACTIONS);
 
     let rawLogs: RpcLog[] = [];
+    let logsCovered = true;
     const logsStartedAt = monotonicNow();
     counts.logs += 1;
     try { rawLogs = await rpc.getLogs({address: ARC.usdc, event: transferEvent, fromBlock: start, toBlock: latestBlock}); }
-    catch (error) { warnings.push(`eth_getLogs USDC ${start}-${latestBlock}: ${warning(error)}`); }
+    catch (error) { logsCovered = false; warnings.push(`eth_getLogs USDC ${start}-${latestBlock}: ${warning(error)}`); }
     timings.usdcLogs = monotonicNow() - logsStartedAt;
     const metadataStartedAt = monotonicNow();
     const transfers = [...new Map(rawLogs.map(normalizeTransfer).filter((item): item is Transfer => item !== null).map(transfer => [`${transfer.txHash.toLowerCase()}:${transfer.logIndex}`, transfer])).values()];
-    const missingBlocks = [...new Set(transfers.map(transfer => transfer.blockNumber))].filter(number => !blockByNumber.has(number));
-    await mapConcurrent(missingBlocks, METADATA_RPC_CONCURRENCY, async number => {
-      try { blockByNumber.set(number, await header(BigInt(number))); }
-      catch (error) { warnings.push(`eth_getBlockByNumber ${number}: ${warning(error)}`); }
-    });
-
     // Address classification is only required to identify contract-call candidates.
     // USDC transfer endpoints may remain "unknown" without affecting any verified
     // transfer coordinate, amount, block hash, timestamp, or transaction identity.
@@ -174,7 +167,7 @@ export function createActivityIngestor(rpc: ActivityRpc, options: {now?: () => n
     const addresses = [...new Set(
       candidates.flatMap(({tx}) => tx.to ? [tx.to.toLowerCase() as HexAddress] : []),
     )];
-    const types = new Map(await mapConcurrent(addresses, METADATA_RPC_CONCURRENCY, async address => {
+    const types = new Map(await mapConcurrent(addresses, RPC_CONCURRENCY, async address => {
       const cached = classifications.get(address);
       if (cached) return [address, cached] as const;
       try {
@@ -216,21 +209,20 @@ export function createActivityIngestor(rpc: ActivityRpc, options: {now?: () => n
       return event ? [event] : [];
     });
     const transferEvents = transfers.flatMap(transfer => {
-      const block = blockByNumber.get(transfer.blockNumber);
       const receipt = receiptByHash.get(transfer.txHash.toLowerCase());
       const transactionIndex = transfer.transactionIndex ?? receipt?.transactionIndex;
-      const blockHash = transfer.blockHash ?? block?.hash;
-      if (transactionIndex === undefined || !blockHash || !block) {
+      const blockHash = transfer.blockHash;
+      if (transactionIndex === undefined || !blockHash) {
         warnings.push(`Incomplete USDC log ${transfer.txHash}:${transfer.logIndex}`);
         return [];
       }
       const status: ActivityStatus = receipt?.status === "success" ? "success" : receipt?.status === "reverted" ? "failed" : "unknown";
-      return [transferToActivity({...transfer, fromType: "unknown", toType: "unknown"}, {blockHash, transactionIndex, timestamp: Number(block.timestamp) * 1_000, observedAt, status})];
+      return [transferToActivity({...transfer, fromType: "unknown", toType: "unknown"}, {blockHash, transactionIndex, timestamp: windowReferenceTimestamp, observedAt, status})];
     });
 
-    const observed = pruneObservation([...txEvents, ...transferEvents], windowReferenceTimestamp);
+    // Transfer logs are already bounded to the chain-relative block window. Exact per-transfer\n    // timestamps are optional metadata, so do not fan out one header request per transfer block.\n    const observed = pruneObservation([...txEvents, ...transferEvents], windowReferenceTimestamp, undefined, start);
     timings.normalization = monotonicNow() - normalizationStartedAt;
-    const windowCovered = rangeCovered;
+    const windowCovered = rangeCovered && logsCovered;
     counts.total = counts.chainIdentity + counts.latestHead + counts.timestampHeaders + counts.fullBlocks + counts.logs + counts.receipts + counts.bytecode;
     timings.total = monotonicNow() - startedAt;
     const diagnostics: ActivityDiagnostics = {
