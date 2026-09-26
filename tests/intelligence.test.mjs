@@ -164,6 +164,37 @@ test("agent supports sender, receiver, counterparties, incoming, outgoing, and s
   assert.deepEqual(answerDeterministically("Show this address's outgoing flows", snapshot, transfers, contract).relatedTransferIds, ["3"]);
 });
 
+test("agent performs multi-step largest-flow investigations with verified evidence", () => {
+  const snapshot = buildIntelligenceSnapshot(transfers, 0);
+  const result = answerDeterministically("Investigate the largest transfer", snapshot, transfers);
+  assert.equal(result.intent.type, "highlight-transfers");
+  assert.equal(result.relatedTransferIds[0], "3");
+  assert.deepEqual(result.relatedAddresses, [contract, c]);
+  assert.match(result.summary, /Investigation: 70 USDC moved/);
+  assert.equal(result.evidence[0].txHash, transfers[2].txHash);
+  assert.equal(result.evidence[0].blockNumber, transfers[2].blockNumber);
+});
+
+test("agent resolves follow-up pronouns from prior verified context", () => {
+  const snapshot = buildIntelligenceSnapshot(transfers, 0);
+  const received = answerDeterministically("What did it receive?", snapshot, transfers, null, {address: contract});
+  assert.equal(received.intent.type, "highlight-transfers");
+  assert.deepEqual(received.relatedTransferIds, ["2"]);
+  const counterparties = answerDeterministically("Show its biggest counterparties", snapshot, transfers, null, {address: contract});
+  assert.equal(counterparties.intent.type, "highlight-addresses");
+  assert.equal(counterparties.relatedAddresses[0], contract);
+  assert.ok(counterparties.evidence.some(item => item.address === a || item.address === c));
+});
+
+test("agent detects repeated directed flow patterns without identity inference", () => {
+  const repeated = [transfers[0], {...transfers[0], id: "repeat-agent", txHash: hash("88"), logIndex: 88}, transfers[2]];
+  const snapshot = buildIntelligenceSnapshot(repeated, 0);
+  const result = answerDeterministically("Show repeated flow patterns", snapshot, repeated);
+  assert.equal(result.intent.type, "highlight-transfers");
+  assert.match(result.summary, /repeated directed flow pattern/i);
+  assert.doesNotMatch(result.summary, /suspicious|whale|institution|exchange/i);
+});
+
 test("status-aware answers never present stale or unavailable data as live", () => {
   const base = answerDeterministically("what's happening?", buildIntelligenceSnapshot(transfers, 0), transfers);
   assert.match(withObservationStatus(base, "stale").summary, /last successfully verified observation window/i);
