@@ -220,7 +220,7 @@ export function createActivityIngestor(rpc: ActivityRpc, options: {now?: () => n
       return [transferToActivity({...transfer, fromType: "unknown", toType: "unknown"}, {blockHash, transactionIndex, timestamp: windowReferenceTimestamp, observedAt, status})];
     });
 
-    // Transfer logs are already bounded to the chain-relative block window. Exact per-transfer\n    // timestamps are optional metadata, so do not fan out one header request per transfer block.\n    const observed = pruneObservation([...txEvents, ...transferEvents], windowReferenceTimestamp, undefined, start);
+    // Transfer logs are already bounded to the verified chain-relative block window.\n    // Avoid one header request per transfer block; use the verified window boundary for pruning.\n    const observed = pruneObservation([...txEvents, ...transferEvents], windowReferenceTimestamp, undefined, start);
     timings.normalization = monotonicNow() - normalizationStartedAt;
     const windowCovered = rangeCovered && logsCovered;
     counts.total = counts.chainIdentity + counts.latestHead + counts.timestampHeaders + counts.fullBlocks + counts.logs + counts.receipts + counts.bytecode;
