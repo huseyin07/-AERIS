@@ -52,7 +52,7 @@ test("USDC transfers do not trigger one timestamp-header request per transfer bl
   assert.equal(result.events.filter(event => event.type === "USDC_TRANSFER").length, logs.length);
   assert.ok(headerRequests < 20);
   assert.equal(result.diagnostics.rpcRequestCount.timestampHeaders, 11);
-  assert.equal(result.events.find(event => event.type === "USDC_TRANSFER")?.timestamp, undefined);
+  assert.equal(result.events.find(event => event.type === "USDC_TRANSFER")?.timestamp, result.diagnostics.windowReferenceTimestamp);
 });
 
 test("empty newest six blocks do not hide earlier in-window transfers", async () => {
