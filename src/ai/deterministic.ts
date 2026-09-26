@@ -2,10 +2,11 @@ import type {Transfer} from "@/data/types";
 import type {VisualizationIntent} from "@/intelligence/intents";
 import type {IntelligenceSnapshot} from "@/intelligence/types";
 import {createIntelligenceTools} from "./tools.ts";
+import {compareEntities, describeBehavior, makeAgentTrace, planAgentQuery, traceObservedFlow, type AgentTrace, type SnapshotDelta} from "./planner.ts";
 
 export type AnswerEvidence = {text: string; address?: string; transferId?: string; txHash?: string; blockNumber?: string};
-export type AgentContext = {address?: string | null; transferId?: string | null};
-export type AerisAnswer = {message: string; summary: string; evidence: AnswerEvidence[]; intent: VisualizationIntent; relatedAddresses: string[]; relatedTransferIds: string[]; scope: "current-window"};
+export type AgentContext = {address?: string | null; transferId?: string | null; previousAddress?: string | null; delta?: SnapshotDelta | null};
+export type AerisAnswer = {message: string; summary: string; evidence: AnswerEvidence[]; intent: VisualizationIntent; relatedAddresses: string[]; relatedTransferIds: string[]; scope: "current-window"; trace: AgentTrace};
 export function withObservationStatus(result: AerisAnswer, status: "live" | "stale" | "connecting" | "unavailable"): AerisAnswer {
   if (status === "stale") {
     const summary = `Using the last successfully verified observation window. ${result.summary}`;
@@ -18,17 +19,40 @@ export function withObservationStatus(result: AerisAnswer, status: "live" | "sta
 const format = (value: number) => value.toLocaleString("en-US", {maximumFractionDigits: 2});
 const short = (value: string) => `${value.slice(0, 6)}…${value.slice(-4)}`;
 const relative = (timestamp: number | undefined, now: number) => { if (!timestamp) return "time unavailable"; const seconds = Math.max(0, Math.floor((now - timestamp) / 1_000)); return seconds < 60 ? `${seconds}s ago` : `${Math.floor(seconds / 60)}m ago`; };
-function answer(summary: string, intent: VisualizationIntent = {type: "reset"}, evidence: AnswerEvidence[] = [], relatedAddresses: string[] = [], relatedTransferIds: string[] = []): AerisAnswer {
-  return {message: summary, summary, evidence, intent, relatedAddresses, relatedTransferIds, scope: "current-window"};
+function answer(summary: string, intent: VisualizationIntent = {type: "reset"}, evidence: AnswerEvidence[] = [], relatedAddresses: string[] = [], relatedTransferIds: string[] = [], trace: AgentTrace = makeAgentTrace(["observation"], relatedAddresses.length, relatedTransferIds.length)): AerisAnswer {
+  return {message: summary, summary, evidence, intent, relatedAddresses, relatedTransferIds, scope: "current-window", trace};
 }
 const unsupported = () => answer("I can currently analyze verified activity in the live AERIS observation window.");
 
 export function answerDeterministically(query: string, snapshot: IntelligenceSnapshot, transfers: readonly Transfer[], selectedAddress?: string | null, context: AgentContext = {}): AerisAnswer {
   const text = query.trim().toLowerCase().replace(/[’']/g, "'");
   const tools = createIntelligenceTools(snapshot, transfers);
+  const plan = planAgentQuery(query);
   const contextualTransfer = context.transferId ? transfers.find(item => item.id === context.transferId) ?? null : null;
   const contextualAddress = context.address ?? selectedAddress ?? contextualTransfer?.to ?? null;
   if (!snapshot.transferCount) return answer("No verified activity is available in the current observation window.");
+  if (plan.intent === "changes") {
+    const delta = context.delta;
+    if (!delta) return answer("AERIS needs a previous verified snapshot before it can describe what changed.");
+    const direction = (value: number) => value > 0 ? `+${format(value)}` : format(value);
+    const ids = delta.newTransferIds.slice(0, 20);
+    return answer(`Since the previous verified snapshot: transfers ${direction(delta.transferCount)}, observed USDC volume ${direction(delta.volume)}, and unique addresses ${direction(delta.uniqueAddresses)}. ${delta.newTransferIds.length} newly observed transfers and ${delta.newAddresses.length} newly observed addresses entered the rolling window. Window expiry can also reduce these metrics.`, ids.length ? {type: "highlight-transfers", transferIds: ids} : {type: "reset"}, [{text: `${delta.newTransferIds.length} newly observed transfers`}, {text: `${delta.newAddresses.length} newly observed addresses`}], delta.newAddresses.slice(0, 10), ids, makeAgentTrace(["snapshot-diff", "signals"], delta.newAddresses.length, transfers.length));
+  }
+  if (plan.intent === "compare") {
+    const addresses = plan.addresses.length >= 2 ? plan.addresses : [context.previousAddress, context.address].filter((value): value is string => Boolean(value));
+    if (addresses.length < 2) return answer("Give me two observed addresses to compare, or analyze them one after another first.");
+    const comparison = compareEntities(snapshot, addresses[0], addresses[1]);
+    if (!comparison) return answer("Both addresses must be present in the current verified observation window.");
+    const aBehavior = describeBehavior(comparison.a).join(", "); const bBehavior = describeBehavior(comparison.b).join(", ");
+    return answer(`${short(comparison.a.address)}: ${comparison.a.transferCount} transfers, ${format(comparison.a.sent)} sent, ${format(comparison.a.received)} received, net ${format(comparison.a.netFlow)} USDC (${aBehavior}). ${short(comparison.b.address)}: ${comparison.b.transferCount} transfers, ${format(comparison.b.sent)} sent, ${format(comparison.b.received)} received, net ${format(comparison.b.netFlow)} USDC (${bBehavior}).`, {type: "highlight-addresses", addresses: [comparison.a.address, comparison.b.address]}, [{text: `${short(comparison.a.address)} · ${comparison.a.uniqueCounterparties} counterparties`, address: comparison.a.address}, {text: `${short(comparison.b.address)} · ${comparison.b.uniqueCounterparties} counterparties`, address: comparison.b.address}], [comparison.a.address, comparison.b.address], comparison.sharedTransferIds, makeAgentTrace(["entity-intelligence", "entity-comparison", "behavior-fingerprint"], 2, comparison.a.relatedTransferIds.length + comparison.b.relatedTransferIds.length));
+  }
+  if (plan.intent === "trace") {
+    const start = contextualTransfer ?? (contextualAddress ? transfers.filter(item => item.from.toLowerCase() === contextualAddress.toLowerCase() || item.to.toLowerCase() === contextualAddress.toLowerCase()).sort((a,b) => Number(b.value) - Number(a.value))[0] : tools.getLargestFlows(1)[0] ? transfers.find(item => item.id === tools.getLargestFlows(1)[0].id) : null);
+    if (!start) return answer("No verified transfer is available to trace in the current observation window.");
+    const traced = traceObservedFlow(transfers, start.id);
+    if (!traced) return answer("The selected transfer could not be traced in the current observation window.");
+    return answer(`Observed-window trace found ${traced.hops} linked transfer${traced.hops === 1 ? "" : "s"} across ${traced.addresses.length} addresses. This is only a path visible inside AERIS's rolling observation window, not a claim about ultimate fund origin or destination.`, {type: "highlight-transfers", transferIds: traced.transferIds}, traced.transferIds.slice(0, 5).map(id => { const item = transfers.find(transfer => transfer.id === id)!; return {text: `${format(Number(item.value))} USDC · ${short(item.from)} → ${short(item.to)}`, transferId: item.id, txHash: item.txHash, blockNumber: item.blockNumber}; }), traced.addresses, traced.transferIds, makeAgentTrace(["transfer-details", "flow-trace"], traced.addresses.length, transfers.length));
+  }
   if (/histor|yesterday|last\s+(week|month)|\b(24h|7d|30d)\b/.test(text)) return answer("AERIS currently only has access to the live verified observation window. Historical indexing is not available yet.");
   if (/\b(reset|clear)(\s+view)?\b/.test(text)) return answer("Showing all verified activity in the current observation window.");
   if (/(investigate|trace|analy[sz]e)\s+(the\s+)?(largest|biggest|top)\s+(flow|transfer)/.test(text)) {
