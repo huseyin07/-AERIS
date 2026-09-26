@@ -13,6 +13,7 @@ export const CHAIN_HEAD_STALE_THRESHOLD_MS = 2 * 60 * 1_000;
 export const CHAIN_HEAD_FUTURE_SKEW_THRESHOLD_MS = 2 * 60 * 1_000;
 const MAX_ACTIVITY_TRANSACTIONS = 32;
 const RPC_CONCURRENCY = 2;
+const METADATA_RPC_CONCURRENCY = 12;
 const RESULT_CACHE_MS = 6_000;
 
 type RpcTransaction = {hash: HexHash; blockNumber: bigint | null; blockHash: HexHash | null; transactionIndex: number | null; from: HexAddress; to: HexAddress | null; input: HexHash};
@@ -160,16 +161,20 @@ export function createActivityIngestor(rpc: ActivityRpc, options: {now?: () => n
     const metadataStartedAt = monotonicNow();
     const transfers = [...new Map(rawLogs.map(normalizeTransfer).filter((item): item is Transfer => item !== null).map(transfer => [`${transfer.txHash.toLowerCase()}:${transfer.logIndex}`, transfer])).values()];
     const missingBlocks = [...new Set(transfers.map(transfer => transfer.blockNumber))].filter(number => !blockByNumber.has(number));
-    await mapConcurrent(missingBlocks, RPC_CONCURRENCY, async number => {
+    await mapConcurrent(missingBlocks, METADATA_RPC_CONCURRENCY, async number => {
       try { blockByNumber.set(number, await header(BigInt(number))); }
       catch (error) { warnings.push(`eth_getBlockByNumber ${number}: ${warning(error)}`); }
     });
 
-    const addresses = [...new Set([
-      ...candidates.flatMap(({tx}) => tx.to ? [tx.to.toLowerCase() as HexAddress] : []),
-      ...transfers.flatMap(transfer => [transfer.from, transfer.to]),
-    ])];
-    const types = new Map(await mapConcurrent(addresses, RPC_CONCURRENCY, async address => {
+    // Address classification is only required to identify contract-call candidates.
+    // USDC transfer endpoints may remain "unknown" without affecting any verified
+    // transfer coordinate, amount, block hash, timestamp, or transaction identity.
+    // Keeping every transfer address off the cold-start critical path prevents
+    // hundreds/thousands of eth_getCode calls before the first live snapshot.
+    const addresses = [...new Set(
+      candidates.flatMap(({tx}) => tx.to ? [tx.to.toLowerCase() as HexAddress] : []),
+    )];
+    const types = new Map(await mapConcurrent(addresses, METADATA_RPC_CONCURRENCY, async address => {
       const cached = classifications.get(address);
       if (cached) return [address, cached] as const;
       try {
@@ -220,7 +225,7 @@ export function createActivityIngestor(rpc: ActivityRpc, options: {now?: () => n
         return [];
       }
       const status: ActivityStatus = receipt?.status === "success" ? "success" : receipt?.status === "reverted" ? "failed" : "unknown";
-      return [transferToActivity({...transfer, fromType: types.get(transfer.from) ?? "unknown", toType: types.get(transfer.to) ?? "unknown"}, {blockHash, transactionIndex, timestamp: Number(block.timestamp) * 1_000, observedAt, status})];
+      return [transferToActivity({...transfer, fromType: "unknown", toType: "unknown"}, {blockHash, transactionIndex, timestamp: Number(block.timestamp) * 1_000, observedAt, status})];
     });
 
     const observed = pruneObservation([...txEvents, ...transferEvents], windowReferenceTimestamp);
