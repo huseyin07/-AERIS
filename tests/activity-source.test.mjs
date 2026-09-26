@@ -38,6 +38,23 @@ test("cold ingestion reconstructs USDC activity older than the newest six blocks
   assert.ok(result.diagnostics.blocksScanned > 6);
 });
 
+test("USDC transfers do not trigger one timestamp-header request per transfer block", async () => {
+  const logs = Array.from({length: 120}, (_, index) => transferLog(String(2000 + index), 700n + BigInt(index), index));
+  let headerRequests = 0;
+  const result = await createActivityIngestor(mockRpc({
+    getBlock: async args => {
+      const number = requestedBlock(args);
+      if (!args.includeTransactions && args.blockTag !== "latest") headerRequests += 1;
+      return block(number, args.includeTransactions && number === latest ? [tx("1")] : []);
+    },
+    getLogs: async () => logs,
+  }), {now: () => now})();
+  assert.equal(result.events.filter(event => event.type === "USDC_TRANSFER").length, logs.length);
+  assert.ok(headerRequests < 20);
+  assert.equal(result.diagnostics.rpcRequestCount.timestampHeaders, 11);
+  assert.equal(result.events.find(event => event.type === "USDC_TRANSFER")?.timestamp, undefined);
+});
+
 test("empty newest six blocks do not hide earlier in-window transfers", async () => {
   const result = await createActivityIngestor(mockRpc({getBlock: async args => block(requestedBlock(args)), getLogs: async () => [transferLog("998", 650n)]}), {now: () => now})();
   assert.equal(result.events.filter(event => event.type === "USDC_TRANSFER").length, 1);
