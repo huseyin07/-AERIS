@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {buildIntelligenceSnapshot} from "../src/intelligence/engine.ts";
 import {answerDeterministically, withObservationStatus} from "../src/ai/deterministic.ts";
+import {compareEntities, describeBehavior, diffSnapshots, planAgentQuery, traceObservedFlow} from "../src/ai/planner.ts";
 import {connectionAfterFailure} from "../src/state/connection.ts";
 import {addressPosition, reconcileIdentityOrder, selectLabelCandidates, shortTransactionHash, significantTransferIds, transferIdentity, uniqueTransfers} from "../src/visualization/network-model.ts";
 
@@ -193,6 +194,57 @@ test("agent detects repeated directed flow patterns without identity inference",
   assert.equal(result.intent.type, "highlight-transfers");
   assert.match(result.summary, /repeated directed flow pattern/i);
   assert.doesNotMatch(result.summary, /suspicious|whale|institution|exchange/i);
+});
+
+test("Agent V3 planner routes investigations, comparisons, traces, and changes deterministically", () => {
+  assert.equal(planAgentQuery("Figure it out").intent, "investigate");
+  assert.equal(planAgentQuery(`Compare ${a} vs ${b}`).intent, "compare");
+  assert.equal(planAgentQuery("Trace this flow").intent, "trace");
+  assert.equal(planAgentQuery("What changed?").intent, "changes");
+});
+
+test("Agent V3 compares verified entities and produces behavior fingerprints", () => {
+  const snapshot = buildIntelligenceSnapshot(transfers, 0);
+  const comparison = compareEntities(snapshot, a, contract);
+  assert.equal(comparison.a.address, a);
+  assert.equal(comparison.b.address, contract);
+  assert.ok(Array.isArray(describeBehavior(comparison.a)));
+  const answer = answerDeterministically(`Compare ${a} vs ${contract}`, snapshot, transfers);
+  assert.equal(answer.intent.type, "highlight-addresses");
+  assert.match(answer.summary, /net .* USDC/);
+  assert.ok(answer.trace.toolsUsed.includes("entity-comparison"));
+});
+
+test("Agent V3 traces only observed-window transfer paths", () => {
+  const chained = [
+    {...transfers[0], blockNumber: "100"},
+    {...transfers[2], from: b, to: c, blockNumber: "101"},
+  ];
+  const traced = traceObservedFlow(chained, chained[0].id);
+  assert.deepEqual(traced.transferIds, ["1", "3"]);
+  const snapshot = buildIntelligenceSnapshot(chained, 0);
+  const answer = answerDeterministically("Trace this flow", snapshot, chained, null, {transferId: "1"});
+  assert.equal(answer.intent.type, "highlight-transfers");
+  assert.match(answer.summary, /not a claim about ultimate fund origin or destination/i);
+});
+
+test("Agent V3 reports snapshot changes without presenting window expiry as new chain facts", () => {
+  const previous = buildIntelligenceSnapshot(transfers.slice(0, 2), 1);
+  const current = buildIntelligenceSnapshot(transfers, 2);
+  const delta = diffSnapshots(previous, current, transfers.slice(0, 2), transfers);
+  assert.equal(delta.newTransferIds.length, 1);
+  const answer = answerDeterministically("What changed?", current, transfers, null, {delta});
+  assert.match(answer.summary, /Window expiry can also reduce these metrics/);
+  assert.ok(answer.trace.toolsUsed.includes("snapshot-diff"));
+});
+
+test("Agent V3 autonomous investigation exposes analysis trace and verified identifiers", () => {
+  const snapshot = buildIntelligenceSnapshot(transfers, 0);
+  const answer = answerDeterministically("Something interesting seems to be happening. Figure it out.", snapshot, transfers);
+  assert.ok(answer.trace.toolsUsed.length >= 4);
+  assert.equal(answer.trace.transfersEvaluated, transfers.length);
+  assert.ok(answer.relatedTransferIds.every(id => transfers.some(item => item.id === id)));
+  assert.doesNotMatch(answer.summary, /whale|institution|suspicious|exchange/i);
 });
 
 test("status-aware answers never present stale or unavailable data as live", () => {
