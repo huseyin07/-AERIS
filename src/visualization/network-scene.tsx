@@ -74,7 +74,7 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
 
   const {nodes, flows} = useMemo(() => {
     const allVerified = uniqueTransfers(transfers);
-    const verified = intent.type === "filter-transfers" && intent.minimumAmount !== undefined ? allVerified.filter(item => safeAmount(item.value) >= intent.minimumAmount) : intent.type === "isolate-network" ? allVerified.filter(item => intent.transferIds.includes(item.id) || intent.transferIds.includes(transferIdentity(item))) : allVerified;
+    const verified = intent.type === "filter-transfers" && intent.minimumAmount !== undefined ? allVerified.filter(item => safeAmount(item.value) >= intent.minimumAmount!) : intent.type === "isolate-network" ? allVerified.filter(item => intent.transferIds.includes(item.id) || intent.transferIds.includes(transferIdentity(item))) : allVerified;
     const types = new Map<string, string>();
     const volumes = new Map<string, number>();
     const counts = new Map<string, number>();
