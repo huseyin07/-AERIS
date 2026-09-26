@@ -26,7 +26,7 @@ type ActivityBase = {
   blockHash: HexHash;
   transactionHash: HexHash;
   transactionIndex: number;
-  timestamp?: number;
+  timestamp: number;
   from: HexAddress;
   status: ActivityStatus;
   source: "arc-mainnet-rpc";
