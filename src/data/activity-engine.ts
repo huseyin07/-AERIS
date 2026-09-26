@@ -32,9 +32,9 @@ export function normalizeTransactionActivity(tx: NormalizedTransaction, receipt:
   return {...base, id: contractCallActivityId(tx.hash), type: "CONTRACT_CALL", to, ...(selector ? {inputSelector: selector} : {})};
 }
 
-export function transferToActivity(transfer: Transfer, context: {blockHash: HexHash; transactionIndex: number; timestamp?: number; observedAt: number; status?: ActivityStatus}): ArcActivityEvent {
+export function transferToActivity(transfer: Transfer, context: {blockHash: HexHash; transactionIndex: number; timestamp: number; observedAt: number; status?: ActivityStatus}): ArcActivityEvent {
   const raw = transfer.amountRaw ?? String(BigInt(Math.round(Number(transfer.value) * 1_000_000)));
-  return {id: usdcActivityId(transfer.txHash, transfer.logIndex), type: "USDC_TRANSFER", chainId: 5042, blockNumber: transfer.blockNumber, blockHash: context.blockHash, transactionHash: transfer.txHash, transactionIndex: context.transactionIndex, ...(context.timestamp === undefined ? {} : {timestamp: context.timestamp}), from: transfer.from.toLowerCase() as HexAddress, to: transfer.to.toLowerCase() as HexAddress, status: context.status ?? "unknown", source: "arc-mainnet-rpc", observedAt: context.observedAt, parentTransactionId: transactionActivityId(transfer.txHash), logIndex: transfer.logIndex, amountRaw: raw, amountUSDC: transfer.value || formatUnits(BigInt(raw), 6), fromType: transfer.fromType, toType: transfer.toType};
+  return {id: usdcActivityId(transfer.txHash, transfer.logIndex), type: "USDC_TRANSFER", chainId: 5042, blockNumber: transfer.blockNumber, blockHash: context.blockHash, transactionHash: transfer.txHash, transactionIndex: context.transactionIndex, timestamp: context.timestamp, from: transfer.from.toLowerCase() as HexAddress, to: transfer.to.toLowerCase() as HexAddress, status: context.status ?? "unknown", source: "arc-mainnet-rpc", observedAt: context.observedAt, parentTransactionId: transactionActivityId(transfer.txHash), logIndex: transfer.logIndex, amountRaw: raw, amountUSDC: transfer.value || formatUnits(BigInt(raw), 6), fromType: transfer.fromType, toType: transfer.toType};
 }
 
 function chainOrder(a: ArcActivityEvent, b: ArcActivityEvent) {
