@@ -217,7 +217,7 @@ export function createActivityIngestor(rpc: ActivityRpc, options: {now?: () => n
         return [];
       }
       const status: ActivityStatus = receipt?.status === "success" ? "success" : receipt?.status === "reverted" ? "failed" : "unknown";
-      return [transferToActivity({...transfer, fromType: "unknown", toType: "unknown"}, {blockHash, transactionIndex, observedAt, status})];
+      return [transferToActivity({...transfer, fromType: "unknown", toType: "unknown"}, {blockHash, transactionIndex, timestamp: windowReferenceTimestamp, observedAt, status})];
     });
 
     // Transfer logs are already bounded to the chain-relative block window. Exact per-transfer\n    // timestamps are optional metadata, so do not fan out one header request per transfer block.\n    const observed = pruneObservation([...txEvents, ...transferEvents], windowReferenceTimestamp, undefined, start);
