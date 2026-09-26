@@ -4,4 +4,6 @@ export type VisualizationIntent =
   | {type: "highlight-addresses"; addresses: string[]}
   | {type: "filter-entity-type"; entityType: EntityType}
   | {type: "focus-address-activity"; address: string}
+  | {type: "isolate-network"; addresses: string[]; transferIds: string[]}
+  | {type: "filter-transfers"; direction?: "incoming" | "outgoing"; address?: string; minimumAmount?: number}
   | {type: "reset"};

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {buildIntelligenceSnapshot} from "../src/intelligence/engine.ts";
 import {answerDeterministically, withObservationStatus} from "../src/ai/deterministic.ts";
 import {compareEntities, describeBehavior, diffSnapshots, planAgentQuery, traceObservedFlow} from "../src/ai/planner.ts";
+import {compareTemporalHalves, detectTransferAnomalies, investigateGraph, provenanceFor, verifyAgentEvidence} from "../src/ai/investigation-engine.ts";
 import {connectionAfterFailure} from "../src/state/connection.ts";
 import {addressPosition, reconcileIdentityOrder, selectLabelCandidates, shortTransactionHash, significantTransferIds, transferIdentity, uniqueTransfers} from "../src/visualization/network-model.ts";
 
@@ -245,6 +246,55 @@ test("Agent V3 autonomous investigation exposes analysis trace and verified iden
   assert.equal(answer.trace.transfersEvaluated, transfers.length);
   assert.ok(answer.relatedTransferIds.every(id => transfers.some(item => item.id === id)));
   assert.doesNotMatch(answer.summary, /whale|institution|suspicious|exchange/i);
+});
+
+test("Agent V4 maps bounded observed graphs and fan structures", () => {
+  const graph = investigateGraph(transfers, contract, 2);
+  assert.ok(graph.addresses.includes(contract));
+  assert.ok(graph.transferIds.includes("2") && graph.transferIds.includes("3"));
+  assert.equal(graph.fanIn, 1);
+  assert.equal(graph.fanOut, 1);
+  const result = answerDeterministically(`Map the network around ${contract}`, buildIntelligenceSnapshot(transfers, 0), transfers);
+  assert.equal(result.intent.type, "isolate-network");
+  assert.ok(result.trace.toolsUsed.includes("evidence-verifier"));
+});
+
+test("Agent V4 explains deterministic unusual flows without intent claims", () => {
+  const sample = [...transfers, transfer("99", a, b, "10000")];
+  const snapshot = buildIntelligenceSnapshot(sample, 0);
+  const findings = detectTransferAnomalies(sample, snapshot.totalVolume);
+  assert.ok(findings.length > 0);
+  const result = answerDeterministically("Find unusual flows", snapshot, sample);
+  assert.equal(result.intent.type, "highlight-transfers");
+  assert.match(result.summary, /statistically unusual/i);
+  assert.doesNotMatch(result.summary, /suspicious|criminal|whale|exchange/i);
+  assert.ok(result.evidence.some(item => item.provenance?.includes("Arc Mainnet")));
+});
+
+test("Agent V4 temporal analysis compares only timestamped in-window halves", () => {
+  const timed = transfers.map((item,index)=>({...item,timestamp:1000+index*1000}));
+  const finding = compareTemporalHalves(timed);
+  assert.ok(finding);
+  const result = answerDeterministically("Is activity accelerating?", buildIntelligenceSnapshot(timed, 4000), timed);
+  assert.match(result.summary, /in-window comparison/i);
+});
+
+test("Agent V4 verifies provenance and rejects invented evidence identifiers", () => {
+  const verified = verifyAgentEvidence(transfers, [a], ["1"]);
+  assert.equal(verified.verified, true);
+  const rejected = verifyAgentEvidence(transfers, [address("999")], ["invented"]);
+  assert.equal(rejected.verified, false);
+  const provenance = provenanceFor(transfers, ["1"])[0];
+  assert.equal(provenance.network, "Arc Mainnet");
+  assert.equal(provenance.txHash, transfers[0].txHash);
+});
+
+test("Agent V4 natural-language visualization filters remain verified-data bounded", () => {
+  const snapshot = buildIntelligenceSnapshot(transfers, 0);
+  const result = answerDeterministically("Show flows above 30 USDC", snapshot, transfers);
+  assert.equal(result.intent.type, "filter-transfers");
+  assert.equal(result.intent.minimumAmount, 30);
+  assert.ok(result.relatedTransferIds.every(id => transfers.some(item => item.id === id)));
 });
 
 test("status-aware answers never present stale or unavailable data as live", () => {

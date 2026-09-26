@@ -3,8 +3,9 @@ import type {VisualizationIntent} from "@/intelligence/intents";
 import type {IntelligenceSnapshot} from "@/intelligence/types";
 import {createIntelligenceTools} from "./tools.ts";
 import {compareEntities, describeBehavior, makeAgentTrace, planAgentQuery, traceObservedFlow, type AgentTrace, type SnapshotDelta} from "./planner.ts";
+import {compareTemporalHalves, concentrationSummary, detectTransferAnomalies, investigateGraph, provenanceFor, verifyAgentEvidence} from "./investigation-engine.ts";
 
-export type AnswerEvidence = {text: string; address?: string; transferId?: string; txHash?: string; blockNumber?: string};
+export type AnswerEvidence = {text: string; address?: string; transferId?: string; txHash?: string; blockNumber?: string; provenance?: string};
 export type AgentContext = {address?: string | null; transferId?: string | null; previousAddress?: string | null; delta?: SnapshotDelta | null};
 export type AerisAnswer = {message: string; summary: string; evidence: AnswerEvidence[]; intent: VisualizationIntent; relatedAddresses: string[]; relatedTransferIds: string[]; scope: "current-window"; trace: AgentTrace};
 export function withObservationStatus(result: AerisAnswer, status: "live" | "stale" | "connecting" | "unavailable"): AerisAnswer {
@@ -31,6 +32,32 @@ export function answerDeterministically(query: string, snapshot: IntelligenceSna
   const contextualTransfer = context.transferId ? transfers.find(item => item.id === context.transferId) ?? null : null;
   const contextualAddress = context.address ?? selectedAddress ?? contextualTransfer?.to ?? null;
   if (!snapshot.transferCount) return answer("No verified activity is available in the current observation window.");
+  if (/map (the )?network|network around|graph around|isolate (this|the) network|show only (this|the) network/.test(text)) {
+    const root = text.match(/0x[\da-f]{40}/)?.[0] ?? contextualAddress;
+    if (!root) return answer("Select or provide an observed address before mapping its network.");
+    const graph = investigateGraph(transfers, root, 2); const verified = verifyAgentEvidence(transfers, graph.addresses, graph.transferIds);
+    return answer(`Mapped the verified 2-hop observation network around ${short(root)}: ${verified.verifiedAddresses.length} addresses and ${verified.verifiedTransferIds.length} transfers. Direct structure: ${graph.fanIn} unique incoming counterparties and ${graph.fanOut} unique outgoing counterparties. This describes only the current observation window.`, {type:"isolate-network", addresses:verified.verifiedAddresses, transferIds:verified.verifiedTransferIds}, [{text:`${graph.fanIn} fan-in · ${graph.fanOut} fan-out`,address:root}], verified.verifiedAddresses, verified.verifiedTransferIds, makeAgentTrace(["graph-investigation","evidence-verifier"],verified.verifiedAddresses.length,transfers.length));
+  }
+  if (/anomal|unusual|outlier|why .*flag/.test(text)) {
+    const findings=detectTransferAnomalies(transfers,snapshot.totalVolume); if(!findings.length) return answer("No transfer crosses AERIS's deterministic unusual-activity thresholds in the current observation window.");
+    const ids=findings.map(item=>item.transferId); const verified=verifyAgentEvidence(transfers,[],ids); const first=findings[0];
+    return answer(`AERIS found ${findings.length} statistically unusual observed transfer${findings.length===1?"":"s"}. Strongest finding: ${first.reason}. “Unusual” is a distribution comparison inside this window, not a claim of suspicious intent.`, {type:"highlight-transfers",transferIds:verified.verifiedTransferIds}, findings.slice(0,5).map(item=>{const transfer=transfers.find(t=>t.id===item.transferId)!; return {text:item.reason,transferId:transfer.id,txHash:transfer.txHash,blockNumber:transfer.blockNumber,provenance:`Arc Mainnet → block ${transfer.blockNumber} → tx ${short(transfer.txHash)} → log ${transfer.logIndex} → normalized event`};}), [], verified.verifiedTransferIds, makeAgentTrace(["anomaly-detection","evidence-verifier","provenance"],0,transfers.length));
+  }
+  if (/accelerat|tempo|momentum|recent half|previous half/.test(text)) {
+    const temporal=compareTemporalHalves(transfers); if(!temporal) return answer("There is not enough timestamped verified activity to compare equal observed intervals.");
+    const show=(value:number|null)=>value===null?"not comparable":`${value>=0?"+":""}${format(value)}%`;
+    return answer(`Within the timestamp span currently observed, the newer half has ${temporal.currentCount} transfers versus ${temporal.previousCount} in the older half (${show(temporal.countChangePercent)}), while observed volume changed from ${format(temporal.previousVolume)} to ${format(temporal.currentVolume)} USDC (${show(temporal.volumeChangePercent)}). This is an in-window comparison, not long-term history.`, {type:"reset"}, [{text:`Transfer frequency change · ${show(temporal.countChangePercent)}`},{text:`Observed volume change · ${show(temporal.volumeChangePercent)}`}], [], [], makeAgentTrace(["temporal-analysis"],0,transfers.length));
+  }
+  if (/concentration|concentrated|top three|top 3/.test(text)) {
+    const concentration=concentrationSummary(snapshot);
+    return answer(`Observed concentration: largest transfer ${format(concentration.largestFlowPercent)}% of volume; top three flows ${format(concentration.topThreePercent)}%; top sender ${format(concentration.topSenderPercent)}%; top receiver ${format(concentration.topReceiverPercent)}%.`, {type:"highlight-transfers",transferIds:snapshot.topFlows.slice(0,3).map(item=>item.id)}, [{text:`Top three flows · ${format(concentration.topThreePercent)}% of observed volume`}], [], snapshot.topFlows.slice(0,3).map(item=>item.id), makeAgentTrace(["concentration-analysis"],0,transfers.length));
+  }
+  const minimumMatch=text.match(/(?:above|over|greater than)\s*\$?([\d,.]+)\s*(k|m)?/i);
+  if (minimumMatch && /(show|hide|flow|transfer)/.test(text)) {
+    const multiplier=minimumMatch[2]?.toLowerCase()==="m"?1_000_000:minimumMatch[2]?.toLowerCase()==="k"?1_000:1; const minimum=Number(minimumMatch[1].replace(/,/g,""))*multiplier;
+    const ids=transfers.filter(item=>Number(item.value)>=minimum).map(item=>item.id);
+    return answer(`Showing ${ids.length} verified transfer${ids.length===1?"":"s"} at or above ${format(minimum)} USDC.`, {type:"filter-transfers",minimumAmount:minimum}, ids.slice(0,5).map(id=>{const item=transfers.find(t=>t.id===id)!;return {text:`${format(Number(item.value))} USDC`,transferId:id,txHash:item.txHash,blockNumber:item.blockNumber};}), [], ids, makeAgentTrace(["visualization-filter"],0,transfers.length));
+  }
   if (plan.intent === "changes") {
     const delta = context.delta;
     if (!delta) return answer("AERIS needs a previous verified snapshot before it can describe what changed.");
@@ -63,7 +90,7 @@ export function answerDeterministically(query: string, snapshot: IntelligenceSna
     return answer(`Observed-window trace found ${traced.hops} linked transfer${traced.hops === 1 ? "" : "s"} across ${traced.addresses.length} addresses. This is only a path visible inside AERIS's rolling observation window, not a claim about ultimate fund origin or destination.`, {type: "highlight-transfers", transferIds: traced.transferIds}, traced.transferIds.slice(0, 5).map(id => { const item = transfers.find(transfer => transfer.id === id)!; return {text: `${format(Number(item.value))} USDC · ${short(item.from)} → ${short(item.to)}`, transferId: item.id, txHash: item.txHash, blockNumber: item.blockNumber}; }), traced.addresses, traced.transferIds, makeAgentTrace(["transfer-details", "flow-trace"], traced.addresses.length, transfers.length));
   }
   if (/histor|yesterday|last\s+(week|month)|\b(24h|7d|30d)\b/.test(text)) return answer("AERIS currently only has access to the live verified observation window. Historical indexing is not available yet.");
-  if (/\b(reset|clear)(\s+view)?\b/.test(text)) return answer("Showing all verified activity in the current observation window.");
+  if (/\b(reset|clear|go back)(\s+view|\s+investigation)?\b/.test(text)) return answer("Showing all verified activity in the current observation window.", {type:"reset"});
   if (/(investigate|trace|analy[sz]e)\s+(the\s+)?(largest|biggest|top)\s+(flow|transfer)/.test(text)) {
     const flow = tools.getLargestFlows(1)[0];
     if (!flow) return answer("No verified transfer is available to investigate in the current observation window.");
