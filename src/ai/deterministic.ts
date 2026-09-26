@@ -4,6 +4,7 @@ import type {IntelligenceSnapshot} from "@/intelligence/types";
 import {createIntelligenceTools} from "./tools.ts";
 
 export type AnswerEvidence = {text: string; address?: string; transferId?: string; txHash?: string; blockNumber?: string};
+export type AgentContext = {address?: string | null; transferId?: string | null};
 export type AerisAnswer = {message: string; summary: string; evidence: AnswerEvidence[]; intent: VisualizationIntent; relatedAddresses: string[]; relatedTransferIds: string[]; scope: "current-window"};
 export function withObservationStatus(result: AerisAnswer, status: "live" | "stale" | "connecting" | "unavailable"): AerisAnswer {
   if (status === "stale") {
@@ -22,12 +23,30 @@ function answer(summary: string, intent: VisualizationIntent = {type: "reset"}, 
 }
 const unsupported = () => answer("I can currently analyze verified activity in the live AERIS observation window.");
 
-export function answerDeterministically(query: string, snapshot: IntelligenceSnapshot, transfers: readonly Transfer[], selectedAddress?: string | null): AerisAnswer {
+export function answerDeterministically(query: string, snapshot: IntelligenceSnapshot, transfers: readonly Transfer[], selectedAddress?: string | null, context: AgentContext = {}): AerisAnswer {
   const text = query.trim().toLowerCase().replace(/[’']/g, "'");
   const tools = createIntelligenceTools(snapshot, transfers);
+  const contextualTransfer = context.transferId ? transfers.find(item => item.id === context.transferId) ?? null : null;
+  const contextualAddress = context.address ?? selectedAddress ?? contextualTransfer?.to ?? null;
   if (!snapshot.transferCount) return answer("No verified activity is available in the current observation window.");
   if (/histor|yesterday|last\s+(week|month)|\b(24h|7d|30d)\b/.test(text)) return answer("AERIS currently only has access to the live verified observation window. Historical indexing is not available yet.");
   if (/\b(reset|clear)(\s+view)?\b/.test(text)) return answer("Showing all verified activity in the current observation window.");
+  if (/(investigate|trace|analy[sz]e)\s+(the\s+)?(largest|biggest|top)\s+(flow|transfer)/.test(text)) {
+    const flow = tools.getLargestFlows(1)[0];
+    if (!flow) return answer("No verified transfer is available to investigate in the current observation window.");
+    const sender = tools.getEntityIntelligence(flow.from); const receiver = tools.getEntityIntelligence(flow.to);
+    const share = snapshot.totalVolume > 0 ? flow.amount / snapshot.totalVolume * 100 : 0;
+    const summary = `Investigation: ${format(flow.amount)} USDC moved from ${short(flow.from)} to ${short(flow.to)} in block ${flow.blockNumber}, representing ${format(share)}% of observed USDC volume. In this window, the sender has ${sender?.transferCount ?? 0} transfers and net flow ${format(sender?.netFlow ?? 0)} USDC; the receiver has ${receiver?.transferCount ?? 0} transfers and net flow ${format(receiver?.netFlow ?? 0)} USDC. These are observed flow statistics, not identity or intent claims.`;
+    return answer(summary, {type: "highlight-transfers", transferIds: [flow.id]}, [
+      {text: `${format(flow.amount)} USDC investigated flow`, transferId: flow.id, txHash: flow.txHash, blockNumber: flow.blockNumber},
+      {text: `Sender · ${sender?.transferCount ?? 0} transfers · net ${format(sender?.netFlow ?? 0)} USDC`, address: flow.from},
+      {text: `Receiver · ${receiver?.transferCount ?? 0} transfers · net ${format(receiver?.netFlow ?? 0)} USDC`, address: flow.to},
+    ], [flow.from, flow.to], [flow.id]);
+  }
+  if (/(investigate|analy[sz]e|explain)\s+(this|it|that)(\s+(flow|transfer))?/.test(text) && contextualTransfer) {
+    const share = snapshot.totalVolume > 0 ? Number(contextualTransfer.value) / snapshot.totalVolume * 100 : 0;
+    return answer(`This observed transfer moved ${format(Number(contextualTransfer.value))} USDC from ${short(contextualTransfer.from)} to ${short(contextualTransfer.to)} in block ${contextualTransfer.blockNumber}, representing ${format(share)}% of observed volume.`, {type: "highlight-transfers", transferIds: [contextualTransfer.id]}, [{text: `${format(Number(contextualTransfer.value))} USDC`, transferId: contextualTransfer.id, txHash: contextualTransfer.txHash, blockNumber: contextualTransfer.blockNumber}], [contextualTransfer.from, contextualTransfer.to], [contextualTransfer.id]);
+  }
   const transactionHash = text.match(/0x[\da-f]{64}/)?.[0];
   if (transactionHash) {
     const transfer = transfers.find(item => item.txHash.toLowerCase() === transactionHash);
@@ -35,11 +54,19 @@ export function answerDeterministically(query: string, snapshot: IntelligenceSna
     const share = snapshot.totalVolume > 0 ? Number(transfer.value) / snapshot.totalVolume * 100 : 0;
     return answer(`${format(Number(transfer.value))} USDC moved from ${short(transfer.from)} to ${short(transfer.to)} in block ${transfer.blockNumber}. This is ${format(share)}% of observed USDC volume; no identity or intent is inferred.`, {type: "highlight-transfers", transferIds: [transfer.id]}, [{text: `${format(Number(transfer.value))} USDC · ${relative(transfer.timestamp, snapshot.generatedAt)}`, transferId: transfer.id, txHash: transfer.txHash, blockNumber: transfer.blockNumber}], [transfer.from, transfer.to], [transfer.id]);
   }
-  const address = text.match(/0x[\da-f]{40}/)?.[0] ?? (/(address|explain|doing|this|node matter|incoming|outgoing)/.test(text) ? selectedAddress : null);
+  const address = text.match(/0x[\da-f]{40}/)?.[0] ?? (/(address|explain|doing|this|it|its|that|node matter|incoming|outgoing|received|sent|counterpart)/.test(text) ? contextualAddress : null);
   if (address) {
     const entity = tools.getEntityIntelligence(address);
     if (!entity) return answer("This address is not present in the current verified observation window.");
-    const incoming = /incoming|received/.test(text); const outgoing = /outgoing|sent|sending/.test(text);
+    if (/counterpart/.test(text)) {
+      const related = transfers.filter(item => item.from.toLowerCase() === entity.address.toLowerCase() || item.to.toLowerCase() === entity.address.toLowerCase());
+      const counts = new Map<string, {count: number; volume: number}>();
+      for (const item of related) { const peer = item.from.toLowerCase() === entity.address.toLowerCase() ? item.to : item.from; const current = counts.get(peer) ?? {count: 0, volume: 0}; current.count += 1; current.volume += Number(item.value); counts.set(peer, current); }
+      const peers = [...counts.entries()].sort((a, b) => b[1].count - a[1].count || b[1].volume - a[1].volume || a[0].localeCompare(b[0])).slice(0, 5);
+      const addresses = peers.map(([peer]) => peer);
+      return answer(`${short(entity.address)} interacted with ${entity.uniqueCounterparties} unique counterparties; ${peers.length ? `${short(peers[0][0])} is the most frequent observed counterparty with ${peers[0][1].count} transfers.` : "none are available to rank."}`, {type: "highlight-addresses", addresses: [entity.address, ...addresses]}, peers.map(([peer, stats]) => ({text: `${short(peer)} · ${stats.count} transfers · ${format(stats.volume)} USDC`, address: peer})), [entity.address, ...addresses], entity.relatedTransferIds);
+    }
+    const incoming = /incoming|received|receive/.test(text); const outgoing = /outgoing|sent|sending|send/.test(text);
     const ids = entity.relatedTransferIds.filter(id => { const item = transfers.find(transfer => transfer.id === id); return item && (!incoming || item.to.toLowerCase() === entity.address.toLowerCase()) && (!outgoing || item.from.toLowerCase() === entity.address.toLowerCase()); });
     const intent: VisualizationIntent = incoming || outgoing ? {type: "highlight-transfers", transferIds: ids} : {type: "focus-address-activity", address: entity.address};
     const summary = incoming ? `Highlighting ${ids.length} observed incoming flow${ids.length === 1 ? "" : "s"} for ${short(entity.address)}.` : outgoing ? `Highlighting ${ids.length} observed outgoing flow${ids.length === 1 ? "" : "s"} for ${short(entity.address)}.` : `Within the current verified observation window, this ${entity.type} appears in ${entity.transferCount} transfers, sending ${format(entity.sent)} USDC and receiving ${format(entity.received)} USDC. It interacted with ${entity.uniqueCounterparties} unique counterparties.${entity.largestRelated ? ` Its largest observed transfer was ${format(entity.largestRelated.amount)} USDC.` : ""} ${entity.whyItMatters}`;
@@ -84,6 +111,14 @@ export function answerDeterministically(query: string, snapshot: IntelligenceSna
     const transfer = transfers.slice().sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0) || Number(BigInt(b.blockNumber) - BigInt(a.blockNumber)) || (b.transactionIndex ?? 0) - (a.transactionIndex ?? 0) || b.logIndex - a.logIndex)[0];
     if (!transfer) return answer("No verified transfer is available in the current observation window.");
     return answer(`The latest observed transfer is ${format(Number(transfer.value))} USDC from ${short(transfer.from)} to ${short(transfer.to)} in block ${transfer.blockNumber}.`, {type: "highlight-transfers", transferIds: [transfer.id]}, [{text: `${format(Number(transfer.value))} USDC · ${relative(transfer.timestamp, snapshot.generatedAt)}`, transferId: transfer.id, txHash: transfer.txHash, blockNumber: transfer.blockNumber}], [transfer.from, transfer.to], [transfer.id]);
+  }
+  if (/(pattern|repeated|repeat flow|recurring)/.test(text)) {
+    const pairs = new Map<string, {count: number; volume: number; ids: string[]; from: string; to: string}>();
+    for (const item of transfers) { const key = `${item.from.toLowerCase()}->${item.to.toLowerCase()}`; const current = pairs.get(key) ?? {count: 0, volume: 0, ids: [], from: item.from, to: item.to}; current.count += 1; current.volume += Number(item.value); current.ids.push(item.id); pairs.set(key, current); }
+    const repeated = [...pairs.values()].filter(item => item.count > 1).sort((a, b) => b.count - a.count || b.volume - a.volume).slice(0, 3);
+    if (!repeated.length) return answer("No repeated directed transfer pattern appears in the current verified observation window.");
+    const ids = repeated.flatMap(item => item.ids);
+    return answer(`${repeated.length} repeated directed flow pattern${repeated.length === 1 ? "" : "s"} stand out. The leading pair repeated ${repeated[0].count} times for ${format(repeated[0].volume)} USDC in observed volume.`, {type: "highlight-transfers", transferIds: ids}, repeated.map(item => ({text: `${short(item.from)} → ${short(item.to)} · ${item.count} transfers · ${format(item.volume)} USDC`, transferId: item.ids[0]})), [...new Set(repeated.flatMap(item => [item.from, item.to]))], ids);
   }
   if (/(signals?|notable|unusual|interesting|stand\s*out)/.test(text)) {
     const signals = tools.getCurrentSignals();
