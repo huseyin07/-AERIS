@@ -65,27 +65,27 @@ export function answerDeterministically(query: string, snapshot: IntelligenceSna
     const entities = tools.getTopSenders(5); const addresses = entities.map(item => item.address);
     return answer(`${short(entities[0].address)} sent the most observed USDC: ${format(entities[0].sent)} USDC.`, {type: "highlight-addresses", addresses}, entities.map(item => ({text: `${short(item.address)} · ${format(item.sent)} USDC sent`, address: item.address})), addresses, []);
   }
-  if (/(most active|busiest|highest activity)(\\s+(address|entity|wallet))?|who\\s+is\\s+most\\s+active/.test(text)) {
+  if (/(most active|busiest|highest activity)(\s+(address|entity|wallet))?|who\s+is\s+most\s+active/.test(text)) {
     const entity = snapshot.mostActiveByCount[0];
     if (!entity) return answer("No verified entity activity is available in the current observation window.");
     return answer(`${short(entity.address)} is the most active observed entity with ${entity.transferCount} transfers and ${entity.uniqueCounterparties} unique counterparties.`, {type: "highlight-addresses", addresses: [entity.address]}, [{text: `${entity.transferCount} transfers · ${entity.uniqueCounterparties} counterparties`, address: entity.address}], [entity.address], entity.relatedTransferIds);
   }
-  if (/(largest|biggest|highest)\\s+(net\\s+)?(inflow|receiver)|(net\\s+)?inflow/.test(text)) {
+  if (/(largest|biggest|highest)\s+(net\s+)?(inflow|receiver)|(net\s+)?inflow/.test(text)) {
     const entity = snapshot.entities.slice().sort((a, b) => b.netFlow - a.netFlow || a.address.localeCompare(b.address))[0];
     if (!entity) return answer("No verified entity activity is available in the current observation window.");
     return answer(`${short(entity.address)} has the largest observed net inflow: ${format(entity.netFlow)} USDC.`, {type: "highlight-addresses", addresses: [entity.address]}, [{text: `${format(entity.received)} received · ${format(entity.sent)} sent`, address: entity.address}], [entity.address], entity.relatedTransferIds);
   }
-  if (/(largest|biggest|highest)\\s+(net\\s+)?(outflow|sender)|(net\\s+)?outflow/.test(text)) {
+  if (/(largest|biggest|highest)\s+(net\s+)?(outflow|sender)|(net\s+)?outflow/.test(text)) {
     const entity = snapshot.entities.slice().sort((a, b) => a.netFlow - b.netFlow || a.address.localeCompare(b.address))[0];
     if (!entity) return answer("No verified entity activity is available in the current observation window.");
     return answer(`${short(entity.address)} has the largest observed net outflow: ${format(Math.abs(entity.netFlow))} USDC.`, {type: "highlight-addresses", addresses: [entity.address]}, [{text: `${format(entity.sent)} sent · ${format(entity.received)} received`, address: entity.address}], [entity.address], entity.relatedTransferIds);
   }
-  if (/(latest|newest|most recent)\\s+(transfer|flow)|last\\s+transfer/.test(text)) {
+  if (/(latest|newest|most recent)\s+(transfer|flow)|last\s+transfer/.test(text)) {
     const transfer = transfers.slice().sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0) || Number(BigInt(b.blockNumber) - BigInt(a.blockNumber)) || (b.transactionIndex ?? 0) - (a.transactionIndex ?? 0) || b.logIndex - a.logIndex)[0];
     if (!transfer) return answer("No verified transfer is available in the current observation window.");
     return answer(`The latest observed transfer is ${format(Number(transfer.value))} USDC from ${short(transfer.from)} to ${short(transfer.to)} in block ${transfer.blockNumber}.`, {type: "highlight-transfers", transferIds: [transfer.id]}, [{text: `${format(Number(transfer.value))} USDC · ${relative(transfer.timestamp, snapshot.generatedAt)}`, transferId: transfer.id, txHash: transfer.txHash, blockNumber: transfer.blockNumber}], [transfer.from, transfer.to], [transfer.id]);
   }
-  if (/(signals?|notable|unusual|interesting|stand\\s*out)/.test(text)) {
+  if (/(signals?|notable|unusual|interesting|stand\s*out)/.test(text)) {
     const signals = tools.getCurrentSignals();
     if (!signals.length) return answer("No deterministic AERIS signal stands out in the current verified observation window.");
     const primary = signals[0];
