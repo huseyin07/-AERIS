@@ -6,12 +6,13 @@ import type {Transfer} from "@/data/types";
 import type {IntelligenceSnapshot} from "@/intelligence/types";
 import {money, short} from "@/lib/format";
 import {useActivity} from "@/state/activity-store";
+import {ARC} from "@/data/arc";
 import type {Connection} from "@/state/connection";
 
 type AgentRequest = {id: number; query: string} | null;
 type Exchange = {query: string; answer: AerisAnswer};
 type Props = {snapshot: IntelligenceSnapshot; transfers: Transfer[]; selected: string | null; connection: Connection; expanded: boolean; request: AgentRequest; onExpand: () => void; onClose: () => void; onSelectAddress: (address: string) => void; onSelectTransfer: (id: string) => void};
-const suggestions = ["What’s happening?", "Largest flows", "Active contracts"];
+const suggestions = ["What’s happening?", "Largest flows", "Most active", "Signals"];
 const connectionCopy: Record<Connection, string> = {
   live: "Observing verified Arc activity.", stale: "Using the last verified observation window.", connecting: "Connecting to Arc Mainnet...", unavailable: "Verified Arc activity unavailable.",
 };
@@ -83,7 +84,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
       {(analyzing || history.at(-1)) && <div className="reportQuery"><label>USER</label><p>{analyzing ? pendingQuery : history.at(-1)?.query}</p></div>}
       <div className="reportAnswer"><label>ANALYSIS · {connection === "stale" ? "LAST VERIFIED OBSERVATION" : "CURRENT OBSERVATION"}</label><p>{analyzing ? "ANALYZING VERIFIED ACTIVITY..." : answer?.summary ?? connectionCopy[connection]}</p>
         {topFlow && !analyzing && <dl><div><dt>AMOUNT</dt><dd>{money(String(topFlow.amount))} USDC</dd></div><div><dt>FROM</dt><dd>{short(topFlow.from)}</dd></div><div><dt>TO</dt><dd>{short(topFlow.to)}</dd></div><div><dt>BLOCK</dt><dd>{topFlow.blockNumber}</dd></div></dl>}
-        {!analyzing && answer?.evidence.length ? <div className="agentEvidence"><label>EVIDENCE</label>{answer.evidence.map((item, index) => <button key={`${item.text}-${index}`} onMouseEnter={() => item.transferId ? setIntent({type: "highlight-transfers", transferIds: [item.transferId]}) : item.address ? setIntent({type: "highlight-addresses", addresses: [item.address]}) : undefined} onMouseLeave={() => answer && setIntent(answer.intent)} onClick={() => item.transferId ? onSelectTransfer(item.transferId) : item.address ? onSelectAddress(item.address) : undefined}>• {item.text}</button>)}</div> : null}
+        {!analyzing && answer?.evidence.length ? <div className="agentEvidence"><label>EVIDENCE</label>{answer.evidence.map((item, index) => <div className="agentEvidenceRow" key={`${item.text}-${index}`}><button onMouseEnter={() => item.transferId ? setIntent({type: "highlight-transfers", transferIds: [item.transferId]}) : item.address ? setIntent({type: "highlight-addresses", addresses: [item.address]}) : undefined} onMouseLeave={() => answer && setIntent(answer.intent)} onClick={() => item.transferId ? onSelectTransfer(item.transferId) : item.address ? onSelectAddress(item.address) : undefined}>• {item.text}</button>{item.txHash ? <a href={`${ARC.explorer}/tx/${item.txHash}`} target="_blank" rel="noreferrer" aria-label="Open transaction in Arcscan">TX ↗</a> : item.address ? <a href={`${ARC.explorer}/address/${item.address}`} target="_blank" rel="noreferrer" aria-label="Open address in Arcscan">ADDRESS ↗</a> : null}</div>)}</div> : null}
         {!analyzing && answer && answer.intent.type !== "reset" && <button className="agentAction" onClick={() => setIntent(answer.intent)}>SHOW IN NETWORK</button>}
       </div>
     </div>}

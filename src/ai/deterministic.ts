@@ -3,7 +3,7 @@ import type {VisualizationIntent} from "@/intelligence/intents";
 import type {IntelligenceSnapshot} from "@/intelligence/types";
 import {createIntelligenceTools} from "./tools.ts";
 
-export type AnswerEvidence = {text: string; address?: string; transferId?: string};
+export type AnswerEvidence = {text: string; address?: string; transferId?: string; txHash?: string; blockNumber?: string};
 export type AerisAnswer = {message: string; summary: string; evidence: AnswerEvidence[]; intent: VisualizationIntent; relatedAddresses: string[]; relatedTransferIds: string[]; scope: "current-window"};
 export function withObservationStatus(result: AerisAnswer, status: "live" | "stale" | "connecting" | "unavailable"): AerisAnswer {
   if (status === "stale") {
@@ -33,7 +33,7 @@ export function answerDeterministically(query: string, snapshot: IntelligenceSna
     const transfer = transfers.find(item => item.txHash.toLowerCase() === transactionHash);
     if (!transfer) return answer("This transaction is not present in the current verified observation window.");
     const share = snapshot.totalVolume > 0 ? Number(transfer.value) / snapshot.totalVolume * 100 : 0;
-    return answer(`${format(Number(transfer.value))} USDC moved from ${short(transfer.from)} to ${short(transfer.to)} in block ${transfer.blockNumber}. This is ${format(share)}% of observed USDC volume; no identity or intent is inferred.`, {type: "highlight-transfers", transferIds: [transfer.id]}, [{text: `${format(Number(transfer.value))} USDC · ${relative(transfer.timestamp, snapshot.generatedAt)}`, transferId: transfer.id}], [transfer.from, transfer.to], [transfer.id]);
+    return answer(`${format(Number(transfer.value))} USDC moved from ${short(transfer.from)} to ${short(transfer.to)} in block ${transfer.blockNumber}. This is ${format(share)}% of observed USDC volume; no identity or intent is inferred.`, {type: "highlight-transfers", transferIds: [transfer.id]}, [{text: `${format(Number(transfer.value))} USDC · ${relative(transfer.timestamp, snapshot.generatedAt)}`, transferId: transfer.id, txHash: transfer.txHash, blockNumber: transfer.blockNumber}], [transfer.from, transfer.to], [transfer.id]);
   }
   const address = text.match(/0x[\da-f]{40}/)?.[0] ?? (/(address|explain|doing|this|node matter|incoming|outgoing)/.test(text) ? selectedAddress : null);
   if (address) {
@@ -47,7 +47,7 @@ export function answerDeterministically(query: string, snapshot: IntelligenceSna
   }
   if (/(largest|biggest|top)\s+(verified\s+)?(flow|transfer)|largest\s+flows?/.test(text)) {
     const flows = tools.getLargestFlows(3); const ids = flows.map(item => item.id);
-    return answer(`Highlighting ${flows.length} largest observed flow${flows.length === 1 ? "" : "s"}. The largest is ${format(flows[0].amount)} USDC.`, {type: "highlight-transfers", transferIds: ids}, flows.map(item => ({text: `${format(item.amount)} USDC · ${short(item.from)} → ${short(item.to)} · ${relative(item.timestamp, snapshot.generatedAt)}`, transferId: item.id})), [...new Set(flows.flatMap(item => [item.from, item.to]))], ids);
+    return answer(`Highlighting ${flows.length} largest observed flow${flows.length === 1 ? "" : "s"}. The largest is ${format(flows[0].amount)} USDC.`, {type: "highlight-transfers", transferIds: ids}, flows.map(item => ({text: `${format(item.amount)} USDC · ${short(item.from)} → ${short(item.to)} · ${relative(item.timestamp, snapshot.generatedAt)}`, transferId: item.id, txHash: item.txHash, blockNumber: item.blockNumber})), [...new Set(flows.flatMap(item => [item.from, item.to]))], ids);
   }
   if (/(active|top)\s+contracts?|contracts?\s+(are\s+)?active/.test(text)) {
     const contracts = tools.getActiveContracts(5); const addresses = contracts.map(item => item.address);
@@ -64,6 +64,32 @@ export function answerDeterministically(query: string, snapshot: IntelligenceSna
   if (/top\s+senders?|send(ing|s|er)?\s+(the\s+)?most|who\s+is\s+sending/.test(text)) {
     const entities = tools.getTopSenders(5); const addresses = entities.map(item => item.address);
     return answer(`${short(entities[0].address)} sent the most observed USDC: ${format(entities[0].sent)} USDC.`, {type: "highlight-addresses", addresses}, entities.map(item => ({text: `${short(item.address)} · ${format(item.sent)} USDC sent`, address: item.address})), addresses, []);
+  }
+  if (/(most active|busiest|highest activity)(\s+(address|entity|wallet))?|who\s+is\s+most\s+active/.test(text)) {
+    const entity = snapshot.mostActiveByCount[0];
+    if (!entity) return answer("No verified entity activity is available in the current observation window.");
+    return answer(`${short(entity.address)} is the most active observed entity with ${entity.transferCount} transfers and ${entity.uniqueCounterparties} unique counterparties.`, {type: "highlight-addresses", addresses: [entity.address]}, [{text: `${entity.transferCount} transfers · ${entity.uniqueCounterparties} counterparties`, address: entity.address}], [entity.address], entity.relatedTransferIds);
+  }
+  if (/(largest|biggest|highest)\s+(net\s+)?(inflow|receiver)|(net\s+)?inflow/.test(text)) {
+    const entity = snapshot.entities.slice().sort((a, b) => b.netFlow - a.netFlow || a.address.localeCompare(b.address))[0];
+    if (!entity) return answer("No verified entity activity is available in the current observation window.");
+    return answer(`${short(entity.address)} has the largest observed net inflow: ${format(entity.netFlow)} USDC.`, {type: "highlight-addresses", addresses: [entity.address]}, [{text: `${format(entity.received)} received · ${format(entity.sent)} sent`, address: entity.address}], [entity.address], entity.relatedTransferIds);
+  }
+  if (/(largest|biggest|highest)\s+(net\s+)?(outflow|sender)|(net\s+)?outflow/.test(text)) {
+    const entity = snapshot.entities.slice().sort((a, b) => a.netFlow - b.netFlow || a.address.localeCompare(b.address))[0];
+    if (!entity) return answer("No verified entity activity is available in the current observation window.");
+    return answer(`${short(entity.address)} has the largest observed net outflow: ${format(Math.abs(entity.netFlow))} USDC.`, {type: "highlight-addresses", addresses: [entity.address]}, [{text: `${format(entity.sent)} sent · ${format(entity.received)} received`, address: entity.address}], [entity.address], entity.relatedTransferIds);
+  }
+  if (/(latest|newest|most recent)\s+(transfer|flow)|last\s+transfer/.test(text)) {
+    const transfer = transfers.slice().sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0) || Number(BigInt(b.blockNumber) - BigInt(a.blockNumber)) || (b.transactionIndex ?? 0) - (a.transactionIndex ?? 0) || b.logIndex - a.logIndex)[0];
+    if (!transfer) return answer("No verified transfer is available in the current observation window.");
+    return answer(`The latest observed transfer is ${format(Number(transfer.value))} USDC from ${short(transfer.from)} to ${short(transfer.to)} in block ${transfer.blockNumber}.`, {type: "highlight-transfers", transferIds: [transfer.id]}, [{text: `${format(Number(transfer.value))} USDC · ${relative(transfer.timestamp, snapshot.generatedAt)}`, transferId: transfer.id, txHash: transfer.txHash, blockNumber: transfer.blockNumber}], [transfer.from, transfer.to], [transfer.id]);
+  }
+  if (/(signals?|notable|unusual|interesting|stand\s*out)/.test(text)) {
+    const signals = tools.getCurrentSignals();
+    if (!signals.length) return answer("No deterministic AERIS signal stands out in the current verified observation window.");
+    const primary = signals[0];
+    return answer(`${signals.length} deterministic signal${signals.length === 1 ? "" : "s"} currently stand out. ${primary.description}`, primary.intent, signals.map(signal => ({text: `${signal.title} · ${signal.description}`, transferId: signal.relatedTransferIds[0], address: signal.relatedAddresses[0]})), [...new Set(signals.flatMap(signal => signal.relatedAddresses))], [...new Set(signals.flatMap(signal => signal.relatedTransferIds))]);
   }
   if (/counterpart/.test(text)) {
     const entity = snapshot.entities.slice().sort((a, b) => b.uniqueCounterparties - a.uniqueCounterparties || a.address.localeCompare(b.address))[0];
