@@ -111,7 +111,7 @@ type Props = {
   onSelectTransfer: (id: string | null) => void;
 };
 type Node = {address: string; type: string; position: readonly [number, number, number]; volume: number; count: number};
-type Flow = {id: string; transfer: Transfer; from: string; to: string; curve: THREE.QuadraticBezierCurve3; points: THREE.Vector3[]; amount: number; strength: number; phase: number; significant: boolean; recency: number; color: THREE.Color; pulseColor: THREE.Color; enteredAt: number};
+type Flow = {id: string; transfer: Transfer; from: string; to: string; curve: THREE.QuadraticBezierCurve3; points: THREE.Vector3[]; depthColors: [number, number, number, number][]; amount: number; strength: number; phase: number; significant: boolean; recency: number; color: THREE.Color; pulseColor: THREE.Color; enteredAt: number};
 type LabelRect = {left: number; right: number; top: number; bottom: number};
 
 function safeAmount(value: string) {
@@ -137,6 +137,7 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
   const pulseHaloMesh = useRef<THREE.InstancedMesh>(null);
   const trailMesh = useRef<THREE.InstancedMesh>(null);
   const directionMesh = useRef<THREE.InstancedMesh>(null);
+  const flowLines = useRef(new Map<string, ComponentRef<typeof Line>>());
   const impactMesh = useRef<THREE.InstancedMesh>(null);
   const arrivalHaloMesh = useRef<THREE.InstancedMesh>(null);
   const previousProgress = useRef(new Map<string, number>());
@@ -147,6 +148,8 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
   const [hoveredFlow, setHoveredFlow] = useState<string | null>(null);
   const matrix = useMemo(() => new THREE.Object3D(), []);
   const point = useMemo(() => new THREE.Vector3(), []);
+  const worldPoint = useMemo(() => new THREE.Vector3(), []);
+  const viewDirection = useMemo(() => new THREE.Vector3(), []);
   const tangent = useMemo(() => new THREE.Vector3(), []);
   const up = useMemo(() => new THREE.Vector3(0, 1, 0), []);
   const color = useMemo(() => new THREE.Color(), []);
@@ -156,7 +159,7 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
   const [reducedMotion, setReducedMotion] = useState(false);
   const nodeOrder = useRef<string[]>([]);
   const flowOrder = useRef<string[]>([]);
-  const flowResources = useRef(new Map<string, Pick<Flow, "curve" | "points" | "phase" | "color" | "enteredAt">>());
+  const flowResources = useRef(new Map<string, Pick<Flow, "curve" | "points" | "depthColors" | "phase" | "color" | "enteredAt">>());
   const coordinateGeometry = useMemo(makeCoordinateGeometry, []);
   const orbitGeometry = useMemo(makeOrbitGeometry, []);
   useEffect(() => () => { coordinateGeometry.dispose(); orbitGeometry.dispose(); }, [coordinateGeometry, orbitGeometry]);
@@ -216,7 +219,9 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
         const lift = 3.05 + (stableHash(`${id}:arc`) % 48) / 100;
         const middle = (midpoint.lengthSq() > 0.001 ? midpoint.normalize() : start.clone().normalize()).multiplyScalar(lift).add(normal);
         const curve = new THREE.QuadraticBezierCurve3(start, middle, end);
-        resource = {curve, points: curve.getPoints(28), phase: (stableHash(id) % 1000) / 1000, color: flowColor(transfer).clone(), enteredAt: performance.now()};
+        const points = curve.getPoints(28);
+        const color = flowColor(transfer).clone();
+        resource = {curve, points, depthColors: points.map(() => [color.r, color.g, color.b, 1]), phase: (stableHash(id) % 1000) / 1000, color, enteredAt: performance.now()};
         flowResources.current.set(id, resource);
       }
       const amount = safeAmount(transfer.value);
@@ -265,6 +270,23 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
     labelRects.current = [];
     const idleFor = performance.now() - lastInteraction.current;
     if (group.current && !reducedMotion && !interacting.current && idleFor > 10_000) group.current.rotation.y += Math.min(delta, 0.05) * 0.004;
+    if (group.current && flows.length) {
+      group.current.updateWorldMatrix(true, false);
+      for (const flow of flows) {
+        const attribute = flowLines.current.get(flow.id)?.geometry.getAttribute("instanceColorStart") as THREE.InterleavedBufferAttribute | undefined;
+        if (!attribute) continue;
+        const colors = attribute.data.array as Float32Array;
+        for (let index = 0; index < flow.points.length; index++) {
+          worldPoint.copy(flow.points[index]).applyMatrix4(group.current.matrixWorld);
+          viewDirection.copy(camera.position).sub(worldPoint).normalize();
+          const facing = worldPoint.normalize().dot(viewDirection);
+          const alpha = 0.15 + 0.85 * THREE.MathUtils.smoothstep(facing, -0.35, 0.42);
+          if (index > 0) colors[((index - 1) * 2 + 1) * 4 + 3] = alpha;
+          if (index < flow.points.length - 1) colors[index * 8 + 3] = alpha;
+        }
+        attribute.data.needsUpdate = true;
+      }
+    }
     const elapsed = clock.getElapsedTime();
     if (!pulseMesh.current || !pulseHaloMesh.current || !trailMesh.current || !impactMesh.current || !arrivalHaloMesh.current) return;
     flows.forEach((flow, index) => {
@@ -341,7 +363,7 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
       <EndpointFocus position={addressPosition(selectedFlow.from)} color="#83cfff" label="FROM"/>
       <EndpointFocus position={addressPosition(selectedFlow.to)} color="#edbd7c" label="TO"/>
     </>}
-    {flows.map(flow => <Line key={flow.id} points={flow.points} color={`#${flow.color.getHexString()}`} fog transparent opacity={isFlowRelated(flow) ? (inspectedFlowId === flow.id ? 0.94 : flow.significant ? 0.38 + flow.strength * 0.16 : 0.07 + flow.recency * 0.11 + flow.strength * 0.08) : 0.026} lineWidth={inspectedFlowId === flow.id ? 1.75 : flow.significant ? 0.78 + flow.strength * 0.38 : 0.4 + flow.strength * 0.22} onPointerOver={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredFlow(flow.id);}} onPointerOut={() => setHoveredFlow(null)} onClick={(event: ThreeEvent<MouseEvent>) => {event.stopPropagation(); onSelectTransfer(flow.id);}}/>) }
+    {flows.map(flow => <Line key={flow.id} ref={instance => {if (instance) flowLines.current.set(flow.id, instance); else flowLines.current.delete(flow.id);}} points={flow.points} vertexColors={flow.depthColors} fog transparent opacity={isFlowRelated(flow) ? (inspectedFlowId === flow.id ? 0.94 : flow.significant ? 0.38 + flow.strength * 0.16 : 0.07 + flow.recency * 0.11 + flow.strength * 0.08) : 0.026} lineWidth={inspectedFlowId === flow.id ? 1.75 : flow.significant ? 0.78 + flow.strength * 0.38 : 0.4 + flow.strength * 0.22} onPointerOver={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredFlow(flow.id);}} onPointerOut={() => setHoveredFlow(null)} onClick={(event: ThreeEvent<MouseEvent>) => {event.stopPropagation(); onSelectTransfer(flow.id);}}/>) }
     {labelled.map(flow => <TransferLabel key={flow.id} flow={flow} selected={flow.id === selectedTransferId} hovered={flow.id === hoveredFlow} occupied={labelRects}/>) }
     {annotations.slice(0, compact ? 0 : tablet ? 1 : 2).map(annotation => {
       const node = nodes.find(item => item.address.toLowerCase() === annotation.address.toLowerCase());
