@@ -30,7 +30,9 @@ const atmosphereFragment = `
   varying vec3 vView;
   void main() {
     float rim = pow(1.0 - max(dot(normalize(vNormal), normalize(vView)), 0.0), 3.0);
-    gl_FragColor = vec4(0.28, 0.68, 0.94, rim * 0.19);
+    float facing = max(dot(normalize(vNormal), normalize(vView)), 0.0);
+    float softLight = pow(max(dot(normalize(vNormal), normalize(vec3(-0.5, 0.65, 0.7))), 0.0), 2.0) * facing;
+    gl_FragColor = vec4(0.28, 0.68, 0.94, rim * 0.19 + softLight * 0.035);
   }
 `;
 const coordinateVertex = `
@@ -229,8 +231,8 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
       const scale = (0.72 + activity * 0.7) * (focused ? 1.5 : 1) * (hoveredNode === index ? 1.22 : 1);
       matrix.position.set(...node.position); matrix.scale.setScalar(scale); matrix.updateMatrix();
       nodeMesh.current!.setMatrixAt(index, matrix.matrix); nodeMesh.current!.setColorAt(index, color.copy(nodeColor(node.type)).multiplyScalar(unrelated ? 0.26 : 0.62 + depth * 0.38));
-      matrix.scale.setScalar((focused ? 2.65 : 1.4 + activity) * scale); matrix.updateMatrix();
-      haloMesh.current!.setMatrixAt(index, matrix.matrix); haloMesh.current!.setColorAt(index, focused ? GOLD : color.copy(nodeColor(node.type)).multiplyScalar(unrelated ? 0.2 : 1));
+      matrix.scale.setScalar((focused ? 2.65 : 1.45 + activity) * scale); matrix.updateMatrix();
+      haloMesh.current!.setMatrixAt(index, matrix.matrix); haloMesh.current!.setColorAt(index, focused ? GOLD : color.copy(nodeColor(node.type)).multiplyScalar(unrelated ? 0.2 : 0.85 + activity * 0.5));
     });
     nodeMesh.current.instanceMatrix.needsUpdate = haloMesh.current.instanceMatrix.needsUpdate = true;
     if (nodeMesh.current.instanceColor) nodeMesh.current.instanceColor.needsUpdate = true;
@@ -282,8 +284,8 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
 
   const labelled = selectLabelCandidates(flows.map(flow => ({...flow, agentHighlighted: intent.type === "highlight-transfers" && (intentFlowIds.has(flow.id) || intentFlowIds.has(flow.transfer.id))})), {selectedId: selectedTransferId, hoveredId: hoveredFlow, limit: compact ? 1 : tablet ? 2 : 3});
   return <group ref={group}>
-    <ambientLight intensity={0.22}/><pointLight position={[1.5, 3, 4]} intensity={20} color="#a6d9ff"/>
-    <mesh><sphereGeometry args={[2.32, 48, 32]}/><meshStandardMaterial color="#031726" emissive="#06263b" emissiveIntensity={0.34} roughness={0.88} metalness={0.05} transparent opacity={0.24} depthWrite={false}/></mesh>
+    <ambientLight intensity={0.19}/><pointLight position={[-2.8, 3, 4.2]} intensity={20} color="#a6d9ff"/>
+    <mesh><sphereGeometry args={[2.32, 48, 32]}/><meshStandardMaterial color="#031726" emissive="#06263b" emissiveIntensity={0.24} roughness={0.88} metalness={0.05} transparent opacity={0.28} depthWrite={false}/></mesh>
     <mesh><icosahedronGeometry args={[2.35, 4]}/><meshBasicMaterial color="#428ab3" wireframe transparent opacity={0.062} depthWrite={false}/></mesh>
     <mesh rotation={[0.32, 0.18, 0.12]} scale={0.992}><icosahedronGeometry args={[2.35, 2]}/><meshBasicMaterial color="#2b759e" wireframe transparent opacity={0.025} depthWrite={false}/></mesh>
     <mesh scale={1.055}><sphereGeometry args={[2.34, 48, 32]}/><meshBasicMaterial color="#2d9ad1" transparent opacity={0.052} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false}/></mesh>
@@ -308,7 +310,7 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
     <instancedMesh ref={pulseHaloMesh} args={[undefined, undefined, MAX_FLOWS]} count={flows.length}><sphereGeometry args={[0.03, 8, 8]}/><meshBasicMaterial transparent opacity={0.16} depthWrite={false} toneMapped={false}/></instancedMesh>
     <instancedMesh ref={impactMesh} args={[undefined, undefined, MAX_FLOWS]} count={flows.length}><ringGeometry args={[0.04, 0.065, 16]}/><meshBasicMaterial transparent opacity={0.25} side={THREE.DoubleSide} depthWrite={false} toneMapped={false}/></instancedMesh>
     <instancedMesh ref={arrivalHaloMesh} args={[undefined, undefined, MAX_FLOWS]} count={flows.length}><sphereGeometry args={[0.09, 10, 10]}/><meshBasicMaterial transparent opacity={0.14} depthWrite={false} toneMapped={false}/></instancedMesh>
-    <instancedMesh ref={haloMesh} args={[undefined, undefined, MAX_NODES]} count={nodes.length}><sphereGeometry args={[0.09, 10, 10]}/><meshBasicMaterial transparent opacity={0.11} depthWrite={false} toneMapped={false}/></instancedMesh>
+    <instancedMesh ref={haloMesh} args={[undefined, undefined, MAX_NODES]} count={nodes.length}><sphereGeometry args={[0.09, 10, 10]}/><meshBasicMaterial transparent opacity={0.15} depthWrite={false} toneMapped={false}/></instancedMesh>
     <instancedMesh ref={nodeMesh} args={[undefined, undefined, MAX_NODES]} count={nodes.length} onClick={event => {event.stopPropagation(); if (event.instanceId !== undefined && nodes[event.instanceId]) onSelectAddress(nodes[event.instanceId].address);}} onPointerMove={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredNode(event.instanceId ?? null);}} onPointerOut={() => setHoveredNode(null)}>
       <sphereGeometry args={[0.055, 12, 12]}/><meshStandardMaterial roughness={0.28} metalness={0.08} emissive="#194c6d" emissiveIntensity={1.7}/>
     </instancedMesh>
