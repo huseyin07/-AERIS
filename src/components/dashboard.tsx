@@ -48,6 +48,7 @@ export function Dashboard() {
   const [agentRequest, setAgentRequest] = useState<{id: number; query: string} | null>(null);
   const [selectedTransferId, setSelectedTransferId] = useState<string | null>(null);
   const [hoveredTransferId, setHoveredTransferId] = useState<string | null>(null);
+  const [resetViewToken, setResetViewToken] = useState(0);
   const [signalIndex, setSignalIndex] = useState(0);
   const [clock, setClock] = useState(() => Date.now());
   const feedRef = useRef<HTMLElement>(null);
@@ -121,14 +122,15 @@ export function Dashboard() {
         placeholder="Search address, transaction or entity"
         aria-label="Search address, transaction or entity"
       />
-      <div className={`status ${statusLabel.toLowerCase()}`} title={healthDetails || "Awaiting the first verified Arc Mainnet response"}><i/><span>ARC MAINNET · {statusLabel}</span></div>
+      <div className={`status ${statusLabel.toLowerCase()}`} title={healthDetails || "Awaiting the first verified Arc Mainnet response"}><i/><span>ARC MAINNET<span className="statusDetail"> · {statusLabel}</span></span></div>
     </header>
 
     <section className="observatory">
       <div className="scene" aria-label="Live Arc Mainnet entity network">
         <VisualizationBoundary>
-          <NetworkScene transfers={transfers} endpointTypes={endpointTypes} annotations={annotations} selectedAddress={selected} selectedTransferId={activeTransferId} intent={intent} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId}/>
+          <NetworkScene transfers={transfers} endpointTypes={endpointTypes} annotations={annotations} selectedAddress={selected} selectedTransferId={activeTransferId} resetViewToken={resetViewToken} intent={intent} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId}/>
         </VisualizationBoundary>
+        <button className="resetView" type="button" onClick={() => setResetViewToken(token => token + 1)} aria-label="Reset globe camera view" title="Reset globe camera view">RESET VIEW <span aria-hidden="true">↺</span></button>
       </div>
 
       <section className="metrics" aria-label="Live metrics">
