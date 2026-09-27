@@ -68,3 +68,9 @@ nav{height:100%;align-items:center;gap:30px}nav b{height:100%;display:flex;align
 @media(max-width:760px){main{padding:0 14px}.observatory{height:820px;background:none}.scene{inset:0 -80px 232px}.metrics,.entityPanel{top:auto;bottom:9px;border-radius:6px}.metrics{width:48%;padding:12px}.entityPanel{width:49%;min-height:194px;max-height:205px;padding:13px}.legend{right:5px;bottom:231px;padding:6px}.feed{margin:12px 0 28px;padding:14px 10px}.feedColumns,.feedRow{grid-template-columns:1fr 1fr 1fr;gap:10px}.agentModule{margin:12px -13px -13px;padding:11px 13px}}
 @media(max-width:480px){header{gap:10px}.brandMark{width:18px;height:18px}.search{width:126px;padding:8px 11px}.observatory{height:780px}.scene{inset:0 -115px 278px}.metrics,.entityPanel{left:0;right:0;width:100%;bottom:8px}.legend{bottom:283px}.feedHead>span{display:none}}
 @media(prefers-reduced-motion:reduce){nav b:after,.feedRow,.agentCommands button,.timeControls button{transition:none}}
+
+.selectedEntityLabel{position:relative;transform:translate(20px,-38px);display:grid;gap:3px;min-width:102px;padding:7px 9px;border:1px solid #79caff38;border-radius:3px;background:#020a11df;box-shadow:0 8px 24px #0008;color:#d8edf8;white-space:nowrap;transition:opacity .15s}
+.selectedEntityLabel:before{content:"";position:absolute;left:-20px;bottom:10px;width:19px;height:1px;background:#79caff70}
+.selectedEntityLabel small{font-size:8px;letter-spacing:.11em;color:#75b9dc}
+.selectedEntityLabel span{font:11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}
+@media(max-width:480px){.selectedEntityLabel{transform:translate(14px,-33px);min-width:0;padding:5px 7px}.selectedEntityLabel:before{left:-14px;width:13px}}
