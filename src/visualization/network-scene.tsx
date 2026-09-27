@@ -284,13 +284,15 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
       }
       flow.curve.getPointAt(1, point); matrix.position.copy(point);
       const previous = previousProgress.current.get(flow.id); previousProgress.current.set(flow.id, progress);
-      if (previous !== undefined && previous > 0.9 && progress < 0.1 && !completedArrivals.current.has(flow.id)) {
+      const selectedArrival = flow.id === selectedTransferId;
+      if (previous !== undefined && previous > 0.9 && progress < 0.1 && (selectedArrival || !completedArrivals.current.has(flow.id))) {
         completedArrivals.current.add(flow.id); arrivalStarted.current.set(flow.id, performance.now());
       }
       const arrivalAge = performance.now() - (arrivalStarted.current.get(flow.id) ?? -1000);
       const arrival = !reducedMotion && arrivalAge >= 0 && arrivalAge < 500 ? Math.sin((arrivalAge / 500) * Math.PI) : 0;
-      matrix.scale.setScalar(0.001 + arrival * (flow.significant ? 1.7 : 1.25)); matrix.lookAt(camera.position); matrix.updateMatrix();
-      impactMesh.current!.setMatrixAt(index, matrix.matrix); impactMesh.current!.setColorAt(index, color.copy(flow.pulseColor).multiplyScalar(active ? 1 : 0.12));
+      const ripple = selectedArrival && !reducedMotion && arrivalAge >= 0 && arrivalAge < 850 ? arrivalAge / 850 : -1;
+      matrix.scale.setScalar(ripple >= 0 ? 0.95 + ripple * 5.8 : 0.001 + arrival * (flow.significant ? 1.7 : 1.25)); matrix.lookAt(camera.position); matrix.updateMatrix();
+      impactMesh.current!.setMatrixAt(index, matrix.matrix); impactMesh.current!.setColorAt(index, color.copy(flow.pulseColor).multiplyScalar(ripple >= 0 ? Math.pow(1 - ripple, 1.6) * 1.5 : active ? 1 : 0.12));
       matrix.scale.setScalar(0.001 + arrival * (flow.significant ? 1.45 : 1.1)); matrix.updateMatrix();
       arrivalHaloMesh.current!.setMatrixAt(index, matrix.matrix); arrivalHaloMesh.current!.setColorAt(index, color.copy(flow.pulseColor).multiplyScalar(active ? 1 : 0.1));
     });
@@ -350,7 +352,7 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
     <instancedMesh ref={directionMesh} args={[undefined, undefined, DIRECTION_MARKERS]} count={selectedFlow ? DIRECTION_MARKERS : 0}><coneGeometry args={[0.025, 0.075, 6]}/><meshBasicMaterial transparent opacity={0.85} depthWrite={false} toneMapped={false}/></instancedMesh>
     <instancedMesh ref={pulseMesh} args={[undefined, undefined, MAX_FLOWS]} count={flows.length} onPointerOver={event => {event.stopPropagation(); const flow = flows[event.instanceId ?? -1]; if (flow) setHoveredFlow(flow.id);}} onPointerOut={() => setHoveredFlow(null)} onClick={event => {event.stopPropagation(); const flow = flows[event.instanceId ?? -1]; if (flow) onSelectTransfer(flow.id);}}><sphereGeometry args={[0.03, 8, 8]}/><meshBasicMaterial toneMapped={false}/></instancedMesh>
     <instancedMesh ref={pulseHaloMesh} args={[undefined, undefined, MAX_FLOWS]} count={flows.length}><sphereGeometry args={[0.03, 8, 8]}/><meshBasicMaterial transparent opacity={0.16} depthWrite={false} toneMapped={false}/></instancedMesh>
-    <instancedMesh ref={impactMesh} args={[undefined, undefined, MAX_FLOWS]} count={flows.length}><ringGeometry args={[0.04, 0.065, 16]}/><meshBasicMaterial transparent opacity={0.25} side={THREE.DoubleSide} depthWrite={false} toneMapped={false}/></instancedMesh>
+    <instancedMesh ref={impactMesh} args={[undefined, undefined, MAX_FLOWS]} count={flows.length}><ringGeometry args={[0.06, 0.071, 24]}/><meshBasicMaterial transparent opacity={0.3} side={THREE.DoubleSide} depthWrite={false} toneMapped={false}/></instancedMesh>
     <instancedMesh ref={arrivalHaloMesh} args={[undefined, undefined, MAX_FLOWS]} count={flows.length}><sphereGeometry args={[0.09, 10, 10]}/><meshBasicMaterial transparent opacity={0.14} depthWrite={false} toneMapped={false}/></instancedMesh>
     <instancedMesh ref={haloMesh} args={[undefined, undefined, MAX_NODES]} count={nodes.length}><sphereGeometry args={[0.09, 10, 10]}/><meshBasicMaterial transparent opacity={0.15} depthWrite={false} toneMapped={false}/></instancedMesh>
     <instancedMesh ref={nodeMesh} args={[undefined, undefined, MAX_NODES]} count={nodes.length} onClick={event => {event.stopPropagation(); if (event.instanceId !== undefined && nodes[event.instanceId]) onSelectAddress(nodes[event.instanceId].address);}} onPointerMove={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredNode(event.instanceId ?? null);}} onPointerOut={() => setHoveredNode(null)}>
