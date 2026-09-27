@@ -175,16 +175,14 @@ export function Dashboard() {
       {selectedTransfer && <aside className="transferPanel" aria-label="Selected verified transfer">
         <button className="close" onClick={() => setSelectedTransferId(null)} aria-label="Close selected transfer">×</button>
         <small>SELECTED TRANSFER</small><h3>{shortTransactionHash(selectedTransfer.txHash)}</h3>
-        <dl><div><dt>AMOUNT</dt><dd>{money(selectedTransfer.value)} USDC</dd></div><div><dt>FROM</dt><dd title={selectedTransfer.from}>{short(selectedTransfer.from)}</dd></div><div><dt>TO</dt><dd title={selectedTransfer.to}>{short(selectedTransfer.to)}</dd></div><div><dt>BLOCK</dt><dd>{selectedTransfer.blockNumber}</dd></div><div><dt>TIME</dt><dd>{relativeActivityTime(selectedTransfer.timestamp, clock)}</dd></div><div><dt>STATUS</dt><dd>{selectedEvent?.status?.toUpperCase() ?? "UNKNOWN"}</dd></div><div><dt>ACTIVITY</dt><dd>USDC TRANSFER</dd></div><div><dt>CONTRACT</dt><dd title={ARC.usdc}>{short(ARC.usdc)}</dd></div></dl>
+        <dl><div><dt>AMOUNT</dt><dd>{money(selectedTransfer.value)} USDC</dd></div><div><dt>FROM</dt><dd title={selectedTransfer.from}>{short(selectedTransfer.from)}</dd></div><div><dt>TO</dt><dd title={selectedTransfer.to}>{short(selectedTransfer.to)}</dd></div><div><dt>BLOCK</dt><dd>{selectedTransfer.blockNumber}</dd></div><div><dt>TIME</dt><dd>{relativeActivityTime(selectedTransfer.timestamp, clock)}</dd></div><div><dt>STATUS</dt><dd>{selectedEvent?.status?.toUpperCase() ?? "UNKNOWN"}</dd></div><div><dt>ACTIVITY</dt><dd>{transferType(selectedTransfer)} · USDC</dd></div><div><dt>CONTRACT</dt><dd title={ARC.usdc}>{short(ARC.usdc)}</dd></div></dl>
         <button className="explainTransfer" onClick={() => {setAgentRequest(current => ({id: (current?.id ?? 0) + 1, query: `Explain transaction ${selectedTransfer.txHash}`})); setAgentOpen(true);}}>EXPLAIN VERIFIED TRANSFER</button>
         <a href={`${ARC.explorer}/tx/${selectedTransfer.txHash}`} target="_blank" rel="noopener noreferrer" aria-label={`View transaction ${selectedTransfer.txHash} on Arcscan`}>VIEW ON ARCSCAN ↗</a>
       </aside>}
 
       <div className="legend">
-        <span><i className="wallet"/>WALLET</span>
-        <span><i className="contract"/>CONTRACT</span>
-        <span><i className="unknown"/>UNKNOWN</span>
-        <span><i className="flow"/>USDC FLOW</span>
+        <div className="legendRow"><span><i className="wallet"/>WALLET</span><span><i className="contract"/>CONTRACT</span><span><i className="unknown"/>UNKNOWN</span><span><i className="flow"/>USDC FLOW</span></div>
+        <div className="legendRow flowTypes" aria-label="Transfer endpoint colors"><span title="Wallet to wallet"><i className="pulseWallet"/>W→W</span><span title="Wallet to contract"><i className="pulseContractIn"/>W→C</span><span title="Contract to wallet"><i className="pulseContractOut"/>C→W</span><span title="Unclassified endpoint"><i className="pulseUnknown"/>UNKNOWN</span></div>
       </div>
     </section>
 
