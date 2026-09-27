@@ -33,6 +33,42 @@ const atmosphereFragment = `
     gl_FragColor = vec4(0.28, 0.68, 0.94, rim * 0.19);
   }
 `;
+const coordinateVertex = `
+  varying float vFacing;
+  void main() {
+    vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+    vFacing = dot(normalize(mat3(modelMatrix) * position), normalize(cameraPosition - worldPosition.xyz));
+    gl_Position = projectionMatrix * viewMatrix * worldPosition;
+  }
+`;
+const coordinateFragment = `
+  varying float vFacing;
+  void main() {
+    float opacity = mix(0.012, 0.085, smoothstep(-0.15, 0.4, vFacing));
+    gl_FragColor = vec4(0.28, 0.62, 0.82, opacity);
+  }
+`;
+
+function makeCoordinateGeometry() {
+  const positions: number[] = [];
+  const radius = 2.37;
+  const steps = 48;
+  const addDashes = (position: (angle: number) => [number, number, number]) => {
+    for (let index = 0; index < steps; index++) {
+      positions.push(...position(index * 2 * Math.PI / steps), ...position((index + 0.56) * 2 * Math.PI / steps));
+    }
+  };
+  for (const latitude of [-0.62, 0, 0.62]) {
+    const horizontalRadius = radius * Math.cos(latitude);
+    addDashes(angle => [horizontalRadius * Math.cos(angle), radius * Math.sin(latitude), horizontalRadius * Math.sin(angle)]);
+  }
+  for (const longitude of [0, Math.PI / 4, Math.PI / 2, 3 * Math.PI / 4]) {
+    addDashes(angle => [radius * Math.cos(angle) * Math.cos(longitude), radius * Math.sin(angle), radius * Math.cos(angle) * Math.sin(longitude)]);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  return geometry;
+}
 
 type IntelligenceAnnotation = {address: string; label: string};
 
@@ -82,6 +118,8 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
   const nodeOrder = useRef<string[]>([]);
   const flowOrder = useRef<string[]>([]);
   const flowResources = useRef(new Map<string, Pick<Flow, "curve" | "points" | "phase" | "color" | "enteredAt">>());
+  const coordinateGeometry = useMemo(makeCoordinateGeometry, []);
+  useEffect(() => () => coordinateGeometry.dispose(), [coordinateGeometry]);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -226,12 +264,13 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
     <mesh rotation={[0.32, 0.18, 0.12]} scale={0.992}><icosahedronGeometry args={[2.35, 2]}/><meshBasicMaterial color="#2b759e" wireframe transparent opacity={0.025} depthWrite={false}/></mesh>
     <mesh scale={1.055}><sphereGeometry args={[2.34, 48, 32]}/><meshBasicMaterial color="#2d9ad1" transparent opacity={0.052} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false}/></mesh>
     <mesh renderOrder={1}><sphereGeometry args={[2.47, 48, 32]}/><shaderMaterial vertexShader={atmosphereVertex} fragmentShader={atmosphereFragment} transparent blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.FrontSide}/></mesh>
+    <lineSegments geometry={coordinateGeometry}><shaderMaterial vertexShader={coordinateVertex} fragmentShader={coordinateFragment} transparent depthWrite={false}/></lineSegments>
     <Sparkles count={compact ? 42 : 100} scale={[8, 6.8, 7.8]} size={0.38} speed={0.035} opacity={0.16}/>
     {selectedNode && <group position={selectedNode.position as [number, number, number]} quaternion={focusRotation}>
       <mesh renderOrder={3}><ringGeometry args={[0.13, 0.17, 32]}/><meshBasicMaterial color="#aee5ff" transparent opacity={0.72} side={THREE.DoubleSide} depthWrite={false}/></mesh>
       <mesh renderOrder={2}><ringGeometry args={[0.21, 0.225, 32]}/><meshBasicMaterial color="#66bded" transparent opacity={0.22} side={THREE.DoubleSide} depthWrite={false}/></mesh>
     </group>}
-    {flows.map(flow => <Line key={flow.id} points={flow.points} color={`#${flow.color.getHexString()}`} transparent opacity={isFlowRelated(flow) ? (inspectedFlowId === flow.id ? 0.94 : flow.significant ? 0.38 + flow.strength * 0.16 : 0.07 + flow.recency * 0.11 + flow.strength * 0.08) : 0.026} lineWidth={inspectedFlowId === flow.id ? 1.75 : flow.significant ? 0.78 + flow.strength * 0.38 : 0.4 + flow.strength * 0.22} onPointerOver={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredFlow(flow.id);}} onPointerOut={() => setHoveredFlow(null)} onClick={(event: ThreeEvent<MouseEvent>) => {event.stopPropagation(); onSelectTransfer(flow.id);}}/>) }
+    {flows.map(flow => <Line key={flow.id} points={flow.points} color={`#${flow.color.getHexString()}`} fog transparent opacity={isFlowRelated(flow) ? (inspectedFlowId === flow.id ? 0.94 : flow.significant ? 0.38 + flow.strength * 0.16 : 0.07 + flow.recency * 0.11 + flow.strength * 0.08) : 0.026} lineWidth={inspectedFlowId === flow.id ? 1.75 : flow.significant ? 0.78 + flow.strength * 0.38 : 0.4 + flow.strength * 0.22} onPointerOver={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredFlow(flow.id);}} onPointerOut={() => setHoveredFlow(null)} onClick={(event: ThreeEvent<MouseEvent>) => {event.stopPropagation(); onSelectTransfer(flow.id);}}/>) }
     {labelled.map(flow => <TransferLabel key={flow.id} flow={flow} selected={flow.id === selectedTransferId} hovered={flow.id === hoveredFlow} occupied={labelRects}/>) }
     {annotations.slice(0, compact ? 0 : tablet ? 1 : 2).map(annotation => {
       const node = nodes.find(item => item.address.toLowerCase() === annotation.address.toLowerCase());
