@@ -68,3 +68,25 @@ nav{height:100%;align-items:center;gap:30px}nav b{height:100%;display:flex;align
 @media(max-width:760px){main{padding:0 14px}.observatory{height:820px;background:none}.scene{inset:0 -80px 232px}.metrics,.entityPanel{top:auto;bottom:9px;border-radius:6px}.metrics{width:48%;padding:12px}.entityPanel{width:49%;min-height:194px;max-height:205px;padding:13px}.legend{right:5px;bottom:231px;padding:6px}.feed{margin:12px 0 28px;padding:14px 10px}.feedColumns,.feedRow{grid-template-columns:1fr 1fr 1fr;gap:10px}.agentModule{margin:12px -13px -13px;padding:11px 13px}}
 @media(max-width:480px){header{gap:10px}.brandMark{width:18px;height:18px}.search{width:126px;padding:8px 11px}.observatory{height:780px}.scene{inset:0 -115px 278px}.metrics,.entityPanel{left:0;right:0;width:100%;bottom:8px}.legend{bottom:283px}.feedHead>span{display:none}}
 @media(prefers-reduced-motion:reduce){nav b:after,.feedRow,.agentCommands button,.timeControls button{transition:none}}
+
+/* Keep the network label and both information panels usable on narrow screens. */
+@media(max-width:760px){
+  .status span{display:inline}.statusDetail{display:none!important}
+  .status{font-size:9px;letter-spacing:.07em;flex-shrink:0}
+  .search{min-width:0;flex:1;width:auto;font-size:12px}
+}
+@media(max-width:480px){
+  header{gap:8px}.brand{gap:5px;font-size:12px;letter-spacing:.15em}.brandMark{width:16px;height:16px}
+  .status{font-size:8px;gap:5px}.search{padding:8px;width:0}
+  .observatory{height:auto;display:flex;flex-direction:column;overflow:visible;padding-bottom:12px}
+  .scene{position:relative;inset:auto;width:calc(100% + 28px);height:390px;margin:0 -14px;flex:none;overflow:hidden}
+  .metrics,.entityPanel{position:relative;inset:auto;width:100%;max-height:none;min-height:0;margin:8px 0 0;overflow:visible}
+  .metrics{order:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:14px}
+  .metrics>.eyebrow,.metrics>.assetHeading{grid-column:1/-1}
+  .metrics .metric strong{float:none;display:block;margin:5px 0 0;font-size:14px}
+  .entityPanel{order:3}.entityPanel .panelNote,.recentEntityTransfers,.recentLabel{display:block}
+  .legend{right:5px;bottom:auto;top:355px;max-width:100%;flex-wrap:wrap;gap:7px;font-size:7px}
+  .sceneEmpty{top:190px;width:90%}
+  .transferPanel{position:relative;inset:auto;order:4;transform:none;width:100%;margin-top:8px}
+  .feedRow,.feedColumns{font-size:10px}.feedRow b{font-size:11px}
+}
