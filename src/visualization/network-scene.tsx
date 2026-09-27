@@ -2,7 +2,7 @@
 
 import {Canvas, type ThreeEvent, useFrame, useThree} from "@react-three/fiber";
 import {Html, Line, OrbitControls, Sparkles} from "@react-three/drei";
-import {memo, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject} from "react";
+import {memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type MutableRefObject} from "react";
 import * as THREE from "three";
 import type {EntityType, Transfer} from "@/data/types";
 import type {VisualizationIntent} from "@/intelligence/intents";
@@ -104,6 +104,7 @@ type Props = {
   annotations?: IntelligenceAnnotation[];
   selectedAddress: string | null;
   selectedTransferId: string | null;
+  resetViewToken: number;
   intent: VisualizationIntent;
   onSelectAddress: (address: string) => void;
   onSelectTransfer: (id: string | null) => void;
@@ -128,6 +129,7 @@ function transferPulseColor(fromType: EntityType, toType: EntityType) {
 function Observatory(props: Props & {interacting: MutableRefObject<boolean>; lastInteraction: MutableRefObject<number>}) {
   const {transfers, endpointTypes, annotations = [], selectedAddress, selectedTransferId, intent, onSelectAddress, onSelectTransfer, interacting, lastInteraction} = props;
   const group = useRef<THREE.Group>(null);
+  useEffect(() => { if (group.current) group.current.rotation.set(0, 0, 0); }, [props.resetViewToken]);
   const nodeMesh = useRef<THREE.InstancedMesh>(null);
   const haloMesh = useRef<THREE.InstancedMesh>(null);
   const pulseMesh = useRef<THREE.InstancedMesh>(null);
@@ -313,8 +315,8 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
     </group>}
     {selectedNode && <SelectedNodeLabel node={selectedNode}/>}
     {selectedFlow && <>
-      <EndpointFocus position={addressPosition(selectedFlow.from)} color="#83cfff"/>
-      <EndpointFocus position={addressPosition(selectedFlow.to)} color="#edbd7c"/>
+      <EndpointFocus position={addressPosition(selectedFlow.from)} color="#83cfff" label="FROM"/>
+      <EndpointFocus position={addressPosition(selectedFlow.to)} color="#edbd7c" label="TO"/>
     </>}
     {flows.map(flow => <Line key={flow.id} points={flow.points} color={`#${flow.color.getHexString()}`} fog transparent opacity={isFlowRelated(flow) ? (inspectedFlowId === flow.id ? 0.94 : flow.significant ? 0.38 + flow.strength * 0.16 : 0.07 + flow.recency * 0.11 + flow.strength * 0.08) : 0.026} lineWidth={inspectedFlowId === flow.id ? 1.75 : flow.significant ? 0.78 + flow.strength * 0.38 : 0.4 + flow.strength * 0.22} onPointerOver={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredFlow(flow.id);}} onPointerOut={() => setHoveredFlow(null)} onClick={(event: ThreeEvent<MouseEvent>) => {event.stopPropagation(); onSelectTransfer(flow.id);}}/>) }
     {labelled.map(flow => <TransferLabel key={flow.id} flow={flow} selected={flow.id === selectedTransferId} hovered={flow.id === hoveredFlow} occupied={labelRects}/>) }
@@ -335,11 +337,22 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
   </group>;
 }
 
-function EndpointFocus({position, color}: {position: readonly [number, number, number]; color: string}) {
+function EndpointFocus({position, color, label}: {position: readonly [number, number, number]; color: string; label: "FROM" | "TO"}) {
   const rotation = useMemo(() => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(...position).normalize()), [position]);
-  return <group position={position as [number, number, number]} quaternion={rotation}>
+  const anchor = useRef<THREE.Group>(null);
+  const text = useRef<HTMLDivElement>(null);
+  const worldPosition = useMemo(() => new THREE.Vector3(), []);
+  const viewDirection = useMemo(() => new THREE.Vector3(), []);
+  useFrame(({camera}) => {
+    if (!anchor.current || !text.current) return;
+    anchor.current.getWorldPosition(worldPosition);
+    viewDirection.copy(camera.position).sub(worldPosition).normalize();
+    text.current.style.opacity = worldPosition.normalize().dot(viewDirection) > 0.08 ? "1" : "0";
+  });
+  return <group ref={anchor} position={position as [number, number, number]} quaternion={rotation}>
     <mesh renderOrder={3}><ringGeometry args={[0.13, 0.155, 32]}/><meshBasicMaterial color={color} transparent opacity={0.78} side={THREE.DoubleSide} depthWrite={false}/></mesh>
     <mesh renderOrder={2}><ringGeometry args={[0.19, 0.2, 32]}/><meshBasicMaterial color={color} transparent opacity={0.25} side={THREE.DoubleSide} depthWrite={false}/></mesh>
+    <Html distanceFactor={8} zIndexRange={[9, 0]} style={{pointerEvents: "none"}}><div ref={text} className={`endpointLabel ${label.toLowerCase()}`}>{label}</div></Html>
   </group>;
 }
 
@@ -393,11 +406,19 @@ function NetworkSceneComponent(props: Props) {
   const interacting = useRef(false);
   const lastInteraction = useRef(Number.NEGATIVE_INFINITY);
   const interactionTimer = useRef<ReturnType<typeof setTimeout>>();
+  const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
+  useEffect(() => {
+    if (!props.resetViewToken) return;
+    controls.current?.reset();
+    if (interactionTimer.current) clearTimeout(interactionTimer.current);
+    interacting.current = false;
+    lastInteraction.current = Number.NEGATIVE_INFINITY;
+  }, [props.resetViewToken]);
   useEffect(() => () => { if (interactionTimer.current) clearTimeout(interactionTimer.current); }, []);
   return <Canvas dpr={[1, 1.5]} camera={{position: [0, 0.12, 5.55], fov: 40}} gl={{antialias: true, powerPreference: "high-performance"}} fallback={<div className="sceneFallback">WebGL unavailable</div>} onPointerMissed={() => props.onSelectTransfer(null)}>
     <color attach="background" args={["#01040a"]}/><fog attach="fog" args={["#01040a", 5, 9.5]}/>
     <Observatory {...props} interacting={interacting} lastInteraction={lastInteraction}/>
-    <OrbitControls makeDefault enablePan={false} minDistance={4.15} maxDistance={7.5} dampingFactor={0.055} enableDamping rotateSpeed={0.32} zoomSpeed={0.42} onStart={() => {if (interactionTimer.current) clearTimeout(interactionTimer.current); interacting.current = true; lastInteraction.current = performance.now();}} onChange={() => {lastInteraction.current = performance.now();}} onEnd={() => {lastInteraction.current = performance.now(); interactionTimer.current = setTimeout(() => {interacting.current = false;}, 10_000);}}/>
+    <OrbitControls ref={controls} makeDefault enablePan={false} minDistance={4.15} maxDistance={7.5} dampingFactor={0.055} enableDamping rotateSpeed={0.32} zoomSpeed={0.42} onStart={() => {if (interactionTimer.current) clearTimeout(interactionTimer.current); interacting.current = true; lastInteraction.current = performance.now();}} onChange={() => {lastInteraction.current = performance.now();}} onEnd={() => {lastInteraction.current = performance.now(); interactionTimer.current = setTimeout(() => {interacting.current = false;}, 10_000);}}/>
   </Canvas>;
 }
 
