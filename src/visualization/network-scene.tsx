@@ -11,6 +11,7 @@ import {addressPosition, reconcileIdentityOrder, selectLabelCandidates, shortTra
 const MAX_NODES = 84;
 const MAX_FLOWS = 44;
 const TRAIL_STEPS = 6;
+const DIRECTION_MARKERS = 3;
 const BLUE = new THREE.Color("#52b8ff");
 const CONTRACT = new THREE.Color("#d8a55f");
 const CONTRACT_OUT = new THREE.Color("#53cfc8");
@@ -135,6 +136,7 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
   const pulseMesh = useRef<THREE.InstancedMesh>(null);
   const pulseHaloMesh = useRef<THREE.InstancedMesh>(null);
   const trailMesh = useRef<THREE.InstancedMesh>(null);
+  const directionMesh = useRef<THREE.InstancedMesh>(null);
   const impactMesh = useRef<THREE.InstancedMesh>(null);
   const arrivalHaloMesh = useRef<THREE.InstancedMesh>(null);
   const previousProgress = useRef(new Map<string, number>());
@@ -145,6 +147,8 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
   const [hoveredFlow, setHoveredFlow] = useState<string | null>(null);
   const matrix = useMemo(() => new THREE.Object3D(), []);
   const point = useMemo(() => new THREE.Vector3(), []);
+  const tangent = useMemo(() => new THREE.Vector3(), []);
+  const up = useMemo(() => new THREE.Vector3(0, 1, 0), []);
   const color = useMemo(() => new THREE.Color(), []);
   const {size} = useThree();
   const compact = size.width < 760;
@@ -290,6 +294,23 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
       matrix.scale.setScalar(0.001 + arrival * (flow.significant ? 1.45 : 1.1)); matrix.updateMatrix();
       arrivalHaloMesh.current!.setMatrixAt(index, matrix.matrix); arrivalHaloMesh.current!.setColorAt(index, color.copy(flow.pulseColor).multiplyScalar(active ? 1 : 0.1));
     });
+    if (selectedFlow && directionMesh.current) {
+      const speed = 0.042 + Math.min(0.05, Math.log10(selectedFlow.amount + 1) * 0.005);
+      const progress = (selectedFlow.phase + elapsed * speed) % 1;
+      for (let index = 0; index < DIRECTION_MARKERS; index++) {
+        const position = reducedMotion ? 0.38 + index * 0.1 : (progress - (index + 1) * 0.065 + 1) % 1;
+        selectedFlow.curve.getPointAt(position, point);
+        selectedFlow.curve.getTangentAt(position, tangent).normalize();
+        matrix.position.copy(point);
+        matrix.quaternion.setFromUnitVectors(up, tangent);
+        matrix.scale.setScalar(1 - index * 0.16);
+        matrix.updateMatrix();
+        directionMesh.current.setMatrixAt(index, matrix.matrix);
+        directionMesh.current.setColorAt(index, color.copy(selectedFlow.pulseColor).multiplyScalar(1.1 - index * 0.15));
+      }
+      directionMesh.current.instanceMatrix.needsUpdate = true;
+      if (directionMesh.current.instanceColor) directionMesh.current.instanceColor.needsUpdate = true;
+    }
     pulseMesh.current.instanceMatrix.needsUpdate = pulseHaloMesh.current.instanceMatrix.needsUpdate = trailMesh.current.instanceMatrix.needsUpdate = impactMesh.current.instanceMatrix.needsUpdate = arrivalHaloMesh.current.instanceMatrix.needsUpdate = true;
     if (pulseMesh.current.instanceColor) pulseMesh.current.instanceColor.needsUpdate = true;
     if (pulseHaloMesh.current.instanceColor) pulseHaloMesh.current.instanceColor.needsUpdate = true;
@@ -326,6 +347,7 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
       return <group key={`annotation:${annotation.address}`} position={node.position as [number, number, number]}><Html center distanceFactor={8} zIndexRange={[6, 0]} style={{pointerEvents: "none"}}><div className="entityAnnotation">{annotation.label}</div></Html></group>;
     })}
     <instancedMesh ref={trailMesh} args={[undefined, undefined, MAX_FLOWS * TRAIL_STEPS]} count={flows.length * TRAIL_STEPS}><sphereGeometry args={[0.018, 6, 6]}/><meshBasicMaterial transparent opacity={0.34} depthWrite={false} toneMapped={false}/></instancedMesh>
+    <instancedMesh ref={directionMesh} args={[undefined, undefined, DIRECTION_MARKERS]} count={selectedFlow ? DIRECTION_MARKERS : 0}><coneGeometry args={[0.025, 0.075, 6]}/><meshBasicMaterial transparent opacity={0.85} depthWrite={false} toneMapped={false}/></instancedMesh>
     <instancedMesh ref={pulseMesh} args={[undefined, undefined, MAX_FLOWS]} count={flows.length} onPointerOver={event => {event.stopPropagation(); const flow = flows[event.instanceId ?? -1]; if (flow) setHoveredFlow(flow.id);}} onPointerOut={() => setHoveredFlow(null)} onClick={event => {event.stopPropagation(); const flow = flows[event.instanceId ?? -1]; if (flow) onSelectTransfer(flow.id);}}><sphereGeometry args={[0.03, 8, 8]}/><meshBasicMaterial toneMapped={false}/></instancedMesh>
     <instancedMesh ref={pulseHaloMesh} args={[undefined, undefined, MAX_FLOWS]} count={flows.length}><sphereGeometry args={[0.03, 8, 8]}/><meshBasicMaterial transparent opacity={0.16} depthWrite={false} toneMapped={false}/></instancedMesh>
     <instancedMesh ref={impactMesh} args={[undefined, undefined, MAX_FLOWS]} count={flows.length}><ringGeometry args={[0.04, 0.065, 16]}/><meshBasicMaterial transparent opacity={0.25} side={THREE.DoubleSide} depthWrite={false} toneMapped={false}/></instancedMesh>
