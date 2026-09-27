@@ -74,3 +74,6 @@ nav{height:100%;align-items:center;gap:30px}nav b{height:100%;display:flex;align
 .selectedEntityLabel small{font-size:8px;letter-spacing:.11em;color:#75b9dc}
 .selectedEntityLabel span{font:11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}
 @media(max-width:480px){.selectedEntityLabel{transform:translate(14px,-33px);min-width:0;padding:5px 7px}.selectedEntityLabel:before{left:-14px;width:13px}}
+
+.legend{display:grid;gap:6px}.legendRow{display:flex;align-items:center;gap:14px}.legend .flowTypes{padding-top:6px;border-top:1px solid #ffffff0b;color:#8099a9}.legend .pulseWallet{background:#52b8ff}.legend .pulseContractIn{background:#d8a55f}.legend .pulseContractOut{background:#53cfc8}.legend .pulseUnknown{background:#718896}
+@media(max-width:760px){.legendRow{gap:9px}.legend .flowTypes{padding-top:5px}}
