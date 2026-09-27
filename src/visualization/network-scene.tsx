@@ -13,6 +13,7 @@ const MAX_FLOWS = 44;
 const TRAIL_STEPS = 6;
 const BLUE = new THREE.Color("#52b8ff");
 const CONTRACT = new THREE.Color("#d8a55f");
+const CONTRACT_OUT = new THREE.Color("#53cfc8");
 const UNKNOWN = new THREE.Color("#718896");
 const GOLD = new THREE.Color("#efbd76");
 const atmosphereVertex = `
@@ -107,7 +108,7 @@ type Props = {
   onSelectTransfer: (id: string | null) => void;
 };
 type Node = {address: string; type: string; position: readonly [number, number, number]; volume: number; count: number};
-type Flow = {id: string; transfer: Transfer; from: string; to: string; curve: THREE.QuadraticBezierCurve3; points: THREE.Vector3[]; amount: number; strength: number; phase: number; significant: boolean; recency: number; color: THREE.Color; enteredAt: number};
+type Flow = {id: string; transfer: Transfer; from: string; to: string; curve: THREE.QuadraticBezierCurve3; points: THREE.Vector3[]; amount: number; strength: number; phase: number; significant: boolean; recency: number; color: THREE.Color; pulseColor: THREE.Color; enteredAt: number};
 type LabelRect = {left: number; right: number; top: number; bottom: number};
 
 function safeAmount(value: string) {
@@ -116,6 +117,12 @@ function safeAmount(value: string) {
 }
 function nodeColor(type: string) { return type === "contract" ? CONTRACT : type === "wallet" ? BLUE : UNKNOWN; }
 function flowColor(transfer: Transfer) { return transfer.fromType === "contract" || transfer.toType === "contract" ? CONTRACT : transfer.fromType === "unknown" || transfer.toType === "unknown" ? UNKNOWN : BLUE; }
+function transferPulseColor(transfer: Transfer) {
+  if (transfer.fromType === "unknown" || transfer.toType === "unknown") return UNKNOWN;
+  if (transfer.toType === "contract") return CONTRACT;
+  if (transfer.fromType === "contract") return CONTRACT_OUT;
+  return BLUE;
+}
 
 function Observatory(props: Props & {interacting: MutableRefObject<boolean>; lastInteraction: MutableRefObject<number>}) {
   const {transfers, annotations = [], selectedAddress, selectedTransferId, intent, onSelectAddress, onSelectTransfer, interacting, lastInteraction} = props;
@@ -203,7 +210,7 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
         flowResources.current.set(id, resource);
       }
       const amount = safeAmount(transfer.value);
-      return [{id, transfer, from, to, ...resource, amount, strength: THREE.MathUtils.clamp(Math.log10(amount + 1) / 6, 0, 1), significant: significant.has(id), recency: (index + 1) / recent.length}];
+      return [{id, transfer, from, to, ...resource, pulseColor: transferPulseColor(transfer), amount, strength: THREE.MathUtils.clamp(Math.log10(amount + 1) / 6, 0, 1), significant: significant.has(id), recency: (index + 1) / recent.length}];
     });
     const activeIds = new Set(orderedFlowIds);
     for (const id of flowResources.current.keys()) if (!activeIds.has(id)) flowResources.current.delete(id);
@@ -253,14 +260,14 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
       const inspected = flow.id === inspectedFlowId;
       const introduction = reducedMotion ? 1 : THREE.MathUtils.smoothstep(performance.now() - flow.enteredAt, 0, 420);
       flow.curve.getPointAt(progress, point); matrix.position.copy(point); matrix.scale.setScalar((inspected ? 1.45 : flow.significant ? 1.18 : 0.82) * introduction); matrix.updateMatrix();
-      pulseMesh.current!.setMatrixAt(index, matrix.matrix); pulseMesh.current!.setColorAt(index, color.copy(flow.color).multiplyScalar(active ? (inspected ? 1.25 : 1) : 0.18));
+      pulseMesh.current!.setMatrixAt(index, matrix.matrix); pulseMesh.current!.setColorAt(index, color.copy(flow.pulseColor).multiplyScalar(active ? (inspected ? 1.25 : 1) : 0.18));
       matrix.scale.multiplyScalar(inspected ? 2.9 : flow.significant ? 2.5 : 2.1); matrix.updateMatrix();
-      pulseHaloMesh.current!.setMatrixAt(index, matrix.matrix); pulseHaloMesh.current!.setColorAt(index, color.copy(flow.color).multiplyScalar(active ? (inspected ? 1 : 0.72) : 0.1));
+      pulseHaloMesh.current!.setMatrixAt(index, matrix.matrix); pulseHaloMesh.current!.setColorAt(index, color.copy(flow.pulseColor).multiplyScalar(active ? (inspected ? 1 : 0.72) : 0.1));
       for (let step = 0; step < TRAIL_STEPS; step++) {
         const enabled = !reducedMotion || step < 2;
         const spacing = inspected || flow.significant ? 0.017 : 0.013;
         flow.curve.getPointAt((progress - (step + 1) * spacing + 1) % 1, point); matrix.position.copy(point); matrix.scale.setScalar(enabled ? (inspected ? 1.12 : flow.significant ? 0.92 : 0.66) * (1 - step / (TRAIL_STEPS + 1)) : 0.001); matrix.updateMatrix();
-        const trailIndex = index * TRAIL_STEPS + step; trailMesh.current!.setMatrixAt(trailIndex, matrix.matrix); trailMesh.current!.setColorAt(trailIndex, color.copy(flow.color).multiplyScalar(active ? (inspected ? 1 : 0.82) : 0.12));
+        const trailIndex = index * TRAIL_STEPS + step; trailMesh.current!.setMatrixAt(trailIndex, matrix.matrix); trailMesh.current!.setColorAt(trailIndex, color.copy(flow.pulseColor).multiplyScalar(active ? (inspected ? 1 : 0.82) : 0.12));
       }
       flow.curve.getPointAt(1, point); matrix.position.copy(point);
       const previous = previousProgress.current.get(flow.id); previousProgress.current.set(flow.id, progress);
@@ -270,9 +277,9 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
       const arrivalAge = performance.now() - (arrivalStarted.current.get(flow.id) ?? -1000);
       const arrival = !reducedMotion && arrivalAge >= 0 && arrivalAge < 500 ? Math.sin((arrivalAge / 500) * Math.PI) : 0;
       matrix.scale.setScalar(0.001 + arrival * (flow.significant ? 1.7 : 1.25)); matrix.lookAt(camera.position); matrix.updateMatrix();
-      impactMesh.current!.setMatrixAt(index, matrix.matrix); impactMesh.current!.setColorAt(index, color.copy(flow.color).multiplyScalar(active ? 1 : 0.12));
+      impactMesh.current!.setMatrixAt(index, matrix.matrix); impactMesh.current!.setColorAt(index, color.copy(flow.pulseColor).multiplyScalar(active ? 1 : 0.12));
       matrix.scale.setScalar(0.001 + arrival * (flow.significant ? 1.45 : 1.1)); matrix.updateMatrix();
-      arrivalHaloMesh.current!.setMatrixAt(index, matrix.matrix); arrivalHaloMesh.current!.setColorAt(index, color.copy(flow.color).multiplyScalar(active ? 1 : 0.1));
+      arrivalHaloMesh.current!.setMatrixAt(index, matrix.matrix); arrivalHaloMesh.current!.setColorAt(index, color.copy(flow.pulseColor).multiplyScalar(active ? 1 : 0.1));
     });
     pulseMesh.current.instanceMatrix.needsUpdate = pulseHaloMesh.current.instanceMatrix.needsUpdate = trailMesh.current.instanceMatrix.needsUpdate = impactMesh.current.instanceMatrix.needsUpdate = arrivalHaloMesh.current.instanceMatrix.needsUpdate = true;
     if (pulseMesh.current.instanceColor) pulseMesh.current.instanceColor.needsUpdate = true;
