@@ -166,11 +166,9 @@ export function createActivityIngestor(rpc: ActivityRpc, options: {now?: () => n
       catch (error) { warnings.push(`eth_getBlockByNumber ${number}: ${warning(error)}`); }
     });
 
-    // Address classification is only required to identify contract-call candidates.
-    // USDC transfer endpoints may remain "unknown" without affecting any verified
-    // transfer coordinate, amount, block hash, timestamp, or transaction identity.
-    // Keeping every transfer address off the cold-start critical path prevents
-    // hundreds/thousands of eth_getCode calls before the first live snapshot.
+    // Classify contract-call candidates and reuse those verified results for any
+    // matching USDC endpoints. Other endpoints remain unknown; never add the
+    // full transfer address set to the cold-start RPC path.
     const addresses = [...new Set(
       candidates.flatMap(({tx}) => tx.to ? [tx.to.toLowerCase() as HexAddress] : []),
     )];
@@ -225,7 +223,9 @@ export function createActivityIngestor(rpc: ActivityRpc, options: {now?: () => n
         return [];
       }
       const status: ActivityStatus = receipt?.status === "success" ? "success" : receipt?.status === "reverted" ? "failed" : "unknown";
-      return [transferToActivity({...transfer, fromType: "unknown", toType: "unknown"}, {blockHash, transactionIndex, timestamp: Number(block.timestamp) * 1_000, observedAt, status})];
+      const from = transfer.from.toLowerCase() as HexAddress;
+      const to = transfer.to.toLowerCase() as HexAddress;
+      return [transferToActivity({...transfer, fromType: types.get(from) ?? classifications.get(from) ?? "unknown", toType: types.get(to) ?? classifications.get(to) ?? "unknown"}, {blockHash, transactionIndex, timestamp: Number(block.timestamp) * 1_000, observedAt, status})];
     });
 
     const observed = pruneObservation([...txEvents, ...transferEvents], windowReferenceTimestamp);
