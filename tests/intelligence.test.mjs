@@ -267,7 +267,8 @@ test("Agent V4 explains deterministic unusual flows without intent claims", () =
   const result = answerDeterministically("Find unusual flows", snapshot, sample);
   assert.equal(result.intent.type, "highlight-transfers");
   assert.match(result.summary, /statistically unusual/i);
-  assert.doesNotMatch(result.summary, /suspicious|criminal|whale|exchange/i);
+  assert.match(result.summary, /not a claim of suspicious intent/i);
+  assert.doesNotMatch(result.summary.replace(/not a claim of suspicious intent/i, ""), /suspicious|criminal|whale|exchange/i);
   assert.ok(result.evidence.some(item => item.provenance?.includes("Arc Mainnet")));
 });
 
