@@ -4,7 +4,7 @@ import {Canvas, type ThreeEvent, useFrame, useThree} from "@react-three/fiber";
 import {Html, Line, OrbitControls, Sparkles} from "@react-three/drei";
 import {memo, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject} from "react";
 import * as THREE from "three";
-import type {Transfer} from "@/data/types";
+import type {EntityType, Transfer} from "@/data/types";
 import type {VisualizationIntent} from "@/intelligence/intents";
 import {addressPosition, reconcileIdentityOrder, selectLabelCandidates, shortTransactionHash, significantTransferIds, stableHash, transferIdentity, uniqueTransfers} from "./network-model";
 
@@ -100,6 +100,7 @@ type IntelligenceAnnotation = {address: string; label: string};
 
 type Props = {
   transfers: Transfer[];
+  endpointTypes: Record<string, EntityType>;
   annotations?: IntelligenceAnnotation[];
   selectedAddress: string | null;
   selectedTransferId: string | null;
@@ -117,15 +118,15 @@ function safeAmount(value: string) {
 }
 function nodeColor(type: string) { return type === "contract" ? CONTRACT : type === "wallet" ? BLUE : UNKNOWN; }
 function flowColor(transfer: Transfer) { return transfer.fromType === "contract" || transfer.toType === "contract" ? CONTRACT : transfer.fromType === "unknown" || transfer.toType === "unknown" ? UNKNOWN : BLUE; }
-function transferPulseColor(transfer: Transfer) {
-  if (transfer.fromType === "unknown" || transfer.toType === "unknown") return UNKNOWN;
-  if (transfer.toType === "contract") return CONTRACT;
-  if (transfer.fromType === "contract") return CONTRACT_OUT;
+function transferPulseColor(fromType: EntityType, toType: EntityType) {
+  if (fromType === "unknown" || toType === "unknown") return UNKNOWN;
+  if (toType === "contract") return CONTRACT;
+  if (fromType === "contract") return CONTRACT_OUT;
   return BLUE;
 }
 
 function Observatory(props: Props & {interacting: MutableRefObject<boolean>; lastInteraction: MutableRefObject<number>}) {
-  const {transfers, annotations = [], selectedAddress, selectedTransferId, intent, onSelectAddress, onSelectTransfer, interacting, lastInteraction} = props;
+  const {transfers, endpointTypes, annotations = [], selectedAddress, selectedTransferId, intent, onSelectAddress, onSelectTransfer, interacting, lastInteraction} = props;
   const group = useRef<THREE.Group>(null);
   const nodeMesh = useRef<THREE.InstancedMesh>(null);
   const haloMesh = useRef<THREE.InstancedMesh>(null);
@@ -172,7 +173,10 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
     for (const transfer of verified) {
       const amount = safeAmount(transfer.value);
       const from = transfer.from.toLowerCase(); const to = transfer.to.toLowerCase();
-      types.set(from, transfer.fromType); types.set(to, transfer.toType);
+      const fromType = transfer.fromType === "unknown" ? endpointTypes[from] ?? "unknown" : transfer.fromType;
+      const toType = transfer.toType === "unknown" ? endpointTypes[to] ?? "unknown" : transfer.toType;
+      if (fromType !== "unknown" || !types.has(from)) types.set(from, fromType);
+      if (toType !== "unknown" || !types.has(to)) types.set(to, toType);
       volumes.set(from, (volumes.get(from) ?? 0) + amount); volumes.set(to, (volumes.get(to) ?? 0) + amount);
       counts.set(from, (counts.get(from) ?? 0) + 1); counts.set(to, (counts.get(to) ?? 0) + 1);
     }
@@ -210,18 +214,21 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
         flowResources.current.set(id, resource);
       }
       const amount = safeAmount(transfer.value);
-      return [{id, transfer, from, to, ...resource, pulseColor: transferPulseColor(transfer), amount, strength: THREE.MathUtils.clamp(Math.log10(amount + 1) / 6, 0, 1), significant: significant.has(id), recency: (index + 1) / recent.length}];
+      const fromType = transfer.fromType === "unknown" ? endpointTypes[from] ?? "unknown" : transfer.fromType;
+      const toType = transfer.toType === "unknown" ? endpointTypes[to] ?? "unknown" : transfer.toType;
+      return [{id, transfer, from, to, ...resource, pulseColor: transferPulseColor(fromType, toType), amount, strength: THREE.MathUtils.clamp(Math.log10(amount + 1) / 6, 0, 1), significant: significant.has(id), recency: (index + 1) / recent.length}];
     });
     const activeIds = new Set(orderedFlowIds);
     for (const id of flowResources.current.keys()) if (!activeIds.has(id)) flowResources.current.delete(id);
     return {nodes: nextNodes, flows: nextFlows};
-  }, [transfers, compact, tablet, intent]);
+  }, [transfers, endpointTypes, compact, tablet, intent]);
 
   const intentFlowIds = useMemo(() => new Set(intent.type === "highlight-transfers" || intent.type === "isolate-network" ? intent.transferIds : []), [intent]);
   const intentAddresses = useMemo(() => new Set(intent.type === "highlight-addresses" || intent.type === "isolate-network" ? intent.addresses.map(item => item.toLowerCase()) : intent.type === "focus-address-activity" ? [intent.address.toLowerCase()] : []), [intent]);
   const flowFocused = useCallback((flow: Flow) => intent.type === "reset" || intent.type === "filter-transfers" || ((intent.type === "highlight-transfers" || intent.type === "isolate-network") && (intentFlowIds.has(flow.transfer.id) || intentFlowIds.has(flow.id))) || ((intent.type === "highlight-addresses" || intent.type === "focus-address-activity") && (intentAddresses.has(flow.from) || intentAddresses.has(flow.to))), [intent, intentAddresses, intentFlowIds]);
   const isFlowRelated = useCallback((flow: Flow) => (!selectedAddress || flow.from === selectedAddress || flow.to === selectedAddress) && (!selectedTransferId || flow.id === selectedTransferId) && flowFocused(flow), [flowFocused, selectedAddress, selectedTransferId]);
   const inspectedFlowId = selectedTransferId ?? hoveredFlow;
+  const selectedFlow = flows.find(flow => flow.id === selectedTransferId);
   const selectedNode = nodes.find(node => node.address === selectedAddress?.toLowerCase());
   const focusRotation = useMemo(() => selectedNode
     ? new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(...selectedNode.position).normalize())
@@ -305,6 +312,10 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
       <mesh renderOrder={2}><ringGeometry args={[0.21, 0.225, 32]}/><meshBasicMaterial color="#66bded" transparent opacity={0.22} side={THREE.DoubleSide} depthWrite={false}/></mesh>
     </group>}
     {selectedNode && <SelectedNodeLabel node={selectedNode}/>}
+    {selectedFlow && <>
+      <EndpointFocus position={addressPosition(selectedFlow.from)} color="#83cfff"/>
+      <EndpointFocus position={addressPosition(selectedFlow.to)} color="#edbd7c"/>
+    </>}
     {flows.map(flow => <Line key={flow.id} points={flow.points} color={`#${flow.color.getHexString()}`} fog transparent opacity={isFlowRelated(flow) ? (inspectedFlowId === flow.id ? 0.94 : flow.significant ? 0.38 + flow.strength * 0.16 : 0.07 + flow.recency * 0.11 + flow.strength * 0.08) : 0.026} lineWidth={inspectedFlowId === flow.id ? 1.75 : flow.significant ? 0.78 + flow.strength * 0.38 : 0.4 + flow.strength * 0.22} onPointerOver={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredFlow(flow.id);}} onPointerOut={() => setHoveredFlow(null)} onClick={(event: ThreeEvent<MouseEvent>) => {event.stopPropagation(); onSelectTransfer(flow.id);}}/>) }
     {labelled.map(flow => <TransferLabel key={flow.id} flow={flow} selected={flow.id === selectedTransferId} hovered={flow.id === hoveredFlow} occupied={labelRects}/>) }
     {annotations.slice(0, compact ? 0 : tablet ? 1 : 2).map(annotation => {
@@ -321,6 +332,14 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
     <instancedMesh ref={nodeMesh} args={[undefined, undefined, MAX_NODES]} count={nodes.length} onClick={event => {event.stopPropagation(); if (event.instanceId !== undefined && nodes[event.instanceId]) onSelectAddress(nodes[event.instanceId].address);}} onPointerMove={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredNode(event.instanceId ?? null);}} onPointerOut={() => setHoveredNode(null)}>
       <sphereGeometry args={[0.055, 12, 12]}/><meshStandardMaterial roughness={0.28} metalness={0.08} emissive="#194c6d" emissiveIntensity={1.7}/>
     </instancedMesh>
+  </group>;
+}
+
+function EndpointFocus({position, color}: {position: readonly [number, number, number]; color: string}) {
+  const rotation = useMemo(() => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(...position).normalize()), [position]);
+  return <group position={position as [number, number, number]} quaternion={rotation}>
+    <mesh renderOrder={3}><ringGeometry args={[0.13, 0.155, 32]}/><meshBasicMaterial color={color} transparent opacity={0.78} side={THREE.DoubleSide} depthWrite={false}/></mesh>
+    <mesh renderOrder={2}><ringGeometry args={[0.19, 0.2, 32]}/><meshBasicMaterial color={color} transparent opacity={0.25} side={THREE.DoubleSide} depthWrite={false}/></mesh>
   </group>;
 }
 
