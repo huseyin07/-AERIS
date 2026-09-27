@@ -117,7 +117,7 @@ export function Dashboard() {
         placeholder="Search address, transaction or entity"
         aria-label="Search address, transaction or entity"
       />
-      <div className={`status ${statusLabel.toLowerCase()}`} title={healthDetails || "Awaiting the first verified Arc Mainnet response"}><i/><span>ARC MAINNET · {statusLabel}</span></div>
+      <div className={`status ${statusLabel.toLowerCase()}`} title={healthDetails || "Awaiting the first verified Arc Mainnet response"}><i/><span>ARC MAINNET<span className="statusDetail"> · {statusLabel}</span></span></div>
     </header>
 
     <section className="observatory">
