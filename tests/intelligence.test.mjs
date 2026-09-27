@@ -319,7 +319,7 @@ test("zero and small windows remain finite and preserve multi-log identities", (
 
 import {AddressClassificationCache, BlockCursor, MAX_OBSERVED_EVENTS, OBSERVATION_WINDOW_MS, contractCallActivityId, deploymentActivityId, normalizeTransactionActivity, pruneObservation, receiptStatus, transferToActivity, transactionActivityId, usdcActivityId} from "../src/data/activity-engine.ts";
 import {selectSignificantTransfers, VISUAL_CAPS} from "../src/visualization/network-model.ts";
-import {healthLabel, newestTransfers, relativeActivityTime, searchObservation} from "../src/lib/activity-ui.ts";
+import {healthLabel, newestTransfers, relativeActivityTime, searchObservation, visibleEvents, visibleTransfers} from "../src/lib/activity-ui.ts";
 
 const baseTx = (overrides = {}) => ({hash: hash("abc"), blockNumber: 10n, blockHash: hash("b10"), transactionIndex: 2, from: a, to: contract, input: "0x12345678", ...overrides});
 
@@ -422,6 +422,20 @@ test("observation search validates exact addresses and hashes and clear restores
   assert.equal(invalid.kind, "invalid");
   assert.equal(invalid.transfers.length, transfers.length);
   assert.equal(searchObservation(transfers, [], "").transfers.length, transfers.length);
+});
+
+test("the 1,000 USDC display floor is inclusive across ledger, search, intelligence and events", () => {
+  const below = transfer("11", a, b, "999.999999");
+  const atFloor = transfer("12", b, c, "1000");
+  const above = transfer("13", c, a, "2500.25");
+  const filtered = visibleTransfers([below, atFloor, above]);
+  assert.deepEqual(filtered.map(item => item.id), ["12", "13"]);
+  assert.equal(buildIntelligenceSnapshot(filtered, 0).totalVolume, 3500.25);
+  const context = {blockHash: hash("10"), transactionIndex: 0, timestamp: 1000, observedAt: 1000};
+  const visible = visibleEvents([below, atFloor, above].map(item => transferToActivity(item, context)));
+  assert.deepEqual(visible.map(item => item.transactionHash), [atFloor.txHash, above.txHash]);
+  assert.equal(searchObservation(filtered, visible, below.txHash).transfers.length, 0);
+  assert.equal(searchObservation(filtered, visible, atFloor.txHash).transfers.length, 1);
 });
 
 test("health maps successful, partial, failed, and stale observations without erasing data", () => {

@@ -13,7 +13,7 @@ import {ARC} from "@/data/arc";
 import type {Transfer} from "@/data/types";
 import {buildIntelligenceSnapshot, getEntityIntelligence} from "@/intelligence/engine";
 import {shortTransactionHash, transferIdentity} from "@/visualization/network-model";
-import {healthLabel, relativeActivityTime, searchObservation} from "@/lib/activity-ui";
+import {healthLabel, relativeActivityTime, searchObservation, visibleEvents, visibleTransfers} from "@/lib/activity-ui";
 
 const NetworkScene = dynamic(
   () => import("@/visualization/network-scene").then(module => module.NetworkScene),
@@ -33,9 +33,11 @@ function transferType(transfer: Transfer, endpointTypes: Record<string, "wallet"
 }
 
 export function Dashboard() {
-  const transfers = useActivity(state => state.transfers);
+  const observedTransfers = useActivity(state => state.transfers);
+  const transfers = useMemo(() => visibleTransfers(observedTransfers), [observedTransfers]);
   const endpointTypes = useEndpointTypes(transfers);
-  const events = useActivity(state => state.events);
+  const observedEvents = useActivity(state => state.events);
+  const events = useMemo(() => visibleEvents(observedEvents), [observedEvents]);
   const status = useActivity(state => state.connection);
   const health = useActivity(state => state.health);
   const selected = useActivity(state => state.selected);
@@ -76,6 +78,7 @@ export function Dashboard() {
       setSelectedTransferId(match ? transferIdentity(match) : null);
       if (match) setIntent({type: "highlight-transfers", transferIds: [match.id]});
       else if (search.matchedEvent) { select(search.matchedEvent.to); setIntent({type: "highlight-addresses", addresses: [search.matchedEvent.to]}); }
+      else { select(null); setIntent({type: "reset"}); }
     } else if (search.kind === "address") {
       select(search.matchedAddress);
       setSelectedTransferId(null);
@@ -99,7 +102,7 @@ export function Dashboard() {
     ? transfers.filter(transfer => transfer.from === selected || transfer.to === selected)
     : [];
   const entity = selected ? getEntityIntelligence(snapshot, selected) : null;
-  const emptyMessage = status === "unavailable" ? "Live data temporarily unavailable" : "Waiting for verified Arc Mainnet activity";
+  const emptyMessage = status === "unavailable" ? "Live data temporarily unavailable" : status === "connecting" ? "Waiting for verified Arc Mainnet activity" : "No transfers ≥1,000 USDC in the current observation window";
   const signal = snapshot.signals[signalIndex % Math.max(1, snapshot.signals.length)];
   const statusLabel = healthLabel(status, health, clock);
   const healthDetails = [health.latestBlock ? `Latest block ${health.latestBlock}` : "", health.processedBlockRange ? `Processed ${health.processedBlockRange.from}–${health.processedBlockRange.to}` : "", health.lastSuccessfulAt ? `Updated ${relativeActivityTime(health.lastSuccessfulAt, clock)}` : "", ...health.rpcWarnings].filter(Boolean).join(" · ");
@@ -134,7 +137,7 @@ export function Dashboard() {
       </div>
 
       <section className="metrics" aria-label="Live metrics">
-        <p className="eyebrow">LIVE ACTIVITY</p>
+        <p className="eyebrow">LIVE ACTIVITY · ≥1,000 USDC</p>
         <div className="assetHeading"><UsdcIcon/><span>ARC MAINNET USDC</span></div>
         <Metric icon label="USDC FLOW" value={`$${money(String(volume))}`}/>
         <Metric label="TRANSFERS" value={String(transfers.length)}/>
@@ -187,7 +190,7 @@ export function Dashboard() {
       </aside>}
 
       <div className="legend">
-        <div className="legendRow"><span><i className="wallet"/>WALLET</span><span><i className="contract"/>CONTRACT</span><span><i className="unknown"/>UNKNOWN</span><span><i className="flow"/>USDC FLOW</span></div>
+        <div className="legendRow"><span><i className="wallet"/>WALLET</span><span><i className="contract"/>CONTRACT</span><span><i className="unknown"/>UNKNOWN</span><span><i className="flow"/>USDC ≥1K</span></div>
         <div className="legendRow flowTypes" aria-label="Transfer endpoint colors"><span title="Wallet to wallet"><i className="pulseWallet"/>W→W</span><span title="Wallet to contract"><i className="pulseContractIn"/>W→C</span><span title="Contract to wallet"><i className="pulseContractOut"/>C→W</span><span title="Unclassified endpoint"><i className="pulseUnknown"/>UNKNOWN</span></div>
       </div>
     </section>
@@ -203,7 +206,7 @@ export function Dashboard() {
 
 
     <section className="feed" ref={feedRef}>
-      <div className="feedHead"><div><small>LIVE LEDGER</small><h2>Recent verified transfers</h2></div><span>{ARC.name} · USDC · REAL-TIME</span></div>
+      <div className="feedHead"><div><small>LIVE LEDGER · MIN 1,000 USDC</small><h2>Recent verified transfers</h2></div><span>{ARC.name} · USDC · REAL-TIME</span></div>
       <div className="feedColumns"><span>FROM</span><span>TO</span><span>AMOUNT</span><span>TYPE</span><span>BLOCK</span><span>TIME</span></div>
       {filtered.slice(0, 16).map(transfer => <button data-transfer-id={transferIdentity(transfer)} className={`feedRow ${activeTransferId === transferIdentity(transfer) ? "active" : ""}`} key={transferIdentity(transfer)} onMouseEnter={() => setHoveredTransferId(transferIdentity(transfer))} onMouseLeave={() => setHoveredTransferId(null)} onFocus={() => setHoveredTransferId(transferIdentity(transfer))} onBlur={() => setHoveredTransferId(null)} onClick={() => setSelectedTransferId(transferIdentity(transfer))} aria-pressed={selectedTransferId === transferIdentity(transfer)}>
         <span className={`party ${transfer.fromType === "unknown" ? endpointTypes[transfer.from.toLowerCase()] ?? "unknown" : transfer.fromType}`} title={transfer.from}><i/>{short(transfer.from)}</span><span className={`party ${transfer.toType === "unknown" ? endpointTypes[transfer.to.toLowerCase()] ?? "unknown" : transfer.toType}`} title={transfer.to}><i/>{short(transfer.to)}</span><b className="coinValue" title={`${transfer.value} USDC`}><UsdcIcon/>{money(transfer.value)} <em>USDC</em></b><span>{transferType(transfer, endpointTypes)}</span><small>{transfer.blockNumber}</small><time dateTime={transfer.timestamp ? new Date(transfer.timestamp).toISOString() : undefined}>{relativeActivityTime(transfer.timestamp, clock)}</time>
