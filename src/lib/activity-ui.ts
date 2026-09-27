@@ -4,6 +4,20 @@ import type {Connection} from "../state/connection.ts";
 
 export const ADDRESS_QUERY = /^0x[\da-f]{40}$/i;
 export const TRANSACTION_QUERY = /^0x[\da-f]{64}$/i;
+export const MIN_VISIBLE_USDC = 1_000;
+
+export function visibleUsdcAmount(value: string) {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount >= MIN_VISIBLE_USDC;
+}
+
+export function visibleTransfers(transfers: readonly Transfer[]) {
+  return transfers.filter(item => visibleUsdcAmount(item.value));
+}
+
+export function visibleEvents(events: readonly ArcActivityEvent[]) {
+  return events.filter(item => item.type !== "USDC_TRANSFER" || visibleUsdcAmount(item.amountUSDC));
+}
 
 export type ActivityHealth = {
   status: "ok" | "partial" | "error" | null;

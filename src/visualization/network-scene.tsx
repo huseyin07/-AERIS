@@ -272,10 +272,10 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
       const active = isFlowRelated(flow);
       const inspected = flow.id === inspectedFlowId;
       const introduction = reducedMotion ? 1 : THREE.MathUtils.smoothstep(performance.now() - flow.enteredAt, 0, 420);
-      flow.curve.getPointAt(progress, point); matrix.position.copy(point); matrix.scale.setScalar((inspected ? 1.45 : flow.significant ? 1.18 : 0.82) * introduction); matrix.updateMatrix();
-      pulseMesh.current!.setMatrixAt(index, matrix.matrix); pulseMesh.current!.setColorAt(index, color.copy(flow.pulseColor).multiplyScalar(active ? (inspected ? 1.25 : 1) : 0.18));
-      matrix.scale.multiplyScalar(inspected ? 2.9 : flow.significant ? 2.5 : 2.1); matrix.updateMatrix();
-      pulseHaloMesh.current!.setMatrixAt(index, matrix.matrix); pulseHaloMesh.current!.setColorAt(index, color.copy(flow.pulseColor).multiplyScalar(active ? (inspected ? 1 : 0.72) : 0.1));
+      flow.curve.getPointAt(progress, point); matrix.position.copy(point); matrix.scale.setScalar(((inspected ? 1.12 : flow.significant ? 1 : 0.75) + flow.strength * 0.35) * introduction); matrix.updateMatrix();
+      pulseMesh.current!.setMatrixAt(index, matrix.matrix); pulseMesh.current!.setColorAt(index, color.copy(flow.pulseColor).multiplyScalar(active ? (inspected ? 1.02 : 0.82) + flow.strength * 0.38 : 0.18));
+      matrix.scale.multiplyScalar((inspected ? 2.4 : flow.significant ? 2.2 : 1.85) + flow.strength * 0.5); matrix.updateMatrix();
+      pulseHaloMesh.current!.setMatrixAt(index, matrix.matrix); pulseHaloMesh.current!.setColorAt(index, color.copy(flow.pulseColor).multiplyScalar(active ? (inspected ? 0.78 : 0.6) + flow.strength * 0.25 : 0.1));
       for (let step = 0; step < TRAIL_STEPS; step++) {
         const enabled = !reducedMotion || step < 2;
         const spacing = inspected || flow.significant ? 0.017 : 0.013;
@@ -291,8 +291,8 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
       const arrivalAge = performance.now() - (arrivalStarted.current.get(flow.id) ?? -1000);
       const arrival = !reducedMotion && arrivalAge >= 0 && arrivalAge < 500 ? Math.sin((arrivalAge / 500) * Math.PI) : 0;
       const ripple = selectedArrival && !reducedMotion && arrivalAge >= 0 && arrivalAge < 850 ? arrivalAge / 850 : -1;
-      matrix.scale.setScalar(ripple >= 0 ? 0.95 + ripple * 5.8 : 0.001 + arrival * (flow.significant ? 1.7 : 1.25)); matrix.lookAt(camera.position); matrix.updateMatrix();
-      impactMesh.current!.setMatrixAt(index, matrix.matrix); impactMesh.current!.setColorAt(index, color.copy(flow.pulseColor).multiplyScalar(ripple >= 0 ? Math.pow(1 - ripple, 1.6) * 1.5 : active ? 1 : 0.12));
+      matrix.scale.setScalar(ripple >= 0 ? 0.9 + flow.strength * 0.22 + ripple * (4.45 + flow.strength * 1.35) : 0.001 + arrival * (flow.significant ? 1.7 : 1.25)); matrix.lookAt(camera.position); matrix.updateMatrix();
+      impactMesh.current!.setMatrixAt(index, matrix.matrix); impactMesh.current!.setColorAt(index, color.copy(flow.pulseColor).multiplyScalar(ripple >= 0 ? Math.pow(1 - ripple, 1.6) * (1.15 + flow.strength * 0.4) : active ? 1 : 0.12));
       matrix.scale.setScalar(0.001 + arrival * (flow.significant ? 1.45 : 1.1)); matrix.updateMatrix();
       arrivalHaloMesh.current!.setMatrixAt(index, matrix.matrix); arrivalHaloMesh.current!.setColorAt(index, color.copy(flow.pulseColor).multiplyScalar(active ? 1 : 0.1));
     });
@@ -305,7 +305,7 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
         selectedFlow.curve.getTangentAt(position, tangent).normalize();
         matrix.position.copy(point);
         matrix.quaternion.setFromUnitVectors(up, tangent);
-        matrix.scale.setScalar(1 - index * 0.16);
+        matrix.scale.setScalar((1 - index * 0.16) * (0.9 + selectedFlow.strength * 0.2));
         matrix.updateMatrix();
         directionMesh.current.setMatrixAt(index, matrix.matrix);
         directionMesh.current.setColorAt(index, color.copy(selectedFlow.pulseColor).multiplyScalar(1.1 - index * 0.15));
