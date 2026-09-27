@@ -26,12 +26,6 @@ export function useEndpointTypes(transfers: readonly Transfer[]) {
 
     async function enrich() {
       const due = addresses.filter(address => (retryAfter.current.get(address) ?? 0) <= Date.now());
-      if (due.length) setTypes(previous => {
-        if (!due.some(address => address in previous)) return previous;
-        const current = {...previous};
-        for (const address of due) delete current[address];
-        return current;
-      });
       for (let index = 0; index < due.length && !stopped; index += 6) {
         const batch = due.slice(index, index + 6);
         controller = new AbortController();
