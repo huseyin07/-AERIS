@@ -15,6 +15,24 @@ const BLUE = new THREE.Color("#52b8ff");
 const CONTRACT = new THREE.Color("#d8a55f");
 const UNKNOWN = new THREE.Color("#718896");
 const GOLD = new THREE.Color("#efbd76");
+const atmosphereVertex = `
+  varying vec3 vNormal;
+  varying vec3 vView;
+  void main() {
+    vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+    vNormal = normalize(mat3(modelMatrix) * normal);
+    vView = cameraPosition - worldPosition.xyz;
+    gl_Position = projectionMatrix * viewMatrix * worldPosition;
+  }
+`;
+const atmosphereFragment = `
+  varying vec3 vNormal;
+  varying vec3 vView;
+  void main() {
+    float rim = pow(1.0 - max(dot(normalize(vNormal), normalize(vView)), 0.0), 3.0);
+    gl_FragColor = vec4(0.28, 0.68, 0.94, rim * 0.19);
+  }
+`;
 
 type IntelligenceAnnotation = {address: string; label: string};
 
@@ -133,6 +151,10 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
   const flowFocused = useCallback((flow: Flow) => intent.type === "reset" || intent.type === "filter-transfers" || ((intent.type === "highlight-transfers" || intent.type === "isolate-network") && (intentFlowIds.has(flow.transfer.id) || intentFlowIds.has(flow.id))) || ((intent.type === "highlight-addresses" || intent.type === "focus-address-activity") && (intentAddresses.has(flow.from) || intentAddresses.has(flow.to))), [intent, intentAddresses, intentFlowIds]);
   const isFlowRelated = useCallback((flow: Flow) => (!selectedAddress || flow.from === selectedAddress || flow.to === selectedAddress) && (!selectedTransferId || flow.id === selectedTransferId) && flowFocused(flow), [flowFocused, selectedAddress, selectedTransferId]);
   const inspectedFlowId = selectedTransferId ?? hoveredFlow;
+  const selectedNode = nodes.find(node => node.address === selectedAddress?.toLowerCase());
+  const focusRotation = useMemo(() => selectedNode
+    ? new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(...selectedNode.position).normalize())
+    : new THREE.Quaternion(), [selectedNode]);
 
   useEffect(() => {
     if (!nodeMesh.current || !haloMesh.current) return;
@@ -203,7 +225,12 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
     <mesh><icosahedronGeometry args={[2.35, 4]}/><meshBasicMaterial color="#428ab3" wireframe transparent opacity={0.062} depthWrite={false}/></mesh>
     <mesh rotation={[0.32, 0.18, 0.12]} scale={0.992}><icosahedronGeometry args={[2.35, 2]}/><meshBasicMaterial color="#2b759e" wireframe transparent opacity={0.025} depthWrite={false}/></mesh>
     <mesh scale={1.055}><sphereGeometry args={[2.34, 48, 32]}/><meshBasicMaterial color="#2d9ad1" transparent opacity={0.052} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false}/></mesh>
+    <mesh renderOrder={1}><sphereGeometry args={[2.47, 48, 32]}/><shaderMaterial vertexShader={atmosphereVertex} fragmentShader={atmosphereFragment} transparent blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.FrontSide}/></mesh>
     <Sparkles count={compact ? 42 : 100} scale={[8, 6.8, 7.8]} size={0.38} speed={0.035} opacity={0.16}/>
+    {selectedNode && <group position={selectedNode.position as [number, number, number]} quaternion={focusRotation}>
+      <mesh renderOrder={3}><ringGeometry args={[0.13, 0.17, 32]}/><meshBasicMaterial color="#aee5ff" transparent opacity={0.72} side={THREE.DoubleSide} depthWrite={false}/></mesh>
+      <mesh renderOrder={2}><ringGeometry args={[0.21, 0.225, 32]}/><meshBasicMaterial color="#66bded" transparent opacity={0.22} side={THREE.DoubleSide} depthWrite={false}/></mesh>
+    </group>}
     {flows.map(flow => <Line key={flow.id} points={flow.points} color={`#${flow.color.getHexString()}`} transparent opacity={isFlowRelated(flow) ? (inspectedFlowId === flow.id ? 0.94 : flow.significant ? 0.38 + flow.strength * 0.16 : 0.07 + flow.recency * 0.11 + flow.strength * 0.08) : 0.026} lineWidth={inspectedFlowId === flow.id ? 1.75 : flow.significant ? 0.78 + flow.strength * 0.38 : 0.4 + flow.strength * 0.22} onPointerOver={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredFlow(flow.id);}} onPointerOut={() => setHoveredFlow(null)} onClick={(event: ThreeEvent<MouseEvent>) => {event.stopPropagation(); onSelectTransfer(flow.id);}}/>) }
     {labelled.map(flow => <TransferLabel key={flow.id} flow={flow} selected={flow.id === selectedTransferId} hovered={flow.id === hoveredFlow} occupied={labelRects}/>) }
     {annotations.slice(0, compact ? 0 : tablet ? 1 : 2).map(annotation => {
