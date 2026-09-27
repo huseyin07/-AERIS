@@ -56,6 +56,19 @@ test("duplicate USDC logs are deduplicated by transaction hash and log index", a
   assert.equal(result.events.filter(event => event.type === "USDC_TRANSFER").length, 1);
 });
 
+test("USDC endpoint colors reuse verified classifications without extra bytecode lookups", async () => {
+  const known = {...transferLog("995"), args: {from: address("3"), to: address("2"), value: 5_000_000n}};
+  const unclassified = {...transferLog("996", 700n, 8), args: {from: address("5"), to: address("6"), value: 5_000_000n}};
+  const result = await createActivityIngestor(mockRpc({
+    getBlock: async args => { const number = requestedBlock(args); return block(number, args.includeTransactions && number === latest ? [tx("1"), tx("2", {to: address("3")})] : []); },
+    getBytecode: async ({address: target}) => target === address("2") ? "0x01" : "0x",
+    getLogs: async () => [known, unclassified],
+  }), {now: () => now})();
+  const transfers = result.events.filter(event => event.type === "USDC_TRANSFER");
+  assert.deepEqual(transfers.map(event => [event.fromType, event.toType]), [["wallet", "contract"], ["unknown", "unknown"]]);
+  assert.equal(result.diagnostics.rpcRequestCount.bytecode, 2);
+});
+
 test("USDC log failure reports partial rather than healthy empty activity", async () => {
   const result = await createActivityIngestor(mockRpc({getLogs: async () => { throw new Error("rate limit exceeded"); }}), {now: () => now})();
   assert.equal(result.diagnostics.status, "partial");
