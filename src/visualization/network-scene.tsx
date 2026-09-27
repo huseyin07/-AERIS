@@ -48,6 +48,13 @@ const coordinateFragment = `
     gl_FragColor = vec4(0.28, 0.62, 0.82, opacity);
   }
 `;
+const orbitFragment = `
+  varying float vFacing;
+  void main() {
+    float opacity = mix(0.008, 0.065, smoothstep(-0.25, 0.45, vFacing));
+    gl_FragColor = vec4(0.34, 0.72, 0.94, opacity);
+  }
+`;
 
 function makeCoordinateGeometry() {
   const positions: number[] = [];
@@ -64,6 +71,22 @@ function makeCoordinateGeometry() {
   }
   for (const longitude of [0, Math.PI / 4, Math.PI / 2, 3 * Math.PI / 4]) {
     addDashes(angle => [radius * Math.cos(angle) * Math.cos(longitude), radius * Math.sin(angle), radius * Math.cos(angle) * Math.sin(longitude)]);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  return geometry;
+}
+
+function makeOrbitGeometry() {
+  const positions: number[] = [];
+  const tilt = 0.28;
+  for (let index = 0; index < 64; index++) {
+    for (const fraction of [0, 0.68]) {
+      const angle = (index + fraction) * 2 * Math.PI / 64;
+      const x = 2.72 * Math.cos(angle);
+      const z = 2.72 * Math.sin(angle);
+      positions.push(x, -z * Math.sin(tilt), z * Math.cos(tilt));
+    }
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
@@ -119,7 +142,8 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
   const flowOrder = useRef<string[]>([]);
   const flowResources = useRef(new Map<string, Pick<Flow, "curve" | "points" | "phase" | "color" | "enteredAt">>());
   const coordinateGeometry = useMemo(makeCoordinateGeometry, []);
-  useEffect(() => () => coordinateGeometry.dispose(), [coordinateGeometry]);
+  const orbitGeometry = useMemo(makeOrbitGeometry, []);
+  useEffect(() => () => { coordinateGeometry.dispose(); orbitGeometry.dispose(); }, [coordinateGeometry, orbitGeometry]);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -265,11 +289,13 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
     <mesh scale={1.055}><sphereGeometry args={[2.34, 48, 32]}/><meshBasicMaterial color="#2d9ad1" transparent opacity={0.052} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false}/></mesh>
     <mesh renderOrder={1}><sphereGeometry args={[2.47, 48, 32]}/><shaderMaterial vertexShader={atmosphereVertex} fragmentShader={atmosphereFragment} transparent blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.FrontSide}/></mesh>
     <lineSegments geometry={coordinateGeometry}><shaderMaterial vertexShader={coordinateVertex} fragmentShader={coordinateFragment} transparent depthWrite={false}/></lineSegments>
+    <lineSegments geometry={orbitGeometry}><shaderMaterial vertexShader={coordinateVertex} fragmentShader={orbitFragment} transparent depthWrite={false}/></lineSegments>
     <Sparkles count={compact ? 42 : 100} scale={[8, 6.8, 7.8]} size={0.38} speed={0.035} opacity={0.16}/>
     {selectedNode && <group position={selectedNode.position as [number, number, number]} quaternion={focusRotation}>
       <mesh renderOrder={3}><ringGeometry args={[0.13, 0.17, 32]}/><meshBasicMaterial color="#aee5ff" transparent opacity={0.72} side={THREE.DoubleSide} depthWrite={false}/></mesh>
       <mesh renderOrder={2}><ringGeometry args={[0.21, 0.225, 32]}/><meshBasicMaterial color="#66bded" transparent opacity={0.22} side={THREE.DoubleSide} depthWrite={false}/></mesh>
     </group>}
+    {selectedNode && <SelectedNodeLabel node={selectedNode}/>}
     {flows.map(flow => <Line key={flow.id} points={flow.points} color={`#${flow.color.getHexString()}`} fog transparent opacity={isFlowRelated(flow) ? (inspectedFlowId === flow.id ? 0.94 : flow.significant ? 0.38 + flow.strength * 0.16 : 0.07 + flow.recency * 0.11 + flow.strength * 0.08) : 0.026} lineWidth={inspectedFlowId === flow.id ? 1.75 : flow.significant ? 0.78 + flow.strength * 0.38 : 0.4 + flow.strength * 0.22} onPointerOver={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredFlow(flow.id);}} onPointerOut={() => setHoveredFlow(null)} onClick={(event: ThreeEvent<MouseEvent>) => {event.stopPropagation(); onSelectTransfer(flow.id);}}/>) }
     {labelled.map(flow => <TransferLabel key={flow.id} flow={flow} selected={flow.id === selectedTransferId} hovered={flow.id === hoveredFlow} occupied={labelRects}/>) }
     {annotations.slice(0, compact ? 0 : tablet ? 1 : 2).map(annotation => {
@@ -286,6 +312,25 @@ function Observatory(props: Props & {interacting: MutableRefObject<boolean>; las
     <instancedMesh ref={nodeMesh} args={[undefined, undefined, MAX_NODES]} count={nodes.length} onClick={event => {event.stopPropagation(); if (event.instanceId !== undefined && nodes[event.instanceId]) onSelectAddress(nodes[event.instanceId].address);}} onPointerMove={(event: ThreeEvent<PointerEvent>) => {event.stopPropagation(); setHoveredNode(event.instanceId ?? null);}} onPointerOut={() => setHoveredNode(null)}>
       <sphereGeometry args={[0.055, 12, 12]}/><meshStandardMaterial roughness={0.28} metalness={0.08} emissive="#194c6d" emissiveIntensity={1.7}/>
     </instancedMesh>
+  </group>;
+}
+
+function SelectedNodeLabel({node}: {node: Node}) {
+  const anchor = useRef<THREE.Group>(null);
+  const label = useRef<HTMLDivElement>(null);
+  const worldPosition = useMemo(() => new THREE.Vector3(), []);
+  const viewDirection = useMemo(() => new THREE.Vector3(), []);
+  const surfaceNormal = useMemo(() => new THREE.Vector3(), []);
+  useFrame(({camera}) => {
+    if (!anchor.current || !label.current) return;
+    anchor.current.getWorldPosition(worldPosition);
+    viewDirection.copy(camera.position).sub(worldPosition).normalize();
+    label.current.style.opacity = surfaceNormal.copy(worldPosition).normalize().dot(viewDirection) > 0.04 ? "1" : "0";
+  });
+  return <group ref={anchor} position={node.position as [number, number, number]}>
+    <Html distanceFactor={8} zIndexRange={[8, 0]} style={{pointerEvents: "none"}}>
+      <div ref={label} className="selectedEntityLabel"><small>{node.type.toUpperCase()} · FOCUS</small><span>{node.address.slice(0, 6)}…{node.address.slice(-4)}</span></div>
+    </Html>
   </group>;
 }
 
