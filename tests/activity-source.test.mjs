@@ -12,7 +12,7 @@ const nowSeconds = BigInt(Math.floor(now / 1000));
 const timestampFor = number => nowSeconds - (latest - number);
 const tx = (suffix, overrides = {}) => ({hash: hash(suffix), blockNumber: latest, blockHash: hash("b1000"), transactionIndex: Number(suffix), from: address("1"), to: address("2"), input: "0x12345678", ...overrides});
 const block = (number, transactions = []) => ({number, hash: hash(`b${number}`), timestamp: timestampFor(number), transactions});
-const transferLog = (suffix, blockNumber = 700n, logIndex = 7) => ({args: {from: address("3"), to: address("4"), value: 5_000_000n}, transactionHash: hash(suffix), blockNumber, blockHash: hash(`b${blockNumber}`), transactionIndex: 99, logIndex});
+const transferLog = (suffix, blockNumber = 700n, logIndex = 7) => ({args: {from: address("3"), to: address("4"), value: 5_000_000_000n}, transactionHash: hash(suffix), blockNumber, blockHash: hash(`b${blockNumber}`), transactionIndex: 99, logIndex});
 const requestedBlock = (args, fallback = latest) => args.blockNumber ?? fallback;
 
 function mockRpc(overrides = {}) {
@@ -56,9 +56,26 @@ test("duplicate USDC logs are deduplicated by transaction hash and log index", a
   assert.equal(result.events.filter(event => event.type === "USDC_TRANSFER").length, 1);
 });
 
+test("sub-threshold USDC logs do not trigger per-block metadata requests", async () => {
+  const requestedHeaders = [];
+  const small = {...transferLog("994", 700n), args: {from: address("3"), to: address("4"), value: 999_999_999n}};
+  const large = transferLog("993", 701n);
+  const result = await createActivityIngestor(mockRpc({
+    getBlock: async args => {
+      const number = requestedBlock(args);
+      if (!args.includeTransactions) requestedHeaders.push(number);
+      return block(number);
+    },
+    getLogs: async () => [small, large],
+  }), {now: () => now})();
+  assert.deepEqual(result.events.filter(event => event.type === "USDC_TRANSFER").map(event => event.transactionHash), [large.transactionHash]);
+  assert.ok(requestedHeaders.includes(701n));
+  assert.equal(requestedHeaders.includes(700n), false);
+});
+
 test("USDC endpoint colors reuse verified classifications without extra bytecode lookups", async () => {
-  const known = {...transferLog("995"), args: {from: address("3"), to: address("2"), value: 5_000_000n}};
-  const unclassified = {...transferLog("996", 700n, 8), args: {from: address("5"), to: address("6"), value: 5_000_000n}};
+  const known = {...transferLog("995"), args: {from: address("3"), to: address("2"), value: 5_000_000_000n}};
+  const unclassified = {...transferLog("996", 700n, 8), args: {from: address("5"), to: address("6"), value: 5_000_000_000n}};
   const result = await createActivityIngestor(mockRpc({
     getBlock: async args => { const number = requestedBlock(args); return block(number, args.includeTransactions && number === latest ? [tx("1"), tx("2", {to: address("3")})] : []); },
     getBytecode: async ({address: target}) => target === address("2") ? "0x01" : "0x",

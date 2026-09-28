@@ -1,0 +1,2 @@
+export const MIN_VISIBLE_USDC = 1_000;
+export const MIN_VISIBLE_USDC_RAW = BigInt(MIN_VISIBLE_USDC) * 1_000_000n;
