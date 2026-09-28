@@ -1,4 +1,4 @@
-import type {ArcActivityEvent, Transfer} from "../data/types.ts";
+import type {ArcActivityEvent, EntityType, Transfer} from "../data/types.ts";
 import {transferIdentity} from "../visualization/network-model.ts";
 import type {Connection} from "../state/connection.ts";
 import {MIN_VISIBLE_USDC} from "../data/threshold.ts";
@@ -14,6 +14,15 @@ export function visibleUsdcAmount(value: string) {
 
 export function visibleTransfers(transfers: readonly Transfer[]) {
   return transfers.filter(item => visibleUsdcAmount(item.value));
+}
+
+/** Apply optional verified endpoint classifications to every dashboard view. */
+export function resolveTransferEndpointTypes(transfers: readonly Transfer[], endpointTypes: Readonly<Record<string, EntityType>>) {
+  return transfers.map(transfer => {
+    const fromType = transfer.fromType === "unknown" ? endpointTypes[transfer.from.toLowerCase()] ?? "unknown" : transfer.fromType;
+    const toType = transfer.toType === "unknown" ? endpointTypes[transfer.to.toLowerCase()] ?? "unknown" : transfer.toType;
+    return fromType === transfer.fromType && toType === transfer.toType ? transfer : {...transfer, fromType, toType};
+  });
 }
 
 export function visibleEvents(events: readonly ArcActivityEvent[]) {

@@ -7,6 +7,7 @@ import {compareTemporalHalves, detectTransferAnomalies, investigateGraph, proven
 import {connectionAfterFailure} from "../src/state/connection.ts";
 import {addressPosition, reconcileIdentityOrder, selectLabelCandidates, shortTransactionHash, significantTransferIds, transferIdentity, uniqueTransfers} from "../src/visualization/network-model.ts";
 import {buildFallbackNetwork} from "../src/visualization/fallback-model.ts";
+import {resolveTransferEndpointTypes} from "../src/lib/activity-ui.ts";
 
 const address = suffix => `0x${suffix.padStart(40, "0")}`;
 const hash = suffix => `0x${suffix.padStart(64, "0")}`;
@@ -47,6 +48,16 @@ test("computes totals, concentration, rankings, and activity breakdown", () => {
   assert.equal(snapshot.topSenders[0].address, contract);
   assert.equal(snapshot.topReceivers[0].address, c);
   assert.equal(snapshot.activityBreakdown.find(item => item.category === "wallet-to-contract")?.count, 1);
+});
+
+test("verified endpoint classification agrees across metrics and intelligence", () => {
+  const unclassified = [transfer("5", a, contract, "1500", "wallet", "unknown")];
+  const resolved = resolveTransferEndpointTypes(unclassified, {[contract.toLowerCase()]: "contract"});
+  assert.equal(unclassified[0].toType, "unknown");
+  assert.equal(resolved[0].toType, "contract");
+  assert.equal(buildIntelligenceSnapshot(resolved, 0).activeContracts, 1);
+  assert.equal(buildIntelligenceSnapshot(resolved, 0).activityBreakdown[0].category, "wallet-to-contract");
+  assert.equal(resolveTransferEndpointTypes(resolved, {})[0], resolved[0]);
 });
 
 test("handles empty and malformed non-finite values without fabricating activity", () => {

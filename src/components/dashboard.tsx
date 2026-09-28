@@ -14,7 +14,7 @@ import {ARC} from "@/data/arc";
 import type {Transfer} from "@/data/types";
 import {buildIntelligenceSnapshot, getEntityIntelligence} from "@/intelligence/engine";
 import {shortTransactionHash, transferIdentity} from "@/visualization/network-model";
-import {healthLabel, relativeActivityTime, searchObservation, sliceObservationWindow, visibleEvents, visibleTransfers} from "@/lib/activity-ui";
+import {healthLabel, relativeActivityTime, resolveTransferEndpointTypes, searchObservation, sliceObservationWindow, visibleEvents, visibleTransfers} from "@/lib/activity-ui";
 
 const NetworkScene = dynamic(
   () => import("@/visualization/network-scene").then(module => module.NetworkScene),
@@ -39,9 +39,10 @@ export function Dashboard() {
   const referenceTimestamp = useActivity(state => state.observationReferenceTimestamp);
   const [rangeMinutes, setRangeMinutes] = useState<1 | 5 | 10>(10);
   const windowed = useMemo(() => sliceObservationWindow(observedTransfers, observedEvents, referenceTimestamp, rangeMinutes), [observedTransfers, observedEvents, referenceTimestamp, rangeMinutes]);
-  const transfers = useMemo(() => visibleTransfers(windowed.transfers), [windowed.transfers]);
+  const visible = useMemo(() => visibleTransfers(windowed.transfers), [windowed.transfers]);
   const events = useMemo(() => visibleEvents(windowed.events), [windowed.events]);
-  const endpointTypes = useEndpointTypes(transfers);
+  const endpointTypes = useEndpointTypes(visible);
+  const transfers = useMemo(() => resolveTransferEndpointTypes(visible, endpointTypes), [visible, endpointTypes]);
   const status = useActivity(state => state.connection);
   const health = useActivity(state => state.health);
   const selected = useActivity(state => state.selected);
