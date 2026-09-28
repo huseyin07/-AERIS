@@ -15,7 +15,7 @@ type State = {
   visualizationIntent: VisualizationIntent;
   observationReferenceTimestamp: number | null;
   mergeActivity: (events: ArcActivityEvent[], referenceTimestamp?: number) => void;
-  markRequestSucceeded: (response: ActivityResponse) => void;
+  markRequestSucceeded: (response: ActivityResponse, responseMs: number) => void;
   markRequestFailed: (response?: ActivityResponse) => void;
   select: (address: string | null) => void;
   setQuery: (query: string) => void;
@@ -57,9 +57,9 @@ export const useActivity = create<State>(set => ({
     if (nextReference === state.observationReferenceTimestamp && events.length === state.events.length && events.every((event, index) => event === state.events[index])) return state;
     return {events, transfers: eventsToTransfers(events).filter(validTransfer), observationReferenceTimestamp: nextReference};
   }),
-  markRequestSucceeded: response => set({
+  markRequestSucceeded: (response, responseMs) => set({
     connection: "live",
-    health: {status: response.status ?? "ok", latestBlock: response.latestBlock, processedBlockRange: response.processedBlockRange, rpcWarnings: (response.rpcWarnings ?? []).slice(0, 3), lastSuccessfulAt: response.fetchedAt},
+    health: {status: response.status ?? "ok", latestBlock: response.latestBlock, processedBlockRange: response.processedBlockRange, contractSampleBlockRange: response.contractSampleBlockRange, contractCandidateCount: response.contractCandidateCount, contractCandidateTruncated: response.contractCandidateTruncated, windowCovered: response.windowCovered, blocksScanned: response.blocksScanned, rpcRequestCount: response.rpcRequestCount?.total, ingestionMs: response.stageTimingsMs?.total, responseMs, rpcWarnings: (response.rpcWarnings ?? []).slice(0, 3), lastSuccessfulAt: response.fetchedAt},
   }),
   markRequestFailed: response => set(state => ({connection: connectionAfterFailure(state.events.length), health: {...state.health, status: "error", rpcWarnings: (response?.rpcWarnings ?? state.health.rpcWarnings).slice(0, 3)}})),
   select: selected => set({selected}),

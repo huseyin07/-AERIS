@@ -34,6 +34,14 @@ export type ActivityHealth = {
   status: "ok" | "partial" | "error" | null;
   latestBlock?: string;
   processedBlockRange?: {from: string; to: string};
+  contractSampleBlockRange?: {from: string; to: string};
+  contractCandidateCount?: number;
+  contractCandidateTruncated?: boolean;
+  windowCovered?: boolean;
+  blocksScanned?: number;
+  rpcRequestCount?: number;
+  ingestionMs?: number;
+  responseMs?: number;
   rpcWarnings: string[];
   lastSuccessfulAt?: number;
 };

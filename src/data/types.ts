@@ -75,6 +75,9 @@ export type ActivityResponse = {
   windowEndTimestamp?: number;
   windowCovered?: boolean;
   blocksScanned?: number;
+  contractSampleBlockRange?: {from: string; to: string};
+  contractCandidateCount?: number;
+  contractCandidateTruncated?: boolean;
   headAgeMs?: number;
   headStale?: boolean;
   windowReferenceTimestamp?: number;

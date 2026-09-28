@@ -12,6 +12,7 @@ type Props = {
   selectedTransferId: string | null;
   onSelectAddress: (address: string) => void;
   onSelectTransfer: (id: string) => void;
+  reason?: "unavailable" | "lightweight";
 };
 
 function flowType(flow: ReturnType<typeof buildFallbackNetwork>["flows"][number]) {
@@ -21,7 +22,7 @@ function flowType(flow: ReturnType<typeof buildFallbackNetwork>["flows"][number]
   return "wallet";
 }
 
-export function NetworkFallback({transfers, endpointTypes, selectedAddress, selectedTransferId, onSelectAddress, onSelectTransfer}: Props) {
+export function NetworkFallback({transfers, endpointTypes, selectedAddress, selectedTransferId, onSelectAddress, onSelectTransfer, reason = "unavailable"}: Props) {
   const {nodes, flows} = useMemo(() => buildFallbackNetwork(transfers, endpointTypes, selectedTransferId), [transfers, endpointTypes, selectedTransferId]);
   const highlightedAddress = selectedAddress?.toLowerCase();
   const selectedFlow = flows.find(flow => flow.id === selectedTransferId);
@@ -54,6 +55,6 @@ export function NetworkFallback({transfers, endpointTypes, selectedAddress, sele
     </svg>
     <div className="fallbackNetworkMeta"><span>VERIFIED FLOWS <strong>{flows.length}</strong></span><span>ADDRESSES <strong>{nodes.length}</strong></span></div>
     {topFlows.length ? <div className="fallbackTopFlows"><small>TOP OBSERVED FLOWS</small>{topFlows.map(flow => <button key={flow.id} type="button" className={flow.id === selectedTransferId ? "active" : ""} onClick={() => onSelectTransfer(flow.id)}><span>{short(flow.from.address)} → {short(flow.to.address)}</span><strong>{money(flow.transfer.value)} USDC</strong></button>)}</div> : <div className="fallbackNoFlows">No verified transfers ≥1,000 USDC in this view.</div>}
-    <div className="fallbackNetworkFoot"><span>3D UNAVAILABLE · VERIFIED DATA CONTINUES</span><a href="#live-ledger">VIEW LIVE LEDGER ↓</a></div>
+    <div className="fallbackNetworkFoot"><span>{reason === "unavailable" ? "3D UNAVAILABLE" : "LIGHTWEIGHT VIEW"} · VERIFIED DATA CONTINUES</span><a href="#live-ledger">VIEW LIVE LEDGER ↓</a></div>
   </div>;
 }
