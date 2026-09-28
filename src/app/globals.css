@@ -318,6 +318,7 @@ nav{font-size:12px}.search{min-height:42px;font-size:13px;background:#071724b8}.
 .reportQuery p,.reportAnswer p{font-size:12px}.agentReport label,.agentEvidence button,.pastExchange p{font-size:10px}.agentEvidence button{line-height:1.5;padding:8px 2px}
 .transferPanel{width:272px;border-radius:7px;border-color:#86cefa3d;background:#051521ed}.transferPanel h3{font-size:13px}.transferPanel dt,.transferPanel dd{font-size:11px}.transferPanel dl div{padding:7px 0}
 .fallbackNetworkHead{font-size:11px}.fallbackNetworkMeta{font-size:10px}.fallbackTopFlows{width:270px;padding:14px;border-color:#8bcef53b;border-radius:7px;background:#061826e8;box-shadow:0 16px 40px #0005}.fallbackTopFlows small{font-size:10px}.fallbackTopFlows button{font-size:10px;line-height:1.4;min-height:33px}.fallbackTopFlows button strong{font-size:11px}.fallbackNetworkFoot{font-size:10px}
+.fallbackNetworkHead,.fallbackTopFlows{left:60px}.fallbackNetworkFoot{left:60px}
 :is(button,a,input):focus-visible{outline:2px solid #91dcff;outline-offset:3px}
 
 @media(max-width:1100px){.metrics{width:190px;padding:17px 15px}.entityPanel{width:210px;padding:17px 15px}.scene{left:140px;right:178px}.legend{right:224px}.feedColumns,.feedRow{gap:11px}}
