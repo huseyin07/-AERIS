@@ -117,20 +117,20 @@ export function Dashboard() {
     <LiveActivity/>
     <header>
       <div className="brand"><Image className="brandMark" src="/aeris-logo.jpg" alt="" width={18} height={18}/>AERIS</div>
-      <nav><b>LIVE</b><span>EXPLORE</span><button onClick={() => setAgentOpen(true)}>INSIGHTS</button><span>REPLAY</span></nav>
+      <nav aria-label="Dashboard sections"><b>LIVE</b><button onClick={() => setAgentOpen(true)}>INSIGHTS</button></nav>
       <input
         className="search"
         value={query}
         onChange={event => setQuery(event.target.value)}
-        placeholder="Search address, transaction or entity"
-        aria-label="Search address, transaction or entity"
+        placeholder="Search full address or transaction hash"
+        aria-label="Search full address or transaction hash"
       />
       <div className={`status ${statusLabel.toLowerCase()}`} title={healthDetails || "Awaiting the first verified Arc Mainnet response"}><i/><span>ARC MAINNET<span className="statusDetail"> · {statusLabel}</span></span></div>
     </header>
 
     <section className="observatory">
       <div className="scene" aria-label="Live Arc Mainnet entity network">
-        <VisualizationBoundary>
+        <VisualizationBoundary fallback={<div className="fallbackContent"><span>LIVE DATA CONTINUES</span><strong>Network view unavailable</strong><p>The 3D view could not start on this device. Verified Arc transfers remain available in the ledger below.</p><a href="#live-ledger">VIEW LIVE LEDGER ↓</a></div>}>
           <NetworkScene transfers={transfers} endpointTypes={endpointTypes} annotations={annotations} selectedAddress={selected} selectedTransferId={activeTransferId} resetViewToken={resetViewToken} intent={intent} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId}/>
         </VisualizationBoundary>
         <button className="resetView" type="button" onClick={() => setResetViewToken(token => token + 1)} aria-label="Reset globe camera view" title="Reset globe camera view">RESET VIEW <span aria-hidden="true">↺</span></button>
@@ -205,7 +205,7 @@ export function Dashboard() {
     </section>
 
 
-    <section className="feed" ref={feedRef}>
+    <section className="feed" id="live-ledger" ref={feedRef}>
       <div className="feedHead"><div><small>LIVE LEDGER · MIN 1,000 USDC</small><h2>Recent verified transfers</h2></div><span>{ARC.name} · USDC · REAL-TIME</span></div>
       <div className="feedColumns"><span>FROM</span><span>TO</span><span>AMOUNT</span><span>TYPE</span><span>BLOCK</span><span>TIME</span></div>
       {filtered.slice(0, 16).map(transfer => <button data-transfer-id={transferIdentity(transfer)} className={`feedRow ${activeTransferId === transferIdentity(transfer) ? "active" : ""}`} key={transferIdentity(transfer)} onMouseEnter={() => setHoveredTransferId(transferIdentity(transfer))} onMouseLeave={() => setHoveredTransferId(null)} onFocus={() => setHoveredTransferId(transferIdentity(transfer))} onBlur={() => setHoveredTransferId(null)} onClick={() => setSelectedTransferId(transferIdentity(transfer))} aria-pressed={selectedTransferId === transferIdentity(transfer)}>
