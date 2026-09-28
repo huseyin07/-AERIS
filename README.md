@@ -27,3 +27,8 @@ npm run build
 Optional production overrides are `ARC_MAINNET_RPC_URL`, `ARC_MAINNET_EXPLORER`, and `ARC_MAINNET_USDC`. Overrides are validated and the activity pipeline rejects any RPC whose `eth_chainId` is not `5042`.
 
 Architecture: Arc Mainnet RPC → incremental activity ingestion → normalized rolling observation → Zustand → economic/activity intelligence → significance candidates → bounded React Three Fiber visualization and deterministic AERIS Agent.
+
+
+## General AI answers
+
+AERIS keeps its verified Arc observation analysis available without a model key. For questions beyond the observation engine, configure `OPENAI_API_KEY` in the server deployment environment. Optionally set `AERIS_AI_MODEL` (default: `gpt-4o-mini`). Never expose the key with a `NEXT_PUBLIC_` prefix. The general AI endpoint has no web browsing or live facts beyond the supplied observation; protect the public endpoint with deployment-level rate limiting before enabling a paid key.
