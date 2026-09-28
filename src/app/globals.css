@@ -104,3 +104,95 @@ nav{height:100%;align-items:center;gap:30px}nav b{height:100%;display:flex;align
   .transferPanel{position:relative;inset:auto;order:4;transform:none;width:100%;margin-top:8px}
   .feedRow,.feedColumns{font-size:10px}.feedRow b{font-size:11px}
 }
+
+/* Readability pass: give live data, controls, and supporting copy a usable scale. */
+html{scroll-behavior:smooth}
+body{background-image:radial-gradient(ellipse at 50% 24%,#0a304b47,transparent 48%),linear-gradient(180deg,#01050a,#020810 72%,#01050a)}
+body:before{opacity:.055}
+main{padding-inline:clamp(16px,2.5vw,40px)}
+header{gap:30px}
+nav{gap:25px;font-size:11px;letter-spacing:.12em}
+nav button{font-size:inherit}
+.search{font-size:12px;min-height:38px}
+.search::placeholder{color:#849baa}
+.status{font-size:11px;letter-spacing:.09em}
+.observatory{height:690px}
+.sceneFallback{padding:30px;font-size:13px;letter-spacing:normal;text-align:center}
+.fallbackContent{max-width:310px;padding:26px;border:1px solid #79caff27;border-radius:10px;background:#03111dba;box-shadow:0 22px 60px #0005}
+.fallbackContent span{display:block;color:#70bbdf;font-size:10px;letter-spacing:.16em}
+.fallbackContent strong{display:block;margin-top:12px;color:#e5f5fd;font-size:18px;font-weight:600}
+.fallbackContent p{margin:10px 0 18px;color:#9db5c5;font-size:13px;line-height:1.6}
+.fallbackContent a{color:#85d0fa;font-size:11px;font-weight:650;letter-spacing:.1em;text-decoration:none}
+.eyebrow,.entityPanel>small,.signal>small,.feedHead small,.recentLabel{font-size:10px;letter-spacing:.14em}
+.metrics{width:218px;padding:20px}
+.metrics small{font-size:10px;letter-spacing:.08em;color:#8aa5b8}
+.metrics .metric{padding:15px 0}
+.metrics .metric strong{font-size:20px}
+.assetHeading{font-size:11px;letter-spacing:.07em}
+.entityPanel{width:252px;padding:20px}
+.entityPanel h2{font-size:18px}
+.entityPanel dt,.entityPanel dd,.networkState{font-size:11px;letter-spacing:.05em}
+.entityPanel dl>div{padding:10px 0}
+.panelNote,.entityWhy{font-size:11px;line-height:1.55}
+.address{font-size:10px}
+.explorerLink,.askAddress,.explainTransfer{font-size:10px;line-height:1.5}
+.legend{right:273px;font-size:9px;color:#8ba5b6}
+.legend i{width:7px;height:7px}
+.resetView{font-size:10px;min-height:36px}
+.lowerBar{min-height:68px;height:auto;padding:10px 0;gap:16px}
+.timeControls button{font-size:10px}
+.timeControls small{font-size:9px;color:#758b9c}
+.signal{max-width:660px;min-width:0}
+.signal p{font-size:11px;line-height:1.4;color:#a4bac8}
+.signalSteps{font-size:10px}
+.feed{padding:22px 20px;margin-top:18px}
+.feedHead h2{font-size:20px}
+.feedHead>span{font-size:10px}
+.feedColumns{font-size:10px;color:#8ba5b6}
+.feedRow{min-height:50px;font-size:11px;color:#a8bdca}
+.feedRow b{font-size:13px}
+.feedRow b em,.feedRow small,.feedRow time{font-size:10px;color:#8da6b6}
+.empty{font-size:12px}
+footer{font-size:10px}
+.agentName{font-size:11px;letter-spacing:.06em}
+.agentName .agentLive,.agentIdentity small,.agentCommands button,.agentFoot,.agentFoot button{font-size:9px}
+.agentIdentity p{font-size:10px}
+.agentInput input{font-size:11px}
+.agentInput button{width:38px;font-size:14px}
+.reportQuery p,.reportAnswer p{font-size:12px}
+.agentReport>small,.agentReport label,.reportAnswer dt,.reportAnswer dd,.pastExchange label,.pastExchange p,.agentEvidence button{font-size:10px}
+.agentAction{font-size:10px}
+.transferPanel{width:248px;padding:16px}
+.transferPanel>small,.transferPanel dt,.transferPanel dd,.transferPanel>a{font-size:10px}
+.transferPanel h3{font-size:12px}
+
+@media(min-width:1051px){.metrics{width:218px}.entityPanel{width:252px}.scene{left:162px;right:212px}}
+@media(max-width:1050px){.metrics{width:185px}.entityPanel{width:205px}.scene{left:145px;right:180px}.legend{right:218px}nav{display:none}}
+@media(max-width:760px){
+  .observatory{height:850px}
+  .scene{inset:0 -80px 248px}
+  .metrics,.entityPanel{top:auto;bottom:9px;width:48%;padding:14px}
+  .metrics .metric{padding:9px 0}
+  .metrics .metric strong{font-size:13px}
+  .entityPanel{width:49%;max-height:245px}
+  .entityPanel dt,.entityPanel dd{font-size:10px}
+  .legend{right:5px;bottom:246px;font-size:8px}
+  .lowerBar{align-items:stretch}
+  .signal{width:100%;max-width:none}
+  .signal p{white-space:normal}
+  .feedColumns,.feedRow{gap:10px}
+}
+@media(max-width:480px){
+  header{gap:9px}.brand{flex:0 0 auto}.status{font-size:9px}.search{min-width:0;font-size:11px;padding:8px 10px}
+  .observatory{height:auto}.scene{inset:auto;height:390px}
+  .metrics,.entityPanel{width:100%;position:relative;inset:auto;max-height:none;padding:16px}
+  .metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px}
+  .metrics .metric strong{font-size:15px}
+  .entityPanel .panelNote,.recentLabel{display:block}
+  .legend{right:5px;bottom:auto;top:340px;font-size:8px}
+  .feedHead h2{font-size:17px}.feedColumns,.feedRow{font-size:10px}
+  .feedRow b{font-size:12px}
+  .fallbackContent{padding:18px}
+  .transferPanel{width:100%}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
