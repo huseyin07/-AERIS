@@ -1,6 +1,6 @@
 "use client";
 
-import {useMemo} from "react";
+import {useMemo, type CSSProperties} from "react";
 import type {EntityType, Transfer} from "@/data/types";
 import {money, short} from "@/lib/format";
 import {buildFallbackNetwork} from "@/visualization/fallback-model";
@@ -27,6 +27,7 @@ export function NetworkFallback({transfers, endpointTypes, selectedAddress, sele
   const highlightedAddress = selectedAddress?.toLowerCase();
   const selectedFlow = flows.find(flow => flow.id === selectedTransferId);
   const topFlows = useMemo(() => [...flows].sort((a, b) => Number(b.transfer.value) - Number(a.transfer.value) || a.id.localeCompare(b.id)).slice(0, 3), [flows]);
+  const largestTopFlow = Number(topFlows[0]?.transfer.value) || 1;
 
   return <div className="fallbackNetwork" role="region" aria-label="Verified Arc Mainnet two-dimensional network">
     <div className="fallbackNetworkHead"><span className="fallbackModeDot"/>2D NETWORK <b>· ARC MAINNET</b></div>
@@ -54,7 +55,7 @@ export function NetworkFallback({transfers, endpointTypes, selectedAddress, sele
       })}
     </svg>
     <div className="fallbackNetworkMeta"><span>VERIFIED FLOWS <strong>{flows.length}</strong></span><span>ADDRESSES <strong>{nodes.length}</strong></span></div>
-    {topFlows.length ? <div className="fallbackTopFlows"><small>TOP OBSERVED FLOWS</small>{topFlows.map(flow => <button key={flow.id} type="button" className={flow.id === selectedTransferId ? "active" : ""} onClick={() => onSelectTransfer(flow.id)}><span>{short(flow.from.address)} → {short(flow.to.address)}</span><strong>{money(flow.transfer.value)} USDC</strong></button>)}</div> : <div className="fallbackNoFlows">No verified transfers ≥1,000 USDC in this view.</div>}
+    {topFlows.length ? <div className="fallbackTopFlows"><small>TOP OBSERVED FLOWS <span>RELATIVE VALUE</span></small>{topFlows.map(flow => <button key={flow.id} type="button" className={flow.id === selectedTransferId ? "active" : ""} style={{"--flow-width": `${Math.max(3, Math.min(100, Number(flow.transfer.value) / largestTopFlow * 100))}%`} as CSSProperties} onClick={() => onSelectTransfer(flow.id)}><span>{short(flow.from.address)} → {short(flow.to.address)}</span><strong>{money(flow.transfer.value)} USDC</strong></button>)}</div> : <div className="fallbackNoFlows">No verified transfers ≥1,000 USDC in this view.</div>}
     <div className="fallbackNetworkFoot"><span>{reason === "unavailable" ? "3D UNAVAILABLE" : "LIGHTWEIGHT VIEW"} · VERIFIED DATA CONTINUES</span><a href="#live-ledger">VIEW LIVE LEDGER ↓</a></div>
   </div>;
 }
