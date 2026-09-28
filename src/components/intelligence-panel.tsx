@@ -31,6 +31,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
   const setIntent = useActivity(state => state.setVisualizationIntent);
   const intent = useActivity(state => state.visualizationIntent);
   const health = useActivity(state => state.health);
+  const agentStatus = connection === "live" && health.status === "partial" ? "partial" : connection;
   const fragments = useMemo(() => {
     const system = ["ARC MAINNET", "CHAIN 5042", "USDC", (connection === "live" || connection === "stale") ? "STATUS VERIFIED" : "WAITING FOR VERIFIED ACTIVITY", "OBSERVING"];
     if (!transfers.length) return system;
@@ -86,7 +87,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
     <div className="agentGlow"/>
     <div className="agentIdentity">
       <Image className="agentPortrait" src="/aeris-agent.png" alt="AERIS Agent" width={90} height={110} priority/>
-      <div><div className="agentName">AERIS AGENT <span className={`agentLive ${connection}`}><i/>{connection.toUpperCase()}</span></div><p>Network Observer</p><small>OBSERVE · ANALYZE · EXPLAIN</small></div>
+      <div><div className="agentName">AERIS AGENT <span className={`agentLive ${agentStatus}`}><i/>{agentStatus.toUpperCase()}</span></div><p>Network Observer</p><small>OBSERVE · ANALYZE · EXPLAIN</small></div>
       {expanded && <button className="agentClose" onClick={onClose} aria-label="Close AERIS Agent">×</button>}
     </div>
     {expanded && <div className="agentReport">
@@ -106,6 +107,6 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
     </div>}
     <form className="agentInput" onSubmit={submit}><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Ask about current Arc activity..." aria-label="Ask AERIS Agent about current Arc activity" disabled={analyzing}/><button type="submit" aria-label="Submit question" disabled={!query.trim() || analyzing}>→</button></form>
     <div className="agentCommands">{suggestions.map(item => <button type="button" key={item} disabled={analyzing} onClick={() => ask(item)}>{item}</button>)}</div>
-    <div className="agentFoot"><span>{connectionCopy[connection]}</span>{visualizationAvailable && intent.type !== "reset" && <button onClick={() => setIntent({type: "reset"})}>RESET VIEW</button>}</div>
+    <div className="agentFoot"><span>{agentStatus === "partial" ? "Verified Arc activity is partially covered." : connectionCopy[connection]}</span>{visualizationAvailable && intent.type !== "reset" && <button onClick={() => setIntent({type: "reset"})}>RESET VIEW</button>}</div>
   </section>;
 }

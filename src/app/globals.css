@@ -337,6 +337,8 @@ nav{font-size:12px}.search{min-height:42px;font-size:13px;background:#071724b8}.
 }
 @media(prefers-reduced-motion:reduce){.feedRow,.agentCommands button,.fallbackTopFlows button{transition:none}}
 
+.agentLive.partial{color:#ddb97d}
+
 /* Data provenance and deliberate visualization mode. */
 .status{border:0;background:none;cursor:pointer}.status:hover,.status:focus-visible{color:#d4effc}.status>span:last-child{font-size:15px;line-height:1;color:#8db7cb}
 .healthPanel{margin:14px 0;padding:20px 22px;border:1px solid #8bcef53a;border-radius:9px;background:linear-gradient(120deg,#082333e8,#04121fef);box-shadow:0 18px 42px #0004}
