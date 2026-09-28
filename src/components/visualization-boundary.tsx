@@ -2,7 +2,7 @@
 
 import {Component, type ErrorInfo, type ReactNode} from "react";
 
-type Props = {children: ReactNode; fallback?: ReactNode};
+type Props = {children: ReactNode; fallback?: ReactNode; onFailure?: () => void};
 type State = {failed: boolean};
 
 export class VisualizationBoundary extends Component<Props, State> {
@@ -14,6 +14,7 @@ export class VisualizationBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("AERIS visualization unavailable", error, info.componentStack);
+    this.props.onFailure?.();
   }
 
   render() {

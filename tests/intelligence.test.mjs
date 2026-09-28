@@ -319,7 +319,7 @@ test("zero and small windows remain finite and preserve multi-log identities", (
 
 import {AddressClassificationCache, BlockCursor, MAX_OBSERVED_EVENTS, OBSERVATION_WINDOW_MS, contractCallActivityId, deploymentActivityId, normalizeTransactionActivity, pruneObservation, receiptStatus, transferToActivity, transactionActivityId, usdcActivityId} from "../src/data/activity-engine.ts";
 import {selectSignificantTransfers, VISUAL_CAPS} from "../src/visualization/network-model.ts";
-import {healthLabel, newestTransfers, relativeActivityTime, searchObservation, visibleEvents, visibleTransfers} from "../src/lib/activity-ui.ts";
+import {healthLabel, newestTransfers, relativeActivityTime, searchObservation, sliceObservationWindow, visibleEvents, visibleTransfers} from "../src/lib/activity-ui.ts";
 
 const baseTx = (overrides = {}) => ({hash: hash("abc"), blockNumber: 10n, blockHash: hash("b10"), transactionIndex: 2, from: a, to: contract, input: "0x12345678", ...overrides});
 
@@ -422,6 +422,20 @@ test("observation search validates exact addresses and hashes and clear restores
   assert.equal(invalid.kind, "invalid");
   assert.equal(invalid.transfers.length, transfers.length);
   assert.equal(searchObservation(transfers, [], "").transfers.length, transfers.length);
+});
+
+test("time controls filter verified transfers and events against the chain head, preserving the ten-minute source", () => {
+  const head = 2_000_000_000_000;
+  const values = [
+    {...transfers[0], timestamp: head - 30_000},
+    {...transfers[1], timestamp: head - 3 * 60_000},
+    {...transfers[2], timestamp: head - 8 * 60_000},
+  ];
+  const observedEvents = values.map(item => transferToActivity(item, {blockHash: hash("10"), transactionIndex: 0, timestamp: item.timestamp, observedAt: head}));
+  assert.deepEqual(sliceObservationWindow(values, observedEvents, head, 1).transfers.map(item => item.id), [values[0].id]);
+  assert.deepEqual(sliceObservationWindow(values, observedEvents, head, 5).events.map(item => item.transactionHash), values.slice(0, 2).map(item => item.txHash));
+  assert.equal(sliceObservationWindow(values, observedEvents, head, 10).transfers, values);
+  assert.equal(sliceObservationWindow(values, observedEvents, null, 1).events, observedEvents);
 });
 
 test("the 1,000 USDC display floor is inclusive across ledger, search, intelligence and events", () => {

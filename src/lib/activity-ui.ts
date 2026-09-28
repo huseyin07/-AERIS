@@ -20,6 +20,16 @@ export function visibleEvents(events: readonly ArcActivityEvent[]) {
   return events.filter(item => item.type !== "USDC_TRANSFER" || visibleUsdcAmount(item.amountUSDC));
 }
 
+/** A narrower view of the verified, chain-relative ten-minute observation. */
+export function sliceObservationWindow(transfers: readonly Transfer[], events: readonly ArcActivityEvent[], referenceTimestamp: number | null, minutes: 1 | 5 | 10) {
+  if (minutes === 10 || referenceTimestamp === null) return {transfers, events};
+  const cutoff = referenceTimestamp - minutes * 60_000;
+  return {
+    transfers: transfers.filter(item => item.timestamp !== undefined && item.timestamp >= cutoff && item.timestamp <= referenceTimestamp),
+    events: events.filter(item => item.timestamp >= cutoff && item.timestamp <= referenceTimestamp),
+  };
+}
+
 export type ActivityHealth = {
   status: "ok" | "partial" | "error" | null;
   latestBlock?: string;

@@ -13,7 +13,7 @@ import {ARC} from "@/data/arc";
 import type {Transfer} from "@/data/types";
 import {buildIntelligenceSnapshot, getEntityIntelligence} from "@/intelligence/engine";
 import {shortTransactionHash, transferIdentity} from "@/visualization/network-model";
-import {healthLabel, relativeActivityTime, searchObservation, visibleEvents, visibleTransfers} from "@/lib/activity-ui";
+import {healthLabel, relativeActivityTime, searchObservation, sliceObservationWindow, visibleEvents, visibleTransfers} from "@/lib/activity-ui";
 
 const NetworkScene = dynamic(
   () => import("@/visualization/network-scene").then(module => module.NetworkScene),
@@ -34,10 +34,13 @@ function transferType(transfer: Transfer, endpointTypes: Record<string, "wallet"
 
 export function Dashboard() {
   const observedTransfers = useActivity(state => state.transfers);
-  const transfers = useMemo(() => visibleTransfers(observedTransfers), [observedTransfers]);
-  const endpointTypes = useEndpointTypes(transfers);
   const observedEvents = useActivity(state => state.events);
-  const events = useMemo(() => visibleEvents(observedEvents), [observedEvents]);
+  const referenceTimestamp = useActivity(state => state.observationReferenceTimestamp);
+  const [rangeMinutes, setRangeMinutes] = useState<1 | 5 | 10>(10);
+  const windowed = useMemo(() => sliceObservationWindow(observedTransfers, observedEvents, referenceTimestamp, rangeMinutes), [observedTransfers, observedEvents, referenceTimestamp, rangeMinutes]);
+  const transfers = useMemo(() => visibleTransfers(windowed.transfers), [windowed.transfers]);
+  const events = useMemo(() => visibleEvents(windowed.events), [windowed.events]);
+  const endpointTypes = useEndpointTypes(transfers);
   const status = useActivity(state => state.connection);
   const health = useActivity(state => state.health);
   const selected = useActivity(state => state.selected);
@@ -52,10 +55,13 @@ export function Dashboard() {
   const [hoveredTransferId, setHoveredTransferId] = useState<string | null>(null);
   const [resetViewToken, setResetViewToken] = useState(0);
   const [signalIndex, setSignalIndex] = useState(0);
+  const [inspectedSignalId, setInspectedSignalId] = useState<string | null>(null);
+  const [sceneFailed, setSceneFailed] = useState(false);
   const [clock, setClock] = useState(() => Date.now());
   const feedRef = useRef<HTMLElement>(null);
+  const entityPanelRef = useRef<HTMLElement>(null);
   const previousQuery = useRef("");
-  const snapshot = useMemo(() => buildIntelligenceSnapshot(transfers, Date.now(), events), [transfers, events]);
+  const snapshot = useMemo(() => buildIntelligenceSnapshot(transfers, referenceTimestamp ?? Date.now(), events), [transfers, events, referenceTimestamp]);
 
   const volume = snapshot.totalVolume;
   const addresses = snapshot.uniqueAddresses;
@@ -102,8 +108,9 @@ export function Dashboard() {
     ? transfers.filter(transfer => transfer.from === selected || transfer.to === selected)
     : [];
   const entity = selected ? getEntityIntelligence(snapshot, selected) : null;
-  const emptyMessage = status === "unavailable" ? "Live data temporarily unavailable" : status === "connecting" ? "Waiting for verified Arc Mainnet activity" : "No transfers ≥1,000 USDC in the current observation window";
+  const emptyMessage = status === "unavailable" ? "Live data temporarily unavailable" : status === "connecting" ? "Waiting for verified Arc Mainnet activity" : `No transfers ≥1,000 USDC in the last ${rangeMinutes} minutes of verified activity`;
   const signal = snapshot.signals[signalIndex % Math.max(1, snapshot.signals.length)];
+  const inspectedSignal = snapshot.signals.find(item => item.id === inspectedSignalId);
   const statusLabel = healthLabel(status, health, clock);
   const healthDetails = [health.latestBlock ? `Latest block ${health.latestBlock}` : "", health.processedBlockRange ? `Processed ${health.processedBlockRange.from}–${health.processedBlockRange.to}` : "", health.lastSuccessfulAt ? `Updated ${relativeActivityTime(health.lastSuccessfulAt, clock)}` : "", ...health.rpcWarnings].filter(Boolean).join(" · ");
   const annotations = useMemo(() => [...new Map([
@@ -112,6 +119,18 @@ export function Dashboard() {
     ...(signal?.relatedAddresses.slice(0, 1).map(address => ({address, label: signal.title})) ?? []),
     ...(snapshot.entities.length >= 3 && snapshot.mostActiveByCount[0]?.transferCount > 1 ? [{address: snapshot.mostActiveByCount[0].address, label: snapshot.mostActiveByCount[0].type === "contract" ? "CONTRACT HUB" : "HIGH ACTIVITY"}] : []),
   ].map(item => [item.address.toLowerCase(), item])).values()], [selected, intent, signal, snapshot.entities.length, snapshot.mostActiveByCount]);
+
+  function inspectSignal() {
+    if (!signal) return;
+    setInspectedSignalId(signal.id);
+    setIntent(signal.intent);
+    const related = transfers.find(item => signal.relatedTransferIds.includes(item.id));
+    if (related) setSelectedTransferId(transferIdentity(related));
+    else if (signal.relatedAddresses[0] && snapshot.entities.some(item => item.address.toLowerCase() === signal.relatedAddresses[0].toLowerCase())) {
+      select(signal.relatedAddresses[0]);
+      entityPanelRef.current?.scrollIntoView({block: "nearest", behavior: "smooth"});
+    }
+  }
 
   return <main>
     <LiveActivity/>
@@ -130,14 +149,14 @@ export function Dashboard() {
 
     <section className="observatory">
       <div className="scene" aria-label="Live Arc Mainnet entity network">
-        <VisualizationBoundary fallback={<div className="fallbackContent"><span>LIVE DATA CONTINUES</span><strong>Network view unavailable</strong><p>The 3D view could not start on this device. Verified Arc transfers remain available in the ledger below.</p><a href="#live-ledger">VIEW LIVE LEDGER ↓</a></div>}>
+        <VisualizationBoundary onFailure={() => setSceneFailed(true)} fallback={<div className="fallbackContent"><span>LIVE DATA CONTINUES</span><strong>Network view unavailable</strong><p>The 3D view could not start on this device. Verified Arc transfers remain available in the ledger below.</p><a href="#live-ledger">VIEW LIVE LEDGER ↓</a></div>}>
           <NetworkScene transfers={transfers} endpointTypes={endpointTypes} annotations={annotations} selectedAddress={selected} selectedTransferId={activeTransferId} resetViewToken={resetViewToken} intent={intent} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId}/>
         </VisualizationBoundary>
-        <button className="resetView" type="button" onClick={() => setResetViewToken(token => token + 1)} aria-label="Reset globe camera view" title="Reset globe camera view">RESET VIEW <span aria-hidden="true">↺</span></button>
+        {!sceneFailed && <button className="resetView" type="button" onClick={() => setResetViewToken(token => token + 1)} aria-label="Reset globe camera view" title="Reset globe camera view">RESET VIEW <span aria-hidden="true">↺</span></button>}
       </div>
 
       <section className="metrics" aria-label="Live metrics">
-        <p className="eyebrow">LIVE ACTIVITY · ≥1,000 USDC</p>
+        <p className="eyebrow">VERIFIED {rangeMinutes}M ACTIVITY · ≥1,000 USDC</p>
         <div className="assetHeading"><UsdcIcon/><span>ARC MAINNET USDC</span></div>
         <Metric icon label="USDC FLOW" value={`$${money(String(volume))}`}/>
         <Metric label="TRANSFERS" value={String(transfers.length)}/>
@@ -146,7 +165,7 @@ export function Dashboard() {
         <Metric icon label="LARGEST TRANSFER" value={largest ? `${money(largest.value)} USDC` : "—"}/>
       </section>
 
-      <section className="entityPanel">
+      <section className="entityPanel" ref={entityPanelRef}>
         {selected ? <>
           <button className="close" onClick={() => select(null)} aria-label="Close selected entity">×</button>
           <small>ADDRESS · {entity?.type.toUpperCase() ?? "UNKNOWN"}</small>
@@ -174,9 +193,9 @@ export function Dashboard() {
             <div><dt>OBSERVED</dt><dd>{events.length} activities</dd></div>
             <div><dt>VISUALIZED</dt><dd>{Math.min(transfers.length, 44)} significant flows</dd></div>
           </dl>
-          <p className="panelNote">{status === "stale" ? "Using the last successfully verified observation window." : transfers.length ? "Displaying verified activity from the current live window." : emptyMessage}</p>
+          <p className="panelNote">{status === "stale" ? "Using the last successfully verified observation window." : transfers.length ? "Displaying verified activity from the selected chain-relative window." : emptyMessage}</p>
         </>}
-        <IntelligencePanel snapshot={snapshot} transfers={transfers} selected={selected} connection={status} expanded={agentOpen} request={agentRequest} onExpand={() => setAgentOpen(true)} onClose={() => setAgentOpen(false)} onSelectAddress={address => {select(address); setSelectedTransferId(null);}} onSelectTransfer={id => {const transfer = transfers.find(item => item.id === id); setSelectedTransferId(transfer ? transferIdentity(transfer) : id);}}/>
+        <IntelligencePanel snapshot={snapshot} transfers={transfers} selected={selected} connection={status} expanded={agentOpen} visualizationAvailable={!sceneFailed} request={agentRequest} onExpand={() => setAgentOpen(true)} onClose={() => setAgentOpen(false)} onSelectAddress={address => {select(address); setSelectedTransferId(null);}} onSelectTransfer={id => {const transfer = transfers.find(item => item.id === id); setSelectedTransferId(transfer ? transferIdentity(transfer) : id);}}/>
       </section>
 
       {!transfers.length && <div className="sceneEmpty"><span>{emptyMessage}</span><small>No simulated activity is shown</small></div>}
@@ -189,24 +208,31 @@ export function Dashboard() {
         <a href={`${ARC.explorer}/tx/${selectedTransfer.txHash}`} target="_blank" rel="noopener noreferrer" aria-label={`View transaction ${selectedTransfer.txHash} on Arcscan`}>VIEW ON ARCSCAN ↗</a>
       </aside>}
 
-      <div className="legend">
+      {!sceneFailed && <div className="legend">
         <div className="legendRow"><span><i className="wallet"/>WALLET</span><span><i className="contract"/>CONTRACT</span><span><i className="unknown"/>UNKNOWN</span><span><i className="flow"/>USDC ≥1K</span></div>
         <div className="legendRow flowTypes" aria-label="Transfer endpoint colors"><span title="Wallet to wallet"><i className="pulseWallet"/>W→W</span><span title="Wallet to contract"><i className="pulseContractIn"/>W→C</span><span title="Contract to wallet"><i className="pulseContractOut"/>C→W</span><span title="Unclassified endpoint"><i className="pulseUnknown"/>UNKNOWN</span></div>
-      </div>
+      </div>}
     </section>
 
     <section className="lowerBar">
       <div className="timeControls" aria-label="Activity time range">
-        <button className="active">LIVE</button>
-        {['1H', '24H', '7D', '30D'].map(label => <button key={label} disabled title="Historical indexing is not available yet">{label}</button>)}
-        <small>HISTORICAL INDEXING NOT YET AVAILABLE</small>
+        <span className={`liveBadge ${statusLabel === "LIVE" ? "" : "observed"}`}>{statusLabel === "LIVE" ? "LIVE" : "OBSERVED"}</span>
+        {([1, 5, 10] as const).map(minutes => <button type="button" key={minutes} className={rangeMinutes === minutes ? "active" : ""} aria-pressed={rangeMinutes === minutes} onClick={() => {setRangeMinutes(minutes); setSelectedTransferId(null); setInspectedSignalId(null); setIntent({type: "reset"});}}>{minutes}M</button>)}
+        <small>CHAIN-RELATIVE VERIFIED WINDOW · UP TO 10 MINUTES</small>
       </div>
-      <div className="signalRail"><button className="signal" disabled={!signal} onMouseEnter={() => signal && setIntent(signal.intent)} onMouseLeave={() => setIntent({type: "reset"})} onClick={() => signal && setIntent(signal.intent)}><small>AERIS SIGNAL · {signal?.title ?? "OBSERVING"}</small><p>{signal?.description ?? (status === "stale" ? "Using the last successfully verified observation window." : "No verified activity is available in the current observation window.")}</p></button>{snapshot.signals.length > 1 && <div className="signalSteps"><button onClick={() => setSignalIndex(index => (index - 1 + snapshot.signals.length) % snapshot.signals.length)} aria-label="Previous AERIS signal">‹</button><span>{signalIndex % snapshot.signals.length + 1}/{snapshot.signals.length}</span><button onClick={() => setSignalIndex(index => (index + 1) % snapshot.signals.length)} aria-label="Next AERIS signal">›</button></div>}</div>
+      <div className="signalRail"><button className="signal" disabled={!signal} onClick={inspectSignal} title={signal ? "Inspect verified evidence" : undefined}><small>AERIS SIGNAL · {signal?.title ?? "OBSERVING"}</small><p>{signal?.description ?? (status === "stale" ? "Using the last successfully verified observation window." : "No verified activity is available in the current observation window.")}</p></button>{snapshot.signals.length > 1 && <div className="signalSteps"><button onClick={() => {setInspectedSignalId(null); setSignalIndex(index => (index - 1 + snapshot.signals.length) % snapshot.signals.length);}} aria-label="Previous AERIS signal">‹</button><span>{signalIndex % snapshot.signals.length + 1}/{snapshot.signals.length}</span><button onClick={() => {setInspectedSignalId(null); setSignalIndex(index => (index + 1) % snapshot.signals.length);}} aria-label="Next AERIS signal">›</button></div>}</div>
     </section>
+
+    {inspectedSignal && <section className="signalDetails" aria-label="Selected AERIS signal evidence">
+      <div className="signalDetailsHead"><div><small>VERIFIED SIGNAL · {rangeMinutes}M WINDOW</small><h3>{inspectedSignal.title}</h3></div><button type="button" onClick={() => setInspectedSignalId(null)} aria-label="Close signal evidence">×</button></div>
+      <p>{inspectedSignal.description}</p>
+      <dl>{inspectedSignal.evidence.map(item => <div key={item.label}><dt>{item.label}</dt><dd>{item.value.toLocaleString("en-US", {maximumFractionDigits: 2})}{item.unit === "percent" ? "%" : item.unit === "USDC" ? " USDC" : ""}</dd></div>)}</dl>
+      {inspectedSignal.relatedAddresses[0] && <a href={`${ARC.explorer}/address/${inspectedSignal.relatedAddresses[0]}`} target="_blank" rel="noopener noreferrer">VIEW RELATED ADDRESS ON ARCSCAN ↗</a>}
+    </section>}
 
 
     <section className="feed" id="live-ledger" ref={feedRef}>
-      <div className="feedHead"><div><small>LIVE LEDGER · MIN 1,000 USDC</small><h2>Recent verified transfers</h2></div><span>{ARC.name} · USDC · REAL-TIME</span></div>
+      <div className="feedHead"><div><small>VERIFIED {rangeMinutes}M LEDGER · MIN 1,000 USDC</small><h2>Recent verified transfers</h2></div><span>{ARC.name} · USDC · {statusLabel === "LIVE" ? "REAL-TIME" : "LAST VERIFIED WINDOW"}</span></div>
       {selectedTransfer && <div className="feedSelection" role="status">
         <div><small>SELECTED VERIFIED TRANSFER</small><strong>{money(selectedTransfer.value)} USDC</strong><span>{short(selectedTransfer.from)} → {short(selectedTransfer.to)} · {shortTransactionHash(selectedTransfer.txHash)}</span></div>
         <div className="feedSelectionActions"><a href={`${ARC.explorer}/tx/${selectedTransfer.txHash}`} target="_blank" rel="noopener noreferrer">ARCSCAN ↗</a><button type="button" onClick={() => setSelectedTransferId(null)} aria-label="Clear selected transfer">×</button></div>

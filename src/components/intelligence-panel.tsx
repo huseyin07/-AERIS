@@ -12,13 +12,13 @@ import type {Connection} from "@/state/connection";
 
 type AgentRequest = {id: number; query: string} | null;
 type Exchange = {query: string; answer: AerisAnswer};
-type Props = {snapshot: IntelligenceSnapshot; transfers: Transfer[]; selected: string | null; connection: Connection; expanded: boolean; request: AgentRequest; onExpand: () => void; onClose: () => void; onSelectAddress: (address: string) => void; onSelectTransfer: (id: string) => void};
+type Props = {snapshot: IntelligenceSnapshot; transfers: Transfer[]; selected: string | null; connection: Connection; expanded: boolean; visualizationAvailable: boolean; request: AgentRequest; onExpand: () => void; onClose: () => void; onSelectAddress: (address: string) => void; onSelectTransfer: (id: string) => void};
 const suggestions = ["Map this network", "Find unusual flows", "Is activity accelerating?", "Concentration"];
 const connectionCopy: Record<Connection, string> = {
   live: "Observing verified Arc activity.", stale: "Using the last verified observation window.", connecting: "Connecting to Arc Mainnet...", unavailable: "Verified Arc activity unavailable.",
 };
 
-export function IntelligencePanel({snapshot, transfers, selected, connection, expanded, request, onExpand, onClose, onSelectAddress, onSelectTransfer}: Props) {
+export function IntelligencePanel({snapshot, transfers, selected, connection, expanded, visualizationAvailable, request, onExpand, onClose, onSelectAddress, onSelectTransfer}: Props) {
   const [query, setQuery] = useState("");
   const [pendingQuery, setPendingQuery] = useState("");
   const [answer, setAnswer] = useState<AerisAnswer | null>(null);
@@ -97,11 +97,15 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
         {!analyzing && answer && <><small className="agentTrace">{answer.trace.toolsUsed.length} TOOLS · {answer.trace.entitiesInspected} ENTITIES · {answer.trace.transfersEvaluated} TRANSFERS EVALUATED</small><small className="agentTrace">SUBJECT · {answer.relatedAddresses[0] ? short(answer.relatedAddresses[0]) : "NETWORK"} · EVIDENCE {answer.evidence.length} · ARC MAINNET</small></>}
         {topFlow && !analyzing && <dl><div><dt>AMOUNT</dt><dd>{money(String(topFlow.amount))} USDC</dd></div><div><dt>FROM</dt><dd>{short(topFlow.from)}</dd></div><div><dt>TO</dt><dd>{short(topFlow.to)}</dd></div><div><dt>BLOCK</dt><dd>{topFlow.blockNumber}</dd></div></dl>}
         {!analyzing && answer?.evidence.length ? <div className="agentEvidence"><label>EVIDENCE</label>{answer.evidence.map((item, index) => <div className="agentEvidenceRow" key={`${item.text}-${index}`}><button onMouseEnter={() => item.transferId ? setIntent({type: "highlight-transfers", transferIds: [item.transferId]}) : item.address ? setIntent({type: "highlight-addresses", addresses: [item.address]}) : undefined} onMouseLeave={() => answer && setIntent(answer.intent)} onClick={() => item.transferId ? onSelectTransfer(item.transferId) : item.address ? onSelectAddress(item.address) : undefined}>• {item.text}</button>{item.provenance ? <small className="agentTrace">{item.provenance}</small> : null}{item.txHash ? <a href={`${ARC.explorer}/tx/${item.txHash}`} target="_blank" rel="noreferrer" aria-label="Open transaction in Arcscan">TX ↗</a> : item.address ? <a href={`${ARC.explorer}/address/${item.address}`} target="_blank" rel="noreferrer" aria-label="Open address in Arcscan">ADDRESS ↗</a> : null}</div>)}</div> : null}
-        {!analyzing && answer && answer.intent.type !== "reset" && <button className="agentAction" onClick={() => setIntent(answer.intent)}>SHOW IN NETWORK</button>}
+        {!analyzing && answer && answer.intent.type !== "reset" && <button className="agentAction" onClick={() => {
+          setIntent(answer.intent);
+          if (answer.relatedTransferIds[0]) onSelectTransfer(answer.relatedTransferIds[0]);
+          else if (answer.relatedAddresses[0]) onSelectAddress(answer.relatedAddresses[0]);
+        }}>INSPECT VERIFIED RESULT</button>}
       </div>
     </div>}
     <form className="agentInput" onSubmit={submit}><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Ask about current Arc activity..." aria-label="Ask AERIS Agent about current Arc activity" disabled={analyzing}/><button type="submit" aria-label="Submit question" disabled={!query.trim() || analyzing}>→</button></form>
     <div className="agentCommands">{suggestions.map(item => <button type="button" key={item} disabled={analyzing} onClick={() => ask(item)}>{item}</button>)}</div>
-    <div className="agentFoot"><span>{connectionCopy[connection]}</span>{intent.type !== "reset" && <button onClick={() => setIntent({type: "reset"})}>RESET VIEW</button>}</div>
+    <div className="agentFoot"><span>{connectionCopy[connection]}</span>{visualizationAvailable && intent.type !== "reset" && <button onClick={() => setIntent({type: "reset"})}>RESET VIEW</button>}</div>
   </section>;
 }
