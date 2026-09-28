@@ -257,3 +257,13 @@ footer{font-size:10px}
   .agentModule.expanded .agentIdentity{padding-right:18px}
   .agentName{font-size:10px}
 }
+
+.timeControls .liveBadge{display:inline-flex;align-items:center;gap:7px;margin-right:5px;color:#79dfb9;font-size:10px;font-weight:700;letter-spacing:.12em}
+.timeControls .liveBadge:before{content:"";width:6px;height:6px;border-radius:50%;background:#79dfb9;box-shadow:0 0 9px #79dfb9}
+.timeControls button{min-width:38px;min-height:32px;font-size:10px;color:#8da8b8;cursor:pointer}
+.timeControls button:hover,.timeControls button:focus-visible{color:#e2f4fc;background:#0a385344;outline:1px solid #67c7f755}
+.timeControls button.active{color:#d6f0ff}
+.timeControls small{font-size:9px;color:#7994a6}
+.signal:not(:disabled):focus-visible,.agentAction:focus-visible{outline:2px solid #83d8ff;outline-offset:2px}
+@media(max-width:760px){.timeControls small{display:block;width:auto;margin-left:6px}}
+@media(max-width:480px){.timeControls small{display:block;width:100%;margin:5px 0 0;font-size:9px}}
