@@ -13,7 +13,7 @@ import type {Connection} from "@/state/connection";
 type AgentRequest = {id: number; query: string} | null;
 type Exchange = {query: string; answer: AerisAnswer};
 type Props = {snapshot: IntelligenceSnapshot; transfers: Transfer[]; selected: string | null; connection: Connection; expanded: boolean; visualizationAvailable: boolean; request: AgentRequest; onExpand: () => void; onClose: () => void; onSelectAddress: (address: string) => void; onSelectTransfer: (id: string) => void};
-const suggestions = ["Ask anything", "Map this network", "Find unusual flows", "Is activity accelerating?", "Concentration"];
+const suggestions = ["What is USDC?", "Map this network", "Find unusual flows", "Is activity accelerating?", "Concentration"];
 const connectionCopy: Record<Connection, string> = {
   live: "Observing verified Arc activity.", stale: "Using the last verified observation window.", connecting: "Connecting to Arc Mainnet...", unavailable: "Verified Arc activity unavailable.",
 };
