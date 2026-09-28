@@ -196,3 +196,64 @@ footer{font-size:10px}
   .transferPanel{width:100%}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* Keep the selected transfer visible alongside the ledger row that opened it. */
+.feedSelection{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 10px;padding:12px 14px;border:1px solid #63c7f04a;border-radius:5px;background:linear-gradient(90deg,#0b314366,#0719278c)}
+.feedSelection>div:first-child{display:grid;gap:4px;min-width:0}
+.feedSelection small{color:#83c9eb;font-size:9px;letter-spacing:.13em}
+.feedSelection strong{color:#e7f7ff;font-size:16px;font-weight:650}
+.feedSelection span{color:#a3becd;font-size:10px;overflow-wrap:anywhere}
+.feedSelectionActions{display:flex;align-items:center;gap:15px;flex:none}
+.feedSelectionActions a{color:#91d6fa;font-size:10px;text-decoration:none;letter-spacing:.08em}
+.feedSelectionActions button{width:30px;height:30px;border:1px solid #8fcff444;border-radius:4px;background:#041521;color:#bad9ea;font-size:19px;cursor:pointer}
+.feedRow[aria-pressed="true"]{background:linear-gradient(90deg,#4bbcf025,#0c273445 80%);box-shadow:inset 3px 0 #83d8ff,inset 0 0 0 1px #63c7f032;color:#e1f3fc}
+.feedRow[aria-pressed="true"] b{color:#fff}
+.feedRow:focus-visible,.feedSelectionActions a:focus-visible,.feedSelectionActions button:focus-visible,.fallbackContent a:focus-visible{outline:2px solid #83d8ff;outline-offset:2px}
+.fallbackContent a{display:inline-block;padding:9px 2px;min-height:38px}
+.agentIdentity>div:not(.agentPortrait){min-width:0}
+.agentName{white-space:normal;line-height:1.5}
+.agentName .agentLive{white-space:nowrap}
+.agentCommands{overflow:visible}
+.agentCommands button{white-space:normal;line-height:1.35;text-align:left;min-height:32px}
+
+@media(max-width:760px){
+  .observatory{height:auto;display:flex;flex-direction:column;overflow:visible;padding-bottom:16px}
+  .scene{position:relative;inset:auto;width:calc(100% + 28px);height:450px;margin:0 -14px;flex:none;overflow:hidden}
+  .scene:after{display:none}
+  .metrics,.entityPanel{position:relative;inset:auto;width:100%;max-height:none;min-height:0;margin-top:10px;padding:17px;overflow:visible}
+  .metrics{order:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px}
+  .metrics>.eyebrow,.metrics>.assetHeading{grid-column:1/-1}
+  .metrics .metric{padding:11px 0}
+  .metrics .metric strong{display:block;float:none;margin:5px 0 0;font-size:16px}
+  .entityPanel{order:3}
+  .entityPanel .panelNote,.entityPanel .recentLabel{display:block}
+  .agentModule.compact{margin:14px -17px -17px;padding:14px 17px}
+  .agentModule.compact .agentIdentity p,.agentModule.compact .agentIdentity small,.agentModule.compact .agentFoot{display:block}
+  .agentModule.compact .agentPortrait{width:57px;height:69px}
+  .agentModule.expanded{top:auto;bottom:0;height:min(88dvh,720px);padding:20px max(18px,env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left))}
+  .agentModule.expanded .agentCommands{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .agentModule.expanded .agentCommands button{padding:9px;min-height:42px}
+  .legend{position:relative;inset:auto;order:5;align-self:flex-start;max-width:100%;margin-top:10px;font-size:9px}
+  .transferPanel{position:relative;inset:auto;order:4;transform:none;width:100%;margin-top:10px}
+  .sceneEmpty{top:215px}
+  .feedSelection{align-items:flex-start}
+  .feedColumns,.feedRow{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)}
+  .feedRow .party{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .feedRow .coinValue{min-width:0;flex-wrap:wrap;gap:3px}
+}
+@media(max-width:600px){
+  header{height:auto;min-height:68px;flex-wrap:wrap;gap:8px;padding:13px 0}
+  .brand{margin-right:auto}
+  .status{order:2;margin-left:auto}
+  .search{order:3;flex:0 0 100%;width:100%;margin:0;min-height:38px}
+}
+@media(max-width:480px){
+  .scene{height:390px}
+  .legend{margin-top:8px}
+  .sceneEmpty{top:190px}
+  .feedSelection{flex-wrap:wrap;padding:12px}
+  .feedSelectionActions{width:100%;justify-content:space-between}
+  .agentModule.expanded .agentPortrait{width:68px;height:82px}
+  .agentModule.expanded .agentIdentity{padding-right:18px}
+  .agentName{font-size:10px}
+}
