@@ -6,6 +6,7 @@ import {compareEntities, describeBehavior, diffSnapshots, planAgentQuery, traceO
 import {compareTemporalHalves, detectTransferAnomalies, investigateGraph, provenanceFor, verifyAgentEvidence} from "../src/ai/investigation-engine.ts";
 import {connectionAfterFailure} from "../src/state/connection.ts";
 import {addressPosition, reconcileIdentityOrder, selectLabelCandidates, shortTransactionHash, significantTransferIds, transferIdentity, uniqueTransfers} from "../src/visualization/network-model.ts";
+import {buildFallbackNetwork} from "../src/visualization/fallback-model.ts";
 
 const address = suffix => `0x${suffix.padStart(40, "0")}`;
 const hash = suffix => `0x${suffix.padStart(64, "0")}`;
@@ -20,6 +21,18 @@ const transfers = [
 test("reconciles visualization identities without moving surviving entities", () => {
   assert.deepEqual(reconcileIdentityOrder(["a", "b", "c"], ["b", "c", "d"]), ["b", "c", "d"]);
   assert.deepEqual(reconcileIdentityOrder(["b", "c", "d"], ["d", "b", "c", "e"]), ["b", "c", "d", "e"]);
+});
+
+test("2D fallback draws only bounded verified flows and keeps a selected transfer visible", () => {
+  const values = Array.from({length: 25}, (_, index) => transfer(String(index + 10), address(String(index * 2 + 10)), address(String(index * 2 + 11)), String(30_000 - index * 1_000)));
+  const selectedId = transferIdentity(values.at(-1));
+  const first = buildFallbackNetwork(values, {}, selectedId);
+  assert.equal(first.flows.length, 18);
+  assert.ok(first.flows.some(item => item.id === selectedId));
+  assert.ok(first.flows.every(item => values.includes(item.transfer)));
+  assert.ok(first.nodes.every(item => values.some(value => value.from === item.address || value.to === item.address)));
+  assert.deepEqual(buildFallbackNetwork(values, {}, selectedId), first);
+  assert.deepEqual(buildFallbackNetwork([], {}, null), {nodes: [], flows: []});
 });
 
 test("computes totals, concentration, rankings, and activity breakdown", () => {

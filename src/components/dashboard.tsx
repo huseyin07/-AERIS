@@ -6,6 +6,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {LiveActivity} from "./live-activity";
 import {useEndpointTypes} from "./use-endpoint-types";
 import {VisualizationBoundary} from "./visualization-boundary";
+import {NetworkFallback} from "./network-fallback";
 import {IntelligencePanel} from "./intelligence-panel";
 import {useActivity} from "@/state/activity-store";
 import {money, short} from "@/lib/format";
@@ -149,7 +150,7 @@ export function Dashboard() {
 
     <section className="observatory">
       <div className="scene" aria-label="Live Arc Mainnet entity network">
-        <VisualizationBoundary onFailure={() => setSceneFailed(true)} fallback={<div className="fallbackContent"><span>LIVE DATA CONTINUES</span><strong>Network view unavailable</strong><p>The 3D view could not start on this device. Verified Arc transfers remain available in the ledger below.</p><a href="#live-ledger">VIEW LIVE LEDGER ↓</a></div>}>
+        <VisualizationBoundary onFailure={() => setSceneFailed(true)} fallback={<NetworkFallback transfers={transfers} endpointTypes={endpointTypes} selectedAddress={selected} selectedTransferId={activeTransferId} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId}/> }>
           <NetworkScene transfers={transfers} endpointTypes={endpointTypes} annotations={annotations} selectedAddress={selected} selectedTransferId={activeTransferId} resetViewToken={resetViewToken} intent={intent} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId}/>
         </VisualizationBoundary>
         {!sceneFailed && <button className="resetView" type="button" onClick={() => setResetViewToken(token => token + 1)} aria-label="Reset globe camera view" title="Reset globe camera view">RESET VIEW <span aria-hidden="true">↺</span></button>}
@@ -198,7 +199,7 @@ export function Dashboard() {
         <IntelligencePanel snapshot={snapshot} transfers={transfers} selected={selected} connection={status} expanded={agentOpen} visualizationAvailable={!sceneFailed} request={agentRequest} onExpand={() => setAgentOpen(true)} onClose={() => setAgentOpen(false)} onSelectAddress={address => {select(address); setSelectedTransferId(null);}} onSelectTransfer={id => {const transfer = transfers.find(item => item.id === id); setSelectedTransferId(transfer ? transferIdentity(transfer) : id);}}/>
       </section>
 
-      {!transfers.length && <div className="sceneEmpty"><span>{emptyMessage}</span><small>No simulated activity is shown</small></div>}
+      {!transfers.length && !sceneFailed && <div className="sceneEmpty"><span>{emptyMessage}</span><small>No simulated activity is shown</small></div>}
 
       {selectedTransfer && <aside className="transferPanel" aria-label="Selected verified transfer">
         <button className="close" onClick={() => setSelectedTransferId(null)} aria-label="Close selected transfer">×</button>
