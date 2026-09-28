@@ -1,10 +1,11 @@
 import type {ArcActivityEvent, Transfer} from "../data/types.ts";
 import {transferIdentity} from "../visualization/network-model.ts";
 import type {Connection} from "../state/connection.ts";
+import {MIN_VISIBLE_USDC} from "../data/threshold.ts";
 
 export const ADDRESS_QUERY = /^0x[\da-f]{40}$/i;
 export const TRANSACTION_QUERY = /^0x[\da-f]{64}$/i;
-export const MIN_VISIBLE_USDC = 1_000;
+export {MIN_VISIBLE_USDC};
 
 export function visibleUsdcAmount(value: string) {
   const amount = Number(value);
