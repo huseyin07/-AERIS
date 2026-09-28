@@ -406,3 +406,8 @@ nav{font-size:12px;gap:34px}nav b:after{height:2px;background:#8bddff;box-shadow
 @media(max-width:760px){.entityPanel .agentModule.compact .agentPortrait{width:46px;height:55px}.entityPanel .agentModule.compact .agentIdentity{min-height:51px}.lowerBar{gap:12px}.signalRail{flex:auto}.signal{padding-left:0}.feedRow{font-size:12px}.fallbackTopFlows button{font-size:10px}.fallbackTopFlows button strong{font-size:11px}}
 @media(max-width:480px){.fallbackTopFlows small{font-size:10px}.fallbackTopFlows button{font-size:10px}.fallbackTopFlows button strong{font-size:11px}.feedColumns{font-size:10px}.feedRow small,.feedRow time{display:none}}
 @media(prefers-reduced-motion:reduce){.status,.timeControls button,.signalSteps button,.feedRow{transition:none}}
+
+.headerSocial{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;color:#9dc3d7;text-decoration:none;font-size:11px;letter-spacing:.12em;padding:9px 7px;border-radius:6px;transition:color .2s,background .2s}
+.headerSocial:hover,.headerSocial:focus-visible{color:#eaf6ff;background:#ffffff12;outline-offset:2px}
+.headerSocial span{font-size:12px}
+@media(max-width:760px){.headerSocial{padding:8px 3px;font-size:12px}.headerSocial span{display:none}}
