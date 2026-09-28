@@ -2,7 +2,7 @@
 
 import {Component, type ErrorInfo, type ReactNode} from "react";
 
-type Props = {children: ReactNode};
+type Props = {children: ReactNode; fallback?: ReactNode};
 type State = {failed: boolean};
 
 export class VisualizationBoundary extends Component<Props, State> {
@@ -18,7 +18,7 @@ export class VisualizationBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.failed) {
-      return <div className="sceneFallback" role="status">Visualization temporarily unavailable</div>;
+      return <div className="sceneFallback" role="status">{this.props.fallback ?? "Visualization temporarily unavailable"}</div>;
     }
     return this.props.children;
   }
