@@ -180,7 +180,7 @@ export function Dashboard() {
       <section className="metrics" aria-label="Live metrics">
         <p className="eyebrow">VERIFIED {rangeMinutes}M ACTIVITY · ≥1,000 USDC</p>
         <div className="assetHeading"><UsdcIcon/><span>ARC MAINNET USDC</span></div>
-        <Metric icon label="USDC FLOW" value={`$${money(String(volume))}`}/>
+        <Metric icon primary label="USDC FLOW" value={`$${money(String(volume))}`}/>
         <Metric label="TRANSFERS" value={String(transfers.length)}/>
         <Metric label="ACTIVE ADDRESSES" value={String(addresses)}/>
         <Metric label="KNOWN CONTRACTS" value={String(contracts)}/>
@@ -254,14 +254,14 @@ export function Dashboard() {
 
 
     <section className="feed" id="live-ledger" ref={feedRef}>
-      <div className="feedHead"><div><small>VERIFIED {rangeMinutes}M LEDGER · MIN 1,000 USDC</small><h2>Recent verified transfers</h2></div><span>{ARC.name} · USDC · {statusLabel === "LIVE" ? "REAL-TIME" : "LAST VERIFIED WINDOW"}</span></div>
+      <div className="feedHead"><div><small>VERIFIED {rangeMinutes}M LEDGER · MIN 1,000 USDC</small><h2>Recent verified transfers <span className="feedCount">{Math.min(filtered.length, 16)} / {filtered.length} shown</span></h2></div><span>{ARC.name} · USDC · {statusLabel === "LIVE" ? "REAL-TIME" : "LAST VERIFIED WINDOW"}</span></div>
       {selectedTransfer && <div className="feedSelection" role="status">
         <div><small>SELECTED VERIFIED TRANSFER</small><strong>{money(selectedTransfer.value)} USDC</strong><span>{short(selectedTransfer.from)} → {short(selectedTransfer.to)} · {shortTransactionHash(selectedTransfer.txHash)}</span></div>
         <div className="feedSelectionActions"><a href={`${ARC.explorer}/tx/${selectedTransfer.txHash}`} target="_blank" rel="noopener noreferrer">ARCSCAN ↗</a><button type="button" onClick={() => setSelectedTransferId(null)} aria-label="Clear selected transfer">×</button></div>
       </div>}
       <div className="feedColumns"><span>FROM</span><span>TO</span><span>AMOUNT</span><span>TYPE</span><span>BLOCK</span><span>TIME</span></div>
       {filtered.slice(0, 16).map(transfer => <button data-transfer-id={transferIdentity(transfer)} className={`feedRow ${activeTransferId === transferIdentity(transfer) ? "active" : ""}`} key={transferIdentity(transfer)} onMouseEnter={() => setHoveredTransferId(transferIdentity(transfer))} onMouseLeave={() => setHoveredTransferId(null)} onFocus={() => setHoveredTransferId(transferIdentity(transfer))} onBlur={() => setHoveredTransferId(null)} onClick={() => setSelectedTransferId(transferIdentity(transfer))} aria-pressed={selectedTransferId === transferIdentity(transfer)}>
-        <span className={`party ${transfer.fromType === "unknown" ? endpointTypes[transfer.from.toLowerCase()] ?? "unknown" : transfer.fromType}`} title={transfer.from}><i/>{short(transfer.from)}</span><span className={`party ${transfer.toType === "unknown" ? endpointTypes[transfer.to.toLowerCase()] ?? "unknown" : transfer.toType}`} title={transfer.to}><i/>{short(transfer.to)}</span><b className="coinValue" title={`${transfer.value} USDC`}><UsdcIcon/>{money(transfer.value)} <em>USDC</em></b><span>{transferType(transfer, endpointTypes)}</span><small>{transfer.blockNumber}</small><time dateTime={transfer.timestamp ? new Date(transfer.timestamp).toISOString() : undefined}>{relativeActivityTime(transfer.timestamp, clock)}</time>
+        <span className={`party ${transfer.fromType === "unknown" ? endpointTypes[transfer.from.toLowerCase()] ?? "unknown" : transfer.fromType}`} title={transfer.from}><i/>{short(transfer.from)}</span><span className={`party ${transfer.toType === "unknown" ? endpointTypes[transfer.to.toLowerCase()] ?? "unknown" : transfer.toType}`} title={transfer.to}><i/>{short(transfer.to)}</span><b className="coinValue" title={`${transfer.value} USDC`}><UsdcIcon/>{money(transfer.value)} <em>USDC</em></b><span className="transferKind">{transferType(transfer, endpointTypes)}</span><small>{transfer.blockNumber}</small><time dateTime={transfer.timestamp ? new Date(transfer.timestamp).toISOString() : undefined}>{relativeActivityTime(transfer.timestamp, clock)}</time>
       </button>)}
       {!filtered.length && <p className="empty">{search.matchedEvent ? "Verified activity found; no matching USDC transfers." : search.kind === "address" || search.kind === "transaction" ? "No verified activity in the current observation window." : emptyMessage}</p>}
     </section>
@@ -270,6 +270,6 @@ export function Dashboard() {
   </main>;
 }
 
-function Metric({label, value, icon = false}: {label: string; value: string; icon?: boolean}) {
-  return <div className="metric"><small>{icon && <UsdcIcon/>}{label}</small><strong>{value}</strong></div>;
+function Metric({label, value, icon = false, primary = false}: {label: string; value: string; icon?: boolean; primary?: boolean}) {
+  return <div className={`metric ${primary ? "metricPrimary" : ""}`}><small>{icon && <UsdcIcon/>}{label}</small><strong>{value}</strong></div>;
 }
