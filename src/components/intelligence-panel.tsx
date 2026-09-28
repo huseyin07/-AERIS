@@ -12,13 +12,13 @@ import type {Connection} from "@/state/connection";
 
 type AgentRequest = {id: number; query: string} | null;
 type Exchange = {query: string; answer: AerisAnswer};
-type Props = {snapshot: IntelligenceSnapshot; transfers: Transfer[]; selected: string | null; connection: Connection; expanded: boolean; request: AgentRequest; onExpand: () => void; onClose: () => void; onSelectAddress: (address: string) => void; onSelectTransfer: (id: string) => void};
+type Props = {snapshot: IntelligenceSnapshot; transfers: Transfer[]; selected: string | null; connection: Connection; expanded: boolean; visualizationAvailable: boolean; request: AgentRequest; onExpand: () => void; onClose: () => void; onSelectAddress: (address: string) => void; onSelectTransfer: (id: string) => void};
 const suggestions = ["Map this network", "Find unusual flows", "Is activity accelerating?", "Concentration"];
 const connectionCopy: Record<Connection, string> = {
   live: "Observing verified Arc activity.", stale: "Using the last verified observation window.", connecting: "Connecting to Arc Mainnet...", unavailable: "Verified Arc activity unavailable.",
 };
 
-export function IntelligencePanel({snapshot, transfers, selected, connection, expanded, request, onExpand, onClose, onSelectAddress, onSelectTransfer}: Props) {
+export function IntelligencePanel({snapshot, transfers, selected, connection, expanded, visualizationAvailable, request, onExpand, onClose, onSelectAddress, onSelectTransfer}: Props) {
   const [query, setQuery] = useState("");
   const [pendingQuery, setPendingQuery] = useState("");
   const [answer, setAnswer] = useState<AerisAnswer | null>(null);
@@ -106,6 +106,6 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
     </div>}
     <form className="agentInput" onSubmit={submit}><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Ask about current Arc activity..." aria-label="Ask AERIS Agent about current Arc activity" disabled={analyzing}/><button type="submit" aria-label="Submit question" disabled={!query.trim() || analyzing}>→</button></form>
     <div className="agentCommands">{suggestions.map(item => <button type="button" key={item} disabled={analyzing} onClick={() => ask(item)}>{item}</button>)}</div>
-    <div className="agentFoot"><span>{connectionCopy[connection]}</span>{intent.type !== "reset" && <button onClick={() => setIntent({type: "reset"})}>RESET VIEW</button>}</div>
+    <div className="agentFoot"><span>{connectionCopy[connection]}</span>{visualizationAvailable && intent.type !== "reset" && <button onClick={() => setIntent({type: "reset"})}>RESET VIEW</button>}</div>
   </section>;
 }
