@@ -152,6 +152,7 @@ export function Dashboard() {
     <header>
       <div className="brand"><Image className="brandMark" src="/aeris-logo.jpg" alt="" width={18} height={18}/>AERIS</div>
       <nav aria-label="Dashboard sections"><b>LIVE</b><button onClick={() => setAgentOpen(true)}>INSIGHTS</button></nav>
+      <a className="headerSocial" href="https://x.com/AERIS_arc" target="_blank" rel="noopener noreferrer" aria-label="AERIS on X">X <span aria-hidden="true">↗</span></a>
       <input
         className="search"
         value={query}
