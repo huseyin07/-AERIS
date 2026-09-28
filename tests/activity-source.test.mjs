@@ -36,6 +36,9 @@ test("cold ingestion reconstructs USDC activity older than the newest six blocks
   assert.equal(result.events.some(event => event.transactionHash === log.transactionHash), true);
   assert.equal(result.diagnostics.windowCovered, true);
   assert.ok(result.diagnostics.blocksScanned > 6);
+  assert.deepEqual(result.diagnostics.contractSampleBlockRange, {from: "995", to: "1000"});
+  assert.equal(result.diagnostics.contractCandidateCount, 1);
+  assert.equal(result.diagnostics.contractCandidateTruncated, false);
 });
 
 test("empty newest six blocks do not hide earlier in-window transfers", async () => {
@@ -113,6 +116,8 @@ test("USDC ingestion is independent of the contract candidate cap", async () => 
   const transactions = Array.from({length: 80}, (_, index) => tx(String(index + 10), {transactionIndex: index}));
   const result = await createActivityIngestor(mockRpc({getBlock: async args => { const number = requestedBlock(args); return block(number, args.includeTransactions && number === latest ? transactions : []); }, getLogs: async () => [transferLog("995", 700n)]}), {now: () => now})();
   assert.equal(result.events.some(event => event.type === "USDC_TRANSFER"), true);
+  assert.equal(result.diagnostics.contractCandidateCount, 32);
+  assert.equal(result.diagnostics.contractCandidateTruncated, true);
 });
 
 test("window discovery failure is explicitly partial", async () => {

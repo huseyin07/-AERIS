@@ -336,3 +336,12 @@ nav{font-size:12px}.search{min-height:42px;font-size:13px;background:#071724b8}.
   .fallbackMap{top:42%;width:112%;height:310px}.fallbackNetworkHead{left:14px;top:14px;font-size:10px}.fallbackNetworkMeta{right:14px;top:17px;font-size:9px}.fallbackTopFlows{grid-template-columns:1fr 1fr;bottom:45px;gap:3px 9px;padding:7px 10px}.fallbackTopFlows button:nth-of-type(n+3){display:none}.fallbackTopFlows button{min-height:34px}.fallbackNetworkFoot{left:14px;right:14px;bottom:16px;font-size:9px}
 }
 @media(prefers-reduced-motion:reduce){.feedRow,.agentCommands button,.fallbackTopFlows button{transition:none}}
+
+/* Data provenance and deliberate visualization mode. */
+.status{border:0;background:none;cursor:pointer}.status:hover,.status:focus-visible{color:#d4effc}.status>span:last-child{font-size:15px;line-height:1;color:#8db7cb}
+.healthPanel{margin:14px 0;padding:20px 22px;border:1px solid #8bcef53a;border-radius:9px;background:linear-gradient(120deg,#082333e8,#04121fef);box-shadow:0 18px 42px #0004}
+.healthPanelHead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.healthPanelHead small{font-size:10px;letter-spacing:.13em;color:#8ecded}.healthPanelHead h2{margin:5px 0 0;font-size:19px;font-weight:620}.healthPanelHead button{width:32px;height:32px;border:0;background:none;color:#bad4e2;font-size:21px;cursor:pointer}
+.healthPanel p{max-width:850px;margin:13px 0;color:#b6cad6;font-size:12px;line-height:1.6}.healthPanel dl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0 0}.healthPanel dl div{padding:12px;border:1px solid #ffffff10;border-radius:5px;background:#051522a8}.healthPanel dt{font-size:10px;letter-spacing:.1em;color:#87a9bc}.healthPanel dd{margin:7px 0 0;color:#e5f3fa;font-size:12px;line-height:1.4;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.healthPanel .healthWarnings{margin-bottom:0;color:#e1bb85}
+.modeSwitch{position:absolute;z-index:5;left:50%;top:17px;transform:translateX(-50%);min-height:34px;padding:7px 12px;border:1px solid #8bcef54b;border-radius:5px;background:#061826dc;color:#a9dbf4;font-size:10px;font-weight:700;letter-spacing:.1em;cursor:pointer;backdrop-filter:blur(6px)}.modeSwitch:hover{border-color:#8bcef5a1;color:#fff}
+@media(max-width:760px){.healthPanel{padding:17px}.healthPanel dl{grid-template-columns:repeat(2,minmax(0,1fr))}.modeSwitch{top:45px}}
+@media(max-width:480px){.healthPanel dl{grid-template-columns:1fr}.modeSwitch{top:42px;left:auto;right:12px;transform:none;font-size:9px}}

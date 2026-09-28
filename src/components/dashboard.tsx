@@ -58,6 +58,9 @@ export function Dashboard() {
   const [signalIndex, setSignalIndex] = useState(0);
   const [inspectedSignalId, setInspectedSignalId] = useState<string | null>(null);
   const [sceneFailed, setSceneFailed] = useState(false);
+  const [sceneMode, setSceneMode] = useState<"auto" | "2d" | "3d">("auto");
+  const [lowPower, setLowPower] = useState(false);
+  const [healthOpen, setHealthOpen] = useState(false);
   const [clock, setClock] = useState(() => Date.now());
   const feedRef = useRef<HTMLElement>(null);
   const entityPanelRef = useRef<HTMLElement>(null);
@@ -100,6 +103,15 @@ export function Dashboard() {
   }, []);
 
   useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const memory = (navigator as Navigator & {deviceMemory?: number}).deviceMemory;
+    const update = () => setLowPower(media.matches || (navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4) || (memory !== undefined && memory <= 4));
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
     if (!selectedTransferId) return;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     feedRef.current?.querySelector<HTMLElement>(`[data-transfer-id="${selectedTransferId}"]`)?.scrollIntoView({block: "nearest", behavior: reducedMotion ? "auto" : "smooth"});
@@ -113,7 +125,8 @@ export function Dashboard() {
   const signal = snapshot.signals[signalIndex % Math.max(1, snapshot.signals.length)];
   const inspectedSignal = snapshot.signals.find(item => item.id === inspectedSignalId);
   const statusLabel = healthLabel(status, health, clock);
-  const healthDetails = [health.latestBlock ? `Latest block ${health.latestBlock}` : "", health.processedBlockRange ? `Processed ${health.processedBlockRange.from}–${health.processedBlockRange.to}` : "", health.lastSuccessfulAt ? `Updated ${relativeActivityTime(health.lastSuccessfulAt, clock)}` : "", ...health.rpcWarnings].filter(Boolean).join(" · ");
+  const show2D = sceneFailed || sceneMode === "2d" || (sceneMode === "auto" && lowPower);
+  const healthDetails = [health.latestBlock ? `Latest block ${health.latestBlock}` : "", health.processedBlockRange ? `USDC blocks ${health.processedBlockRange.from}–${health.processedBlockRange.to}` : "", health.contractSampleBlockRange ? `Contract sample ${health.contractSampleBlockRange.from}–${health.contractSampleBlockRange.to}` : "", health.lastSuccessfulAt ? `Updated ${relativeActivityTime(health.lastSuccessfulAt, clock)}` : "", ...health.rpcWarnings].filter(Boolean).join(" · ");
   const annotations = useMemo(() => [...new Map([
     ...(selected ? [{address: selected, label: "SELECTED ENTITY"}] : []),
     ...(intent.type === "highlight-addresses" ? intent.addresses.map(address => ({address, label: "AERIS FOCUS"})) : []),
@@ -145,15 +158,23 @@ export function Dashboard() {
         placeholder="Search full address or transaction hash"
         aria-label="Search full address or transaction hash"
       />
-      <div className={`status ${statusLabel.toLowerCase()}`} title={healthDetails || "Awaiting the first verified Arc Mainnet response"}><i/><span>ARC MAINNET<span className="statusDetail"> · {statusLabel}</span></span></div>
+      <button className={`status ${statusLabel.toLowerCase()}`} type="button" title={healthDetails || "Awaiting the first verified Arc Mainnet response"} aria-expanded={healthOpen} aria-controls="data-health" onClick={() => setHealthOpen(value => !value)}><i/><span>ARC MAINNET<span className="statusDetail"> · {statusLabel}</span></span><span aria-hidden="true">⌄</span></button>
     </header>
+
+    {healthOpen && <section className="healthPanel" id="data-health" aria-label="Arc Mainnet data health">
+      <div className="healthPanelHead"><div><small>DATA HEALTH · {statusLabel}</small><h2>Verified observation coverage</h2></div><button type="button" onClick={() => setHealthOpen(false)} aria-label="Close data health">×</button></div>
+      <p>USDC transfers cover the chain-relative window when the scan completes. Contract calls and deployments sample up to 32 eligible transactions from the latest six blocks; their counts are not full-window totals. Known contracts reflect classified transfer endpoints only.</p>
+      <dl><div><dt>USDC WINDOW</dt><dd>{health.windowCovered === undefined ? "Awaiting data" : health.windowCovered ? "Complete" : "Partial"}{health.blocksScanned ? ` · ${health.blocksScanned.toLocaleString()} blocks` : ""}</dd></div><div><dt>CONTRACT SAMPLE</dt><dd>{health.contractSampleBlockRange ? `${health.contractSampleBlockRange.from}–${health.contractSampleBlockRange.to}` : "Awaiting data"}{health.contractCandidateCount !== undefined ? ` · ${health.contractCandidateCount} candidates${health.contractCandidateTruncated ? " (capped)" : ""}` : ""}</dd></div><div><dt>REQUEST LOAD</dt><dd>{health.rpcRequestCount === undefined ? "Awaiting data" : `${health.rpcRequestCount} RPC calls`}{health.ingestionMs !== undefined ? ` · ${Math.round(health.ingestionMs)} ms ingest` : ""}{health.responseMs !== undefined ? ` · ${health.responseMs} ms response` : ""}</dd></div><div><dt>LAST VERIFIED</dt><dd>{health.lastSuccessfulAt ? relativeActivityTime(health.lastSuccessfulAt, clock) : "Awaiting data"}</dd></div></dl>
+      {health.rpcWarnings.length > 0 && <p className="healthWarnings">{health.rpcWarnings.join(" · ")}</p>}
+    </section>}
 
     <section className="observatory">
       <div className="scene" aria-label="Live Arc Mainnet entity network">
-        <VisualizationBoundary onFailure={() => setSceneFailed(true)} fallback={<NetworkFallback transfers={transfers} endpointTypes={endpointTypes} selectedAddress={selected} selectedTransferId={activeTransferId} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId}/> }>
+        {show2D ? <NetworkFallback transfers={transfers} endpointTypes={endpointTypes} selectedAddress={selected} selectedTransferId={activeTransferId} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId} reason={sceneFailed ? "unavailable" : "lightweight"}/> : <VisualizationBoundary onFailure={() => setSceneFailed(true)} fallback={<NetworkFallback transfers={transfers} endpointTypes={endpointTypes} selectedAddress={selected} selectedTransferId={activeTransferId} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId}/> }>
           <NetworkScene transfers={transfers} endpointTypes={endpointTypes} annotations={annotations} selectedAddress={selected} selectedTransferId={activeTransferId} resetViewToken={resetViewToken} intent={intent} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId}/>
-        </VisualizationBoundary>
-        {!sceneFailed && <button className="resetView" type="button" onClick={() => setResetViewToken(token => token + 1)} aria-label="Reset globe camera view" title="Reset globe camera view">RESET VIEW <span aria-hidden="true">↺</span></button>}
+        </VisualizationBoundary>}
+        {!sceneFailed && <button className="modeSwitch" type="button" onClick={() => setSceneMode(show2D ? "3d" : "2d")} aria-label={show2D ? "Switch to 3D network" : "Switch to 2D network"}>{show2D ? "TRY 3D" : "USE 2D"}</button>}
+        {!show2D && <button className="resetView" type="button" onClick={() => setResetViewToken(token => token + 1)} aria-label="Reset globe camera view" title="Reset globe camera view">RESET VIEW <span aria-hidden="true">↺</span></button>}
       </div>
 
       <section className="metrics" aria-label="Live metrics">
@@ -162,7 +183,7 @@ export function Dashboard() {
         <Metric icon label="USDC FLOW" value={`$${money(String(volume))}`}/>
         <Metric label="TRANSFERS" value={String(transfers.length)}/>
         <Metric label="ACTIVE ADDRESSES" value={String(addresses)}/>
-        <Metric label="ACTIVE CONTRACTS" value={String(contracts)}/>
+        <Metric label="KNOWN CONTRACTS" value={String(contracts)}/>
         <Metric icon label="LARGEST TRANSFER" value={largest ? `${money(largest.value)} USDC` : "—"}/>
       </section>
 
@@ -191,15 +212,15 @@ export function Dashboard() {
           <dl>
             <div><dt>CHAIN ID</dt><dd>5042</dd></div>
             <div><dt>ASSET</dt><dd className="coinValue"><UsdcIcon/>USDC</dd></div>
-            <div><dt>OBSERVED</dt><dd>{events.length} activities</dd></div>
+            <div><dt>OBSERVED</dt><dd>{events.length} events</dd></div>
             <div><dt>VISUALIZED</dt><dd>{Math.min(transfers.length, 44)} significant flows</dd></div>
           </dl>
-          <p className="panelNote">{status === "stale" ? "Using the last successfully verified observation window." : transfers.length ? "Displaying verified activity from the selected chain-relative window." : emptyMessage}</p>
+          <p className="panelNote">{status === "stale" ? "Using the last successfully verified observation window." : transfers.length ? `${health.windowCovered === false ? "USDC window partially covered" : "USDC window observed"}; contract events sample recent blocks.` : emptyMessage}</p>
         </>}
-        <IntelligencePanel snapshot={snapshot} transfers={transfers} selected={selected} connection={status} expanded={agentOpen} visualizationAvailable={!sceneFailed} request={agentRequest} onExpand={() => setAgentOpen(true)} onClose={() => setAgentOpen(false)} onSelectAddress={address => {select(address); setSelectedTransferId(null);}} onSelectTransfer={id => {const transfer = transfers.find(item => item.id === id); setSelectedTransferId(transfer ? transferIdentity(transfer) : id);}}/>
+        <IntelligencePanel snapshot={snapshot} transfers={transfers} selected={selected} connection={status} expanded={agentOpen} visualizationAvailable={!show2D} request={agentRequest} onExpand={() => setAgentOpen(true)} onClose={() => setAgentOpen(false)} onSelectAddress={address => {select(address); setSelectedTransferId(null);}} onSelectTransfer={id => {const transfer = transfers.find(item => item.id === id); setSelectedTransferId(transfer ? transferIdentity(transfer) : id);}}/>
       </section>
 
-      {!transfers.length && !sceneFailed && <div className="sceneEmpty"><span>{emptyMessage}</span><small>No simulated activity is shown</small></div>}
+      {!transfers.length && !show2D && <div className="sceneEmpty"><span>{emptyMessage}</span><small>No simulated activity is shown</small></div>}
 
       {selectedTransfer && <aside className="transferPanel" aria-label="Selected verified transfer">
         <button className="close" onClick={() => setSelectedTransferId(null)} aria-label="Close selected transfer">×</button>
@@ -209,7 +230,7 @@ export function Dashboard() {
         <a href={`${ARC.explorer}/tx/${selectedTransfer.txHash}`} target="_blank" rel="noopener noreferrer" aria-label={`View transaction ${selectedTransfer.txHash} on Arcscan`}>VIEW ON ARCSCAN ↗</a>
       </aside>}
 
-      {!sceneFailed && <div className="legend">
+      {!show2D && <div className="legend">
         <div className="legendRow"><span><i className="wallet"/>WALLET</span><span><i className="contract"/>CONTRACT</span><span><i className="unknown"/>UNKNOWN</span><span><i className="flow"/>USDC ≥1K</span></div>
         <div className="legendRow flowTypes" aria-label="Transfer endpoint colors"><span title="Wallet to wallet"><i className="pulseWallet"/>W→W</span><span title="Wallet to contract"><i className="pulseContractIn"/>W→C</span><span title="Contract to wallet"><i className="pulseContractOut"/>C→W</span><span title="Unclassified endpoint"><i className="pulseUnknown"/>UNKNOWN</span></div>
       </div>}

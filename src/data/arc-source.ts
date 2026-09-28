@@ -40,6 +40,9 @@ export type ActivityDiagnostics = {
   windowEndTimestamp: number;
   windowCovered: boolean;
   blocksScanned: number;
+  contractSampleBlockRange: {from: string; to: string};
+  contractCandidateCount: number;
+  contractCandidateTruncated: boolean;
   headAgeMs: number;
   headStale: boolean;
   windowReferenceTimestamp: number;
@@ -148,10 +151,10 @@ export function createActivityIngestor(rpc: ActivityRpc, options: {now?: () => n
     }
 
     const blockByNumber = new Map([...headers, ...blocks.map(block => [block.number.toString(), block] as const)]);
-    const candidates = blocks.flatMap(block => block.transactions
+    const eligibleCandidates = blocks.flatMap(block => block.transactions
       .filter(tx => tx.to === null || tx.input !== "0x")
-      .map(tx => ({tx, block})))
-      .slice(-MAX_ACTIVITY_TRANSACTIONS);
+      .map(tx => ({tx, block})));
+    const candidates = eligibleCandidates.slice(-MAX_ACTIVITY_TRANSACTIONS);
 
     let rawLogs: RpcLog[] = [];
     const logsStartedAt = monotonicNow();
@@ -248,6 +251,9 @@ export function createActivityIngestor(rpc: ActivityRpc, options: {now?: () => n
       windowEndTimestamp: windowReferenceTimestamp,
       windowCovered,
       blocksScanned: Number(latestBlock - start + 1n),
+      contractSampleBlockRange: {from: contractStart.toString(), to: latestBlock.toString()},
+      contractCandidateCount: candidates.length,
+      contractCandidateTruncated: eligibleCandidates.length > candidates.length,
       headAgeMs,
       headStale,
       windowReferenceTimestamp,
