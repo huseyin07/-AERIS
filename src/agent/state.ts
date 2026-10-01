@@ -8,7 +8,7 @@ function sessionId() {
 }
 
 export function createAgentState(now = Date.now()): AgentState {
-  return {version: 1, sessionId: sessionId(), goal: DEFAULT_AGENT_GOAL, policy: {...DEFAULT_AGENT_POLICY}, memory: [], lastUpdatedAt: now};
+  return {version: 1, sessionId: sessionId(), goal: DEFAULT_AGENT_GOAL, policy: {...DEFAULT_AGENT_POLICY}, memory: [], runs: [], ledger: [], lastProactiveRunAt: null, lastUpdatedAt: now};
 }
 
 export function loadAgentState(): AgentState {
@@ -23,7 +23,10 @@ export function loadAgentState(): AgentState {
       sessionId: typeof parsed.sessionId === "string" ? parsed.sessionId : sessionId(),
       goal: typeof parsed.goal === "string" && parsed.goal.trim() ? parsed.goal : DEFAULT_AGENT_GOAL,
       policy: {...DEFAULT_AGENT_POLICY, ...(parsed.policy ?? {})},
-      memory: parsed.memory.slice(-MAX_MEMORY),
+      memory: parsed.memory.map(item => ({...item, kind: item.kind ?? "observation"})).slice(-MAX_MEMORY),
+      runs: Array.isArray(parsed.runs) ? parsed.runs.slice(-20) : [],
+      ledger: Array.isArray(parsed.ledger) ? parsed.ledger.slice(-30) : [],
+      lastProactiveRunAt: typeof parsed.lastProactiveRunAt === "number" ? parsed.lastProactiveRunAt : null,
       lastUpdatedAt: typeof parsed.lastUpdatedAt === "number" ? parsed.lastUpdatedAt : Date.now(),
     };
   } catch {
@@ -42,4 +45,8 @@ export function remember(state: AgentState, entry: AgentMemoryEntry): AgentState
 
 export function clearAgentMemory(state: AgentState, now = Date.now()): AgentState {
   return {...state, memory: [], lastUpdatedAt: now};
+}
+
+export function recordRun(state: AgentState, run: import("./types").AgentRun, ledger: import("./types").AgentLedgerEntry): AgentState {
+  return {...state, runs:[...state.runs,run].slice(-20), ledger:[...state.ledger,ledger].slice(-30), lastProactiveRunAt:run.trigger==="proactive"?run.createdAt:state.lastProactiveRunAt, lastUpdatedAt:run.updatedAt};
 }
