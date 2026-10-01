@@ -18,7 +18,8 @@ export async function executeArcUsdc(request:ExecutionRequest):Promise<Execution
   const fees=await rpc.estimateFeesPerGas();
   if(fees.maxFeePerGas==null||fees.maxPriorityFeePerGas==null) throw new Error("Arc fee estimate unavailable.");
   const transaction=JSON.stringify({type:"eip1559",chainId:ARC.chainId,nonce,to:request.to,value:value.toString(),gas:gas.toString(),maxFeePerGas:fees.maxFeePerGas.toString(),maxPriorityFeePerGas:fees.maxPriorityFeePerGas.toString()});
-  const signed=await circleWalletClient().signTransaction({walletId:cfg.walletId,transaction,memo:request.memo});
+  const circle=await circleWalletClient();
+  const signed=await circle.signTransaction({walletId:cfg.walletId,transaction,memo:request.memo});
   const raw=signed.data?.signedTransaction as Hex|undefined; if(!raw?.startsWith("0x")) throw new Error("Circle did not return a signed EVM transaction.");
   const txHash=await rpc.sendRawTransaction({serializedTransaction:raw});
   const receipt=await rpc.waitForTransactionReceipt({hash:txHash,confirmations:1,timeout:60_000});
