@@ -9,9 +9,11 @@ import {money, short} from "@/lib/format";
 import {useActivity} from "@/state/activity-store";
 import {ARC} from "@/data/arc";
 import type {Connection} from "@/state/connection";
-import {createAgentState, loadAgentState, remember, saveAgentState} from "@/agent/state";
+import {createAgentState, loadAgentState, remember, recordRun, saveAgentState} from "@/agent/state";
 import type {AgentState} from "@/agent/types";
-import {proposeObservationAction, type ProposedAction} from "@/agent/decision-engine";
+import {proposeObservationAction, proposeSpendAction, type ProposedAction} from "@/agent/decision-engine";
+import {createRun, evidenceStrength, memoryKindFor, recoveryGate, shouldTriggerProactively} from "@/agent/runtime";
+import {ledgerEntry} from "@/agent/ledger";
 
 type AgentRequest = {id: number; query: string} | null;
 type Exchange = {query: string; answer: AerisAnswer};
@@ -34,6 +36,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
   const previousSnapshot = useRef<IntelligenceSnapshot | null>(null);
   const previousTransfers = useRef<Transfer[]>([]);
   const processing = useRef(false);
+  const proactiveSnapshot = useRef<number | null>(null);
   const setIntent = useActivity(state => state.setVisualizationIntent);
   const intent = useActivity(state => state.visualizationIntent);
   const health = useActivity(state => state.health);
@@ -70,10 +73,13 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
                 delta,
               }), connection);
         setAnswer(result); setHistory(current => [...current, {query: next, answer: result}].slice(-8)); setIntent(result.intent);
-        setLastAction(proposeObservationAction(result, snapshot, agentState.policy));
+        const action = proposeObservationAction(result, snapshot, agentState.policy);
+        setLastAction(action);
         const now = Date.now();
-        setAgentState(current => remember(current, {
+        const run = createRun({goal:agentState.goal,trigger:"user",triggerReason:next,answer:result,action,snapshot,now});
+        setAgentState(current => recordRun(remember(current, {
           id: `memory-${now}-${current.memory.length}`,
+          kind: memoryKindFor(action),
           createdAt: now,
           query: next,
           summary: result.summary,
@@ -81,7 +87,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
           relatedTransferIds: result.relatedTransferIds.slice(0, 8),
           evidenceCount: result.evidence.length,
           observationReference: snapshot.generatedAt,
-        }));
+        }), run, ledgerEntry(run)));
         previousSnapshot.current = snapshot; previousTransfers.current = transfers.slice();
       } catch (error) {
         console.error("AERIS deterministic analysis failed", error);
@@ -98,6 +104,20 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
     // A request id deliberately triggers repeated analysis of the same selected address.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request?.id]);
+
+  useEffect(() => {
+    if (!memoryReady || processing.current) return;
+    const partial = health.status === "partial";
+    const decision = shouldTriggerProactively({snapshot,connection,partial,lastRunAt:agentState.lastProactiveRunAt,previousGeneratedAt:proactiveSnapshot.current});
+    proactiveSnapshot.current = snapshot.generatedAt;
+    if (!decision.trigger) return;
+    const result = withObservationStatus(answerDeterministically("Find unusual flows", snapshot, transfers, selected), connection);
+    const action = proposeObservationAction(result, snapshot, agentState.policy);
+    const run = createRun({goal:agentState.goal,trigger:"proactive",triggerReason:decision.reason,answer:result,action,snapshot});
+    setLastAction(action); setAnswer(result); setIntent(result.intent);
+    setAgentState(current => recordRun(remember(current,{id:`memory-${run.createdAt}-proactive`,kind:memoryKindFor(action),createdAt:run.createdAt,query:"Proactive investigation",summary:result.summary,subject:result.relatedAddresses[0]??null,relatedTransferIds:result.relatedTransferIds.slice(0,8),evidenceCount:result.evidence.length,observationReference:snapshot.generatedAt}),run,ledgerEntry(run)));
+  }, [snapshot.generatedAt, memoryReady, connection, health.status]);
+
   function submit(event: FormEvent) { event.preventDefault(); ask(query); }
   const topFlow = answer?.intent.type === "highlight-transfers" ? snapshot.topFlows.find(flow => answer.intent.type === "highlight-transfers" && answer.intent.transferIds.includes(flow.id)) : null;
   const previousExchanges = analyzing ? history : history.slice(0, -1);
@@ -112,8 +132,10 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
     </div>
     {expanded && <div className="agentReport">
       <small>{health.status === "partial" ? "◐ PARTIAL · VERIFIED DATA MAY BE INCOMPLETE" : connection === "live" ? "● LIVE · OBSERVING ARC" : connectionCopy[connection].toUpperCase()}</small>
-      <div className="agentStateStrip"><span>GOAL · {agentState.goal}</span><span>MEMORY · {agentState.memory.length} DECISIONS</span><span>POLICY · {agentState.policy.emergencyStop ? "STOPPED" : agentState.policy.autoExecute ? "AUTONOMOUS" : "APPROVAL-GATED"}</span></div>
+      <div className="agentStateStrip"><span>GOAL · {agentState.goal}</span><span>RUNS · {agentState.runs.length}</span><span>MEMORY · {agentState.memory.length}</span><span>POLICY · {agentState.policy.emergencyStop ? "STOPPED" : agentState.policy.autoExecute ? "AUTONOMOUS" : "APPROVAL-GATED"}</span></div>
+      {agentState.runs.at(-1) && <div className="agentDecision"><label>AGENT RUN · {agentState.runs.at(-1)?.id}</label><p>{agentState.runs.at(-1)?.trigger.toUpperCase()} · {agentState.runs.at(-1)?.status.toUpperCase()}</p><small className="agentTrace">EVIDENCE · {agentState.runs.at(-1)?.evidence.level.toUpperCase()} · {agentState.runs.at(-1)?.evidence.verifiedEvidence} VERIFIED · {agentState.runs.at(-1)?.evidence.independentSignals} SIGNALS</small><small className="agentTrace">TASKS · {agentState.runs.at(-1)?.tasks.map(task => `${task.label}: ${task.status}`).join(" · ")}</small></div>}
       {lastAction && <div className="agentDecision"><label>DECISION LOOP</label><p>{lastAction.label} · {lastAction.status.toUpperCase()}</p><small className="agentTrace">{lastAction.phases.map(phase => phase.toUpperCase()).join(" → ")}</small><small className="agentTrace">POLICY · {lastAction.policy.reason}</small><small className="agentTrace">VERIFY · {lastAction.verification.message}</small></div>}
+      {agentState.ledger.length > 0 && <div className="agentHistory"><label>AGENT LEDGER</label>{agentState.ledger.slice(-3).reverse().map(item => <div className="pastExchange" key={item.id}><p>{item.trigger.toUpperCase()} · {item.decision} · {item.status.toUpperCase()}</p><small className="agentTrace">COST {item.costUsdc} USDC · PROOF {item.proof}</small></div>)}</div>}
       <div className="agentHistory">{previousExchanges.map((exchange, index) => <div className="pastExchange" key={`${exchange.query}-${index}`}><label>INVESTIGATION {index + 1} · USER</label><p>{exchange.query}</p><label>AERIS AGENT</label><p>{exchange.answer.message}</p></div>)}</div>
       {(analyzing || history.at(-1)) && <div className="reportQuery"><label>USER</label><p>{analyzing ? pendingQuery : history.at(-1)?.query}</p></div>}
       <div className="reportAnswer"><label>ANALYSIS · {health.status === "partial" ? "PARTIAL VERIFIED OBSERVATION" : connection === "stale" ? "LAST VERIFIED OBSERVATION" : "CURRENT OBSERVATION"} · {snapshot.transferCount.toLocaleString()} VERIFIED TRANSFERS</label><p>{analyzing ? "ANALYZING VERIFIED ACTIVITY..." : answer ? (health.status === "partial" ? `Partial observation: some Arc data may be incomplete. ${answer.summary}` : answer.summary) : connectionCopy[connection]}</p>
