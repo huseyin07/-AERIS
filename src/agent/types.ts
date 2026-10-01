@@ -10,8 +10,16 @@ export type AgentPolicy = {
   allowedContracts: string[];
 };
 
+export type MemoryKind = "observation" | "action" | "outcome";
+export type TaskStatus = "pending" | "running" | "completed" | "blocked" | "failed";
+export type AgentTask = {id: string; label: string; status: TaskStatus};
+export type EvidenceStrength = {level: "low" | "medium" | "high"; verifiedEvidence: number; independentSignals: number};
+export type AgentRun = {id: string; createdAt: number; updatedAt: number; goal: string; trigger: "user" | "proactive"; triggerReason: string; status: "completed" | "blocked" | "failed"; tasks: AgentTask[]; action: import("./decision-engine").ProposedAction; evidence: EvidenceStrength; summary: string; observationReference: number};
+export type AgentLedgerEntry = {id:string; time:number; trigger:"user"|"proactive"; decision:string; action:string; costUsdc:number; status:string; proof:string};
+
 export type AgentMemoryEntry = {
   id: string;
+  kind: MemoryKind;
   createdAt: number;
   query: string;
   summary: string;
@@ -27,6 +35,9 @@ export type AgentState = {
   goal: string;
   policy: AgentPolicy;
   memory: AgentMemoryEntry[];
+  runs: AgentRun[];
+  ledger: AgentLedgerEntry[];
+  lastProactiveRunAt: number | null;
   lastUpdatedAt: number;
 };
 
