@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "test": "npm run test:activity && npm run test:intelligence && npm run test:entity-types && npm run test:agent-policy",
+    "test": "npm run test:activity && npm run test:intelligence && npm run test:entity-types && npm run test:agent-policy && npm run test:agent-decision",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -12,7 +12,8 @@
     "test:intelligence": "node --experimental-strip-types --test tests/intelligence.test.mjs",
     "test:activity": "node --experimental-strip-types --test tests/activity-source.test.mjs",
     "test:entity-types": "node --experimental-strip-types --test tests/entity-classifier.test.mjs",
-    "test:agent-policy": "node --experimental-strip-types --test tests/agent-policy.test.mjs"
+    "test:agent-policy": "node --experimental-strip-types --test tests/agent-policy.test.mjs",
+    "test:agent-decision": "node --experimental-strip-types --test tests/agent-decision.test.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.114.3",
