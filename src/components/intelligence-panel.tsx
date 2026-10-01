@@ -11,6 +11,7 @@ import {ARC} from "@/data/arc";
 import type {Connection} from "@/state/connection";
 import {createAgentState, loadAgentState, remember, saveAgentState} from "@/agent/state";
 import type {AgentState} from "@/agent/types";
+import {proposeObservationAction, type ProposedAction} from "@/agent/decision-engine";
 
 type AgentRequest = {id: number; query: string} | null;
 type Exchange = {query: string; answer: AerisAnswer};
@@ -28,6 +29,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
   const [analyzing, setAnalyzing] = useState(false);
   const [agentState, setAgentState] = useState<AgentState>(() => createAgentState());
   const [memoryReady, setMemoryReady] = useState(false);
+  const [lastAction, setLastAction] = useState<ProposedAction | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const previousSnapshot = useRef<IntelligenceSnapshot | null>(null);
   const previousTransfers = useRef<Transfer[]>([]);
@@ -68,6 +70,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
                 delta,
               }), connection);
         setAnswer(result); setHistory(current => [...current, {query: next, answer: result}].slice(-8)); setIntent(result.intent);
+        setLastAction(proposeObservationAction(result, snapshot, agentState.policy));
         const now = Date.now();
         setAgentState(current => remember(current, {
           id: `memory-${now}-${current.memory.length}`,
@@ -110,6 +113,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
     {expanded && <div className="agentReport">
       <small>{health.status === "partial" ? "◐ PARTIAL · VERIFIED DATA MAY BE INCOMPLETE" : connection === "live" ? "● LIVE · OBSERVING ARC" : connectionCopy[connection].toUpperCase()}</small>
       <div className="agentStateStrip"><span>GOAL · {agentState.goal}</span><span>MEMORY · {agentState.memory.length} DECISIONS</span><span>POLICY · {agentState.policy.emergencyStop ? "STOPPED" : agentState.policy.autoExecute ? "AUTONOMOUS" : "APPROVAL-GATED"}</span></div>
+      {lastAction && <div className="agentDecision"><label>DECISION LOOP</label><p>{lastAction.label} · {lastAction.status.toUpperCase()}</p><small className="agentTrace">{lastAction.phases.map(phase => phase.toUpperCase()).join(" → ")}</small><small className="agentTrace">POLICY · {lastAction.policy.reason}</small><small className="agentTrace">VERIFY · {lastAction.verification.message}</small></div>}
       <div className="agentHistory">{previousExchanges.map((exchange, index) => <div className="pastExchange" key={`${exchange.query}-${index}`}><label>INVESTIGATION {index + 1} · USER</label><p>{exchange.query}</p><label>AERIS AGENT</label><p>{exchange.answer.message}</p></div>)}</div>
       {(analyzing || history.at(-1)) && <div className="reportQuery"><label>USER</label><p>{analyzing ? pendingQuery : history.at(-1)?.query}</p></div>}
       <div className="reportAnswer"><label>ANALYSIS · {health.status === "partial" ? "PARTIAL VERIFIED OBSERVATION" : connection === "stale" ? "LAST VERIFIED OBSERVATION" : "CURRENT OBSERVATION"} · {snapshot.transferCount.toLocaleString()} VERIFIED TRANSFERS</label><p>{analyzing ? "ANALYZING VERIFIED ACTIVITY..." : answer ? (health.status === "partial" ? `Partial observation: some Arc data may be incomplete. ${answer.summary}` : answer.summary) : connectionCopy[connection]}</p>
