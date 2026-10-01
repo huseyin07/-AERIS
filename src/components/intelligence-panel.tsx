@@ -9,6 +9,8 @@ import {money, short} from "@/lib/format";
 import {useActivity} from "@/state/activity-store";
 import {ARC} from "@/data/arc";
 import type {Connection} from "@/state/connection";
+import {createAgentState, loadAgentState, remember, saveAgentState} from "@/agent/state";
+import type {AgentState} from "@/agent/types";
 
 type AgentRequest = {id: number; query: string} | null;
 type Exchange = {query: string; answer: AerisAnswer};
@@ -24,6 +26,8 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
   const [answer, setAnswer] = useState<AerisAnswer | null>(null);
   const [history, setHistory] = useState<Exchange[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
+  const [agentState, setAgentState] = useState<AgentState>(() => createAgentState());
+  const [memoryReady, setMemoryReady] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const previousSnapshot = useRef<IntelligenceSnapshot | null>(null);
   const previousTransfers = useRef<Transfer[]>([]);
@@ -32,6 +36,8 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
   const intent = useActivity(state => state.visualizationIntent);
   const health = useActivity(state => state.health);
   const agentStatus = connection === "live" && health.status === "partial" ? "partial" : connection;
+  useEffect(() => { setAgentState(loadAgentState()); setMemoryReady(true); }, []);
+  useEffect(() => { if (memoryReady) saveAgentState(agentState); }, [agentState, memoryReady]);
   const fragments = useMemo(() => {
     const system = ["ARC MAINNET", "CHAIN 5042", "USDC", (connection === "live" || connection === "stale") ? "STATUS VERIFIED" : "WAITING FOR VERIFIED ACTIVITY", "OBSERVING"];
     if (!transfers.length) return system;
@@ -62,6 +68,17 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
                 delta,
               }), connection);
         setAnswer(result); setHistory(current => [...current, {query: next, answer: result}].slice(-8)); setIntent(result.intent);
+        const now = Date.now();
+        setAgentState(current => remember(current, {
+          id: `memory-${now}-${current.memory.length}`,
+          createdAt: now,
+          query: next,
+          summary: result.summary,
+          subject: result.relatedAddresses[0] ?? null,
+          relatedTransferIds: result.relatedTransferIds.slice(0, 8),
+          evidenceCount: result.evidence.length,
+          observationReference: snapshot.generatedAt,
+        }));
         previousSnapshot.current = snapshot; previousTransfers.current = transfers.slice();
       } catch (error) {
         console.error("AERIS deterministic analysis failed", error);
@@ -87,11 +104,12 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
     <div className="agentGlow"/>
     <div className="agentIdentity">
       <Image className="agentPortrait" src="/aeris-agent.png" alt="AERIS Agent" width={90} height={110} priority/>
-      <div><div className="agentName">AERIS AGENT <span className={`agentLive ${agentStatus}`}><i/>{agentStatus.toUpperCase()}</span></div><p>Network Observer</p><small>OBSERVE · ANALYZE · EXPLAIN</small></div>
+      <div><div className="agentName">AERIS AGENT <span className={`agentLive ${agentStatus}`}><i/>{agentStatus.toUpperCase()}</span></div><p>Stateful Financial Agent</p><small>OBSERVE · ANALYZE · PLAN · POLICY · MEMORY</small></div>
       {expanded && <button className="agentClose" onClick={onClose} aria-label="Close AERIS Agent">×</button>}
     </div>
     {expanded && <div className="agentReport">
       <small>{health.status === "partial" ? "◐ PARTIAL · VERIFIED DATA MAY BE INCOMPLETE" : connection === "live" ? "● LIVE · OBSERVING ARC" : connectionCopy[connection].toUpperCase()}</small>
+      <div className="agentStateStrip"><span>GOAL · {agentState.goal}</span><span>MEMORY · {agentState.memory.length} DECISIONS</span><span>POLICY · {agentState.policy.emergencyStop ? "STOPPED" : agentState.policy.autoExecute ? "AUTONOMOUS" : "APPROVAL-GATED"}</span></div>
       <div className="agentHistory">{previousExchanges.map((exchange, index) => <div className="pastExchange" key={`${exchange.query}-${index}`}><label>INVESTIGATION {index + 1} · USER</label><p>{exchange.query}</p><label>AERIS AGENT</label><p>{exchange.answer.message}</p></div>)}</div>
       {(analyzing || history.at(-1)) && <div className="reportQuery"><label>USER</label><p>{analyzing ? pendingQuery : history.at(-1)?.query}</p></div>}
       <div className="reportAnswer"><label>ANALYSIS · {health.status === "partial" ? "PARTIAL VERIFIED OBSERVATION" : connection === "stale" ? "LAST VERIFIED OBSERVATION" : "CURRENT OBSERVATION"} · {snapshot.transferCount.toLocaleString()} VERIFIED TRANSFERS</label><p>{analyzing ? "ANALYZING VERIFIED ACTIVITY..." : answer ? (health.status === "partial" ? `Partial observation: some Arc data may be incomplete. ${answer.summary}` : answer.summary) : connectionCopy[connection]}</p>
@@ -107,6 +125,6 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
     </div>}
     <form className="agentInput" onSubmit={submit}><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Ask about current Arc activity..." aria-label="Ask AERIS Agent about current Arc activity" disabled={analyzing}/><button type="submit" aria-label="Submit question" disabled={!query.trim() || analyzing}>→</button></form>
     <div className="agentCommands">{suggestions.map(item => <button type="button" key={item} disabled={analyzing} onClick={() => ask(item)}>{item}</button>)}</div>
-    <div className="agentFoot"><span>{agentStatus === "partial" ? "Verified Arc activity is partially covered." : connectionCopy[connection]}</span>{visualizationAvailable && intent.type !== "reset" && <button onClick={() => setIntent({type: "reset"})}>RESET VIEW</button>}</div>
+    <div className="agentFoot"><span>{agentStatus === "partial" ? "Verified Arc activity is partially covered." : `${connectionCopy[connection]} · ${agentState.memory.length} persisted memories`}</span>{visualizationAvailable && intent.type !== "reset" && <button onClick={() => setIntent({type: "reset"})}>RESET VIEW</button>}</div>
   </section>;
 }
