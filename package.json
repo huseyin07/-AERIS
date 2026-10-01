@@ -27,7 +27,7 @@
     "three": "^0.168.0",
     "viem": "^2.21.16",
     "zustand": "^4.5.5",
-    "@circle-fin/developer-controlled-wallets": "^10.8.1"
+    "@circle-fin/developer-controlled-wallets": "10.8.0"
   },
   "devDependencies": {
     "@types/node": "^22.5.5",
