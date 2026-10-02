@@ -14,7 +14,8 @@ export type MemoryKind = "observation" | "action" | "outcome";
 export type TaskStatus = "pending" | "running" | "completed" | "blocked" | "failed";
 export type AgentTask = {id: string; label: string; status: TaskStatus};
 export type EvidenceStrength = {level: "low" | "medium" | "high"; verifiedEvidence: number; independentSignals: number};
-export type AgentRun = {id: string; createdAt: number; updatedAt: number; goal: string; trigger: "user" | "proactive"; triggerReason: string; status: "completed" | "blocked" | "failed"; tasks: AgentTask[]; action: import("./decision-engine").ProposedAction; evidence: EvidenceStrength; summary: string; observationReference: number};
+export type ProofRef = {kind:"transaction"|"block"|"address"|"observation"; label:string; value:string; url?:string};
+export type AgentRun = {id: string; createdAt: number; updatedAt: number; goal: string; trigger: "user" | "proactive"; triggerReason: string; status: "completed" | "blocked" | "failed"; tasks: AgentTask[]; action: import("./decision-engine").ProposedAction; evidence: EvidenceStrength; proofs: ProofRef[]; summary: string; observationReference: number};
 export type AgentLedgerEntry = {id:string; time:number; trigger:"user"|"proactive"; decision:string; action:string; costUsdc:number; status:string; proof:string};
 
 export type AgentMemoryEntry = {
@@ -38,6 +39,7 @@ export type AgentState = {
   runs: AgentRun[];
   ledger: AgentLedgerEntry[];
   lastProactiveRunAt: number | null;
+  lastProactiveSignature: string | null;
   lastUpdatedAt: number;
 };
 
