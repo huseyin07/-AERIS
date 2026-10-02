@@ -3,7 +3,6 @@ import {ARC, arcChain} from "./arc.ts";
 import {normalizeTransfer} from "./normalize.ts";
 import {AddressClassificationCache, normalizeTransactionActivity, OBSERVATION_WINDOW_MS, pruneObservation, transferToActivity} from "./activity-engine.ts";
 import type {ActivityStatus, ArcActivityEvent, EntityType, HexAddress, HexHash, Transfer} from "./types";
-import {MIN_VISIBLE_USDC_RAW} from "./threshold.ts";
 
 const transferEvent = parseAbiItem("event Transfer(address indexed from, address indexed to, uint256 value)");
 const publicClient = createPublicClient({chain: arcChain, transport: http(ARC.rpcUrl, {timeout: 8_000, retryCount: 1, retryDelay: 500})});
@@ -163,9 +162,9 @@ export function createActivityIngestor(rpc: ActivityRpc, options: {now?: () => n
     catch (error) { warnings.push(`eth_getLogs USDC ${start}-${latestBlock}: ${warning(error)}`); }
     timings.usdcLogs = monotonicNow() - logsStartedAt;
     const metadataStartedAt = monotonicNow();
-    // The product's observation threshold is 1,000 USDC. Filter before
-    // per-block metadata requests, preserving the exact onchain amount.
-    const transfers = [...new Map(rawLogs.filter(log => typeof log.args?.value === "bigint" && log.args.value >= MIN_VISIBLE_USDC_RAW)
+    // Preserve the full verified USDC observation for Sentinel/Agent analysis.
+    // Visualization thresholds are applied later in the client presentation layer.
+    const transfers = [...new Map(rawLogs.filter(log => typeof log.args?.value === "bigint")
       .map(normalizeTransfer).filter((item): item is Transfer => item !== null)
       .map(transfer => [`${transfer.txHash.toLowerCase()}:${transfer.logIndex}`, transfer])).values()];
     const missingBlocks = [...new Set(transfers.map(transfer => transfer.blockNumber))].filter(number => !blockByNumber.has(number));
