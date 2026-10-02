@@ -53,9 +53,23 @@ export function shouldTriggerProactively(args:{snapshot:IntelligenceSnapshot;con
 
 function lifecycleTasks(action:ProposedAction,now:number):AgentTask[]{
   const tasks=planGoal("",now);
-  const blocked=action.status==="blocked"||action.status==="failed";
+  const failed=action.status==="failed";
+  const blocked=action.status==="blocked";
+  const approval=action.status==="approval-required";
+  const economic=action.kind==="spend-usdc";
   return tasks.map((task,index)=>{
-    if(blocked&&index>=4)return {...task,status:index===4?"blocked":"pending"};
+    if(index<=3)return {...task,status:"completed"};
+    if(index===4){
+      if(failed||blocked)return {...task,status:"blocked"};
+      if(approval)return {...task,status:"pending"};
+      if(economic&&action.status==="ready")return {...task,status:"pending"};
+      return {...task,status:"completed"};
+    }
+    if(index===5){
+      if(failed||blocked||approval||(economic&&!action.verification.verified))return {...task,status:"pending"};
+      return {...task,status:action.verification.verified?"completed":"pending"};
+    }
+    if(failed||blocked||approval||(economic&&!action.verification.verified))return {...task,status:"pending"};
     return {...task,status:"completed"};
   });
 }
