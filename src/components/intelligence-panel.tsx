@@ -9,10 +9,10 @@ import {money, short} from "@/lib/format";
 import {useActivity} from "@/state/activity-store";
 import {ARC} from "@/data/arc";
 import type {Connection} from "@/state/connection";
-import {createAgentState, loadAgentState, remember, recordRun, saveAgentState} from "@/agent/state";
+import {baselineSummary, compareMemory, createAgentState, loadAgentState, recordBaseline, remember, recordRun, saveAgentState} from "@/agent/state";
 import type {AgentState} from "@/agent/types";
 import {proposeObservationAction, type ProposedAction} from "@/agent/decision-engine";
-import {createRun, memoryKindFor, shouldTriggerProactively} from "@/agent/runtime";
+import {createRun, memoryKindFor, sentinelSignature, shouldTriggerProactively} from "@/agent/runtime";
 import {ledgerEntry} from "@/agent/ledger";
 
 type AgentRequest = {id: number; query: string} | null;
@@ -43,6 +43,15 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
   const agentStatus = connection === "live" && health.status === "partial" ? "partial" : connection;
   useEffect(() => { setAgentState(loadAgentState()); setMemoryReady(true); }, []);
   useEffect(() => { if (memoryReady) saveAgentState(agentState); }, [agentState, memoryReady]);
+  useEffect(() => {
+    if (!memoryReady || !snapshot.generatedAt || connection !== "live" || health.status === "partial") return;
+    const bucketStart=Math.floor(snapshot.generatedAt/(10*60_000))*(10*60_000);
+    setAgentState(current => {
+      const existing=current.baseline.buckets.find(item=>item.startedAt===bucketStart);
+      if(existing&&existing.transferCount===snapshot.transferCount&&existing.totalVolume===snapshot.totalVolume)return current;
+      return recordBaseline(current,{reference:snapshot.generatedAt,transferCount:snapshot.transferCount,totalVolume:snapshot.totalVolume,sub1kCount:transfers.filter(item=>Number(item.value)<1_000).length,largeCount:transfers.filter(item=>Number(item.value)>=100_000).length,uniqueAddresses:snapshot.uniqueAddresses});
+    });
+  }, [memoryReady, snapshot.generatedAt, snapshot.transferCount, snapshot.totalVolume, snapshot.uniqueAddresses, transfers, connection, health.status]);
   const fragments = useMemo(() => {
     const system = ["ARC MAINNET", "CHAIN 5042", "USDC", (connection === "live" || connection === "stale") ? "STATUS VERIFIED" : "WAITING FOR VERIFIED ACTIVITY", "OBSERVING"];
     if (!transfers.length) return system;
@@ -76,7 +85,8 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
         const action = proposeObservationAction(result, snapshot, agentState.policy, 0, new Set(transfers.map(item => item.id)));
         setLastAction(action);
         const now = Date.now();
-        const run = createRun({goal:agentState.goal,trigger:"user",triggerReason:next,answer:result,action,snapshot,now});
+        const signalSig=sentinelSignature(snapshot)||null;
+        const run = createRun({goal:agentState.goal,trigger:"user",triggerReason:next,triggerSignature:null,answer:result,action,snapshot,now});
         setAgentState(current => recordRun(remember(current, {
           id: `memory-${now}-${current.memory.length}`,
           kind: memoryKindFor(action),
@@ -87,6 +97,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
           relatedTransferIds: result.relatedTransferIds.slice(0, 8),
           evidenceCount: result.evidence.length,
           observationReference: snapshot.generatedAt,
+          signalSignature: signalSig, observedVolume: snapshot.totalVolume, transferCount: snapshot.transferCount, counterpartyCount: result.relatedAddresses.length,
         }), run, ledgerEntry(run)));
         previousSnapshot.current = snapshot; previousTransfers.current = transfers.slice();
       } catch (error) {
@@ -113,14 +124,18 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
     if (!decision.trigger) return;
     const result = withObservationStatus(answerDeterministically("Find unusual flows", snapshot, transfers, selected), connection);
     const action = proposeObservationAction(result, snapshot, agentState.policy, 0, new Set(transfers.map(item => item.id)));
-    const run = createRun({goal:agentState.goal,trigger:"proactive",triggerReason:decision.reason,answer:result,action,snapshot});
+    const run = createRun({goal:agentState.goal,trigger:"proactive",triggerReason:decision.reason,triggerSignature:decision.signature,answer:result,action,snapshot});
     setLastAction(action); setAnswer(result); setIntent(result.intent);
-    setAgentState(current => recordRun(remember(current,{id:`memory-${run.createdAt}-proactive`,kind:memoryKindFor(action),createdAt:run.createdAt,query:"Proactive investigation",summary:result.summary,subject:result.relatedAddresses[0]??null,relatedTransferIds:result.relatedTransferIds.slice(0,8),evidenceCount:result.evidence.length,observationReference:snapshot.generatedAt}),run,ledgerEntry(run)));
+    setAgentState(current => recordRun(remember(current,{id:`memory-${run.createdAt}-proactive`,kind:memoryKindFor(action),createdAt:run.createdAt,query:"Proactive investigation",summary:result.summary,subject:result.relatedAddresses[0]??null,relatedTransferIds:result.relatedTransferIds.slice(0,8),evidenceCount:result.evidence.length,observationReference:snapshot.generatedAt,signalSignature:decision.signature||null,observedVolume:snapshot.totalVolume,transferCount:snapshot.transferCount,counterpartyCount:result.relatedAddresses.length}),run,ledgerEntry(run)));
   }, [snapshot.generatedAt, memoryReady, connection, health.status]);
 
   function submit(event: FormEvent) { event.preventDefault(); ask(query); }
   const topFlow = answer?.intent.type === "highlight-transfers" ? snapshot.topFlows.find(flow => answer.intent.type === "highlight-transfers" && answer.intent.transferIds.includes(flow.id)) : null;
   const previousExchanges = analyzing ? history : history.slice(0, -1);
+  const context=baselineSummary(agentState,snapshot.generatedAt);
+  const currentSignal=sentinelSignature(snapshot)||null;
+  const memoryComparison=compareMemory(agentState,{signalSignature:currentSignal,subject:snapshot.signals[0]?.relatedAddresses[0]??null,observedVolume:snapshot.totalVolume,transferCount:snapshot.transferCount,counterpartyCount:snapshot.signals[0]?.relatedAddresses.length??0});
+  const baselineRatio=context.dayAverageVolume>0?snapshot.totalVolume/context.dayAverageVolume:null;
 
   return <section className={`agentModule ${expanded ? "expanded" : "compact"} ${analyzing ? "analyzing" : ""}`} aria-label="AERIS Agent">
     <div className="agentStream" aria-hidden="true">{fragments.map((fragment, index) => <span key={`${fragment}-${index}`} style={{"--row": index, "--speed": `${34 + index % 4 * 7}s`} as CSSProperties}>{fragment}</span>)}</div>
@@ -133,6 +148,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
     {expanded && <div className="agentReport">
       <small>{health.status === "partial" ? "◐ PARTIAL · VERIFIED DATA MAY BE INCOMPLETE" : connection === "live" ? "● LIVE · OBSERVING ARC" : connectionCopy[connection].toUpperCase()}</small>
       <div className="agentStateStrip"><span>GOAL · {agentState.goal}</span><span>RUNS · {agentState.runs.length}</span><span>MEMORY · {agentState.memory.length}</span><span>POLICY · {agentState.policy.emergencyStop ? "STOPPED" : agentState.policy.autoExecute ? "AUTONOMOUS" : "APPROVAL-GATED"}</span></div>
+      <div className="agentDecision"><label>STATEFUL CONTEXT</label><p>LIVE 10M · {snapshot.transferCount} transfers · {money(String(snapshot.totalVolume))} USDC</p><small className="agentTrace">1H CONTEXT · {context.hourBuckets}/6 VERIFIED BUCKETS · AVG {money(String(context.hourAverageVolume))} USDC / 10M</small><small className="agentTrace">24H BASELINE · {context.dayBuckets}/144 VERIFIED BUCKETS · AVG {money(String(context.dayAverageVolume))} USDC / 10M{baselineRatio!==null?` · CURRENT ${baselineRatio.toFixed(2)}×`:""}</small><small className="agentTrace">MEMORY · {memoryComparison.seenBefore?`SEEN BEFORE · ${memoryComparison.priorObservations} PRIOR OBSERVATION${memoryComparison.priorObservations===1?"":"S"}`:"NEW TO AERIS MEMORY"}{memoryComparison.volumeChangePercent!==null?` · VOLUME ${memoryComparison.volumeChangePercent>=0?"+":""}${memoryComparison.volumeChangePercent.toFixed(1)}%`:""}</small></div>
       {agentState.runs.at(-1) && <div className="agentDecision"><label>COMMAND CENTER · {agentState.runs.at(-1)?.id}</label><p>{agentState.runs.at(-1)?.trigger.toUpperCase()} · {agentState.runs.at(-1)?.status.toUpperCase()} · {agentState.runs.at(-1)?.triggerReason}</p><small className="agentTrace">EVIDENCE · {agentState.runs.at(-1)?.evidence.level.toUpperCase()} · {agentState.runs.at(-1)?.evidence.verifiedEvidence} VERIFIED · {agentState.runs.at(-1)?.evidence.independentSignals} SIGNALS</small><div className="agentLifecycle">{agentState.runs.at(-1)?.tasks.map(task => <span key={task.id} data-status={task.status}>{task.label.replace(" verified Arc activity","").replace(" material signal","").replace(" deterministic policy","").replace(" read-only investigation","").replace(" evidence","").replace(" memory","").toUpperCase()} · {task.status.toUpperCase()}</span>)}</div><div className="agentEvidence"><label>PROOF OF INVESTIGATION</label>{agentState.runs.at(-1)?.proofs.map((proof,index)=><div className="agentEvidenceRow" key={`${proof.kind}-${proof.value}-${index}`}><span>• {proof.label} · {proof.kind==="address"?short(proof.value):proof.value.length>28?short(proof.value):proof.value}</span>{proof.kind==="transaction"?<a href={`${ARC.explorer}/tx/${proof.value}`} target="_blank" rel="noreferrer">VERIFY ↗</a>:proof.kind==="address"?<a href={`${ARC.explorer}/address/${proof.value}`} target="_blank" rel="noreferrer">VERIFY ↗</a>:null}</div>)}</div></div>}
       {lastAction && <div className="agentDecision"><label>DECISION LOOP</label><p>{lastAction.label} · {lastAction.status.toUpperCase()}</p><small className="agentTrace">{lastAction.phases.map(phase => phase.toUpperCase()).join(" → ")}</small><small className="agentTrace">POLICY · {lastAction.policy.reason}</small><small className="agentTrace">VERIFY · {lastAction.verification.message}</small></div>}
       {agentState.memory.length > 0 && <div className="agentHistory"><label>AGENT MEMORY</label>{agentState.memory.slice(-3).reverse().map(item => <div className="pastExchange" key={item.id}><p>{item.kind.toUpperCase()} · {item.subject ? short(item.subject) : "NETWORK"} · {item.evidenceCount} EVIDENCE</p><small className="agentTrace">{item.summary}</small></div>)}</div>}
