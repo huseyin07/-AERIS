@@ -23,7 +23,7 @@ export function loadAgentState(): AgentState {
       sessionId: typeof parsed.sessionId === "string" ? parsed.sessionId : sessionId(),
       goal: typeof parsed.goal === "string" && parsed.goal.trim() ? parsed.goal : DEFAULT_AGENT_GOAL,
       policy: {...DEFAULT_AGENT_POLICY, ...(parsed.policy ?? {})},
-      memory: parsed.memory.map(item => ({...item, kind: item.kind ?? "observation"})).slice(-MAX_MEMORY),
+      memory: parsed.memory.map(item => ({...item, kind: item.kind ?? "observation", signalSignature: item.signalSignature ?? null, observedVolume: Number(item.observedVolume ?? 0), transferCount: Number(item.transferCount ?? 0), counterpartyCount: Number(item.counterpartyCount ?? 0)})).slice(-MAX_MEMORY),
       runs: Array.isArray(parsed.runs) ? parsed.runs.slice(-20) : [],
       ledger: Array.isArray(parsed.ledger) ? parsed.ledger.slice(-30) : [],
       baseline: parsed.baseline && Array.isArray(parsed.baseline.buckets) ? {buckets:parsed.baseline.buckets.slice(-144),updatedAt:typeof parsed.baseline.updatedAt==="number"?parsed.baseline.updatedAt:Date.now()} : {buckets:[],updatedAt:Date.now()},
@@ -50,7 +50,7 @@ export function clearAgentMemory(state: AgentState, now = Date.now()): AgentStat
 }
 
 export function recordRun(state: AgentState, run: import("./types").AgentRun, ledger: import("./types").AgentLedgerEntry): AgentState {
-  return {...state, runs:[...state.runs,run].slice(-20), ledger:[...state.ledger,ledger].slice(-30), lastProactiveRunAt:run.trigger==="proactive"?run.createdAt:state.lastProactiveRunAt, lastProactiveSignature:run.trigger==="proactive"?run.triggerReason:state.lastProactiveSignature, lastUpdatedAt:run.updatedAt};
+  return {...state, runs:[...state.runs,run].slice(-20), ledger:[...state.ledger,ledger].slice(-30), lastProactiveRunAt:run.trigger==="proactive"?run.createdAt:state.lastProactiveRunAt, lastProactiveSignature:run.trigger==="proactive"?(run.triggerSignature ?? state.lastProactiveSignature):state.lastProactiveSignature, lastUpdatedAt:run.updatedAt};
 }
 
 
@@ -66,4 +66,12 @@ export function baselineSummary(state:AgentState,reference:number){
   const day=state.baseline.buckets.filter(item=>item.endedAt>reference-24*60*60_000);
   const average=(items:typeof day,key:"transferCount"|"totalVolume"|"sub1kCount"|"largeCount")=>items.length?items.reduce((sum,item)=>sum+item[key],0)/items.length:0;
   return {hourBuckets:recent.length,dayBuckets:day.length,hourAverageVolume:average(recent,"totalVolume"),dayAverageVolume:average(day,"totalVolume"),hourAverageTransfers:average(recent,"transferCount"),dayAverageTransfers:average(day,"transferCount")};
+}
+
+
+export function compareMemory(state:AgentState,args:{signalSignature:string|null;subject:string|null;observedVolume:number;transferCount:number;counterpartyCount:number}){
+  const matches=state.memory.filter(item => (args.signalSignature && item.signalSignature===args.signalSignature) || (args.subject && item.subject?.toLowerCase()===args.subject.toLowerCase()));
+  const previous=matches.at(-1) ?? null;
+  const pct=(current:number,prior:number)=>prior>0?((current-prior)/prior)*100:null;
+  return {seenBefore:matches.length>0,priorObservations:matches.length,previous,volumeChangePercent:previous?pct(args.observedVolume,previous.observedVolume):null,transferChangePercent:previous?pct(args.transferCount,previous.transferCount):null,counterpartyChange:previous?args.counterpartyCount-previous.counterpartyCount:null};
 }
