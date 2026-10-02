@@ -30,6 +30,9 @@ export type AgentMemoryEntry = {
   observationReference: number;
 };
 
+export type BaselineBucket = {startedAt:number; endedAt:number; transferCount:number; totalVolume:number; sub1kCount:number; largeCount:number; uniqueAddresses:number};
+export type AgentBaseline = {buckets:BaselineBucket[]; updatedAt:number};
+
 export type AgentState = {
   version: 1;
   sessionId: string;
@@ -38,6 +41,7 @@ export type AgentState = {
   memory: AgentMemoryEntry[];
   runs: AgentRun[];
   ledger: AgentLedgerEntry[];
+  baseline: AgentBaseline;
   lastProactiveRunAt: number | null;
   lastProactiveSignature: string | null;
   lastUpdatedAt: number;
