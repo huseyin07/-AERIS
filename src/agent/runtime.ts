@@ -20,11 +20,11 @@ export function evidenceStrength(answer: AerisAnswer): EvidenceStrength {
 }
 
 export function proofRefs(answer:AerisAnswer,snapshot:IntelligenceSnapshot):ProofRef[]{
-  const refs:ProofRef[]=[{kind:"observation",label:"Arc observation",value:String(snapshot.generatedAt)}];
+  const refs:ProofRef[]=[{kind:"observation",label:"Observation reference",value:new Date(snapshot.generatedAt).toISOString()}];
   for(const item of answer.evidence){
-    if(item.txHash) refs.push({kind:"transaction",label:"Transaction",value:item.txHash});
-    if(item.blockNumber) refs.push({kind:"block",label:"Block",value:item.blockNumber});
-    if(item.address) refs.push({kind:"address",label:"Address",value:item.address});
+    if(item.txHash) refs.push({kind:"transaction",label:"Verified transaction",value:item.txHash});
+    if(item.blockNumber) refs.push({kind:"block",label:"Verified block",value:item.blockNumber});
+    if(item.address) refs.push({kind:"address",label:"Observed address",value:item.address});
   }
   return refs.filter((item,index,all)=>all.findIndex(other=>other.kind===item.kind&&other.value===item.value)===index).slice(0,8);
 }
