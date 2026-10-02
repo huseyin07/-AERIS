@@ -60,10 +60,10 @@ function lifecycleTasks(action:ProposedAction,now:number):AgentTask[]{
   });
 }
 
-export function createRun(args:{goal:string;trigger:"user"|"proactive";triggerReason:string;answer:AerisAnswer;action:ProposedAction;snapshot:IntelligenceSnapshot;now?:number}):AgentRun{
+export function createRun(args:{goal:string;trigger:"user"|"proactive";triggerReason:string;triggerSignature?:string|null;answer:AerisAnswer;action:ProposedAction;snapshot:IntelligenceSnapshot;now?:number}):AgentRun{
   const now=args.now??Date.now(); const strength=evidenceStrength(args.answer);
   const status=args.action.status==="failed"?"failed":args.action.status==="blocked"?"blocked":"completed";
-  return {id:`run-${now.toString(36)}`,createdAt:now,updatedAt:now,goal:args.goal,trigger:args.trigger,triggerReason:args.triggerReason,status,tasks:lifecycleTasks(args.action,now),action:args.action,evidence:strength,proofs:proofRefs(args.answer,args.snapshot),summary:args.answer.summary,observationReference:args.snapshot.generatedAt};
+  return {id:`run-${now.toString(36)}`,createdAt:now,updatedAt:now,goal:args.goal,trigger:args.trigger,triggerReason:args.triggerReason,triggerSignature:args.triggerSignature??null,status,tasks:lifecycleTasks(args.action,now),action:args.action,evidence:strength,proofs:proofRefs(args.answer,args.snapshot),summary:args.answer.summary,observationReference:args.snapshot.generatedAt};
 }
 
 export function recoveryGate(connection:Connection,partial:boolean,action:ProposedAction){
