@@ -122,7 +122,7 @@ export function Dashboard() {
     ? transfers.filter(transfer => transfer.from === selected || transfer.to === selected)
     : [];
   const entity = selected ? getEntityIntelligence(snapshot, selected) : null;
-  const emptyMessage = status === "unavailable" ? "Live data temporarily unavailable" : status === "connecting" ? "Waiting for verified Arc Mainnet activity" : `No transfers ≥1,000 USDC in the last ${rangeMinutes} minutes of verified activity`;
+  const emptyMessage = status === "unavailable" ? "Live data temporarily unavailable" : status === "connecting" ? "Waiting for verified Arc Mainnet activity" : `No visualized flows ≥1,000 USDC in the last ${rangeMinutes} minutes · Sentinel still observes the full verified USDC window`;
   const signal = snapshot.signals[signalIndex % Math.max(1, snapshot.signals.length)];
   const inspectedSignal = snapshot.signals.find(item => item.id === inspectedSignalId);
   const statusLabel = healthLabel(status, health, clock);
@@ -165,10 +165,10 @@ export function Dashboard() {
 
     <section className="competitionHero" aria-label="AERIS autonomous intelligence">
       <div className="competitionHeroCopy"><small>AUTONOMOUS USDC INTELLIGENCE · ARC MAINNET</small><h1>Watch money move.<br/><span>Understand what happens next.</span></h1><p>AERIS observes verified USDC activity, investigates material signals, applies deterministic policy, and produces verifiable evidence.</p></div>
-      <div className="competitionHeroProof"><span><i className={status === "live" ? "live" : ""}/>REAL DATA</span><span>STATEFUL AGENT</span><span>POLICY-GATED</span><span>VERIFIABLE PROOF</span></div>
+      <div className="competitionHeroProof"><span><i className={status === "live" ? "live" : ""}/>REAL DATA</span><span>FULL OBSERVATION</span><span>POLICY-GATED</span><span>VERIFIABLE PROOF</span></div>
     </section>
     <section className="agentLifecycleRail" aria-label="AERIS agent lifecycle">
-      <div className="lifecycleLead"><small>AERIS AGENT</small><strong>{status === "live" ? "ACTIVE · OBSERVING" : status.toUpperCase()}</strong></div>
+      <div className="lifecycleLead"><small>AERIS SENTINEL</small><strong>{status === "live" ? "ACTIVE · FULL OBSERVATION" : status.toUpperCase()}</strong></div>
       {["OBSERVE","REASON","PLAN","POLICY","ACT","VERIFY","MEMORY"].map((phase,index)=><div className={"lifecycleStage "+(index < 4 ? "ready" : "gated")} key={phase}><span>{String(index+1).padStart(2,"0")}</span><strong>{phase}</strong><small>{index < 4 ? "ONLINE" : index === 4 ? "EXECUTION GATED" : "RUN-DEPENDENT"}</small></div>)}
     </section>
 
