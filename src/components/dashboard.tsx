@@ -163,6 +163,15 @@ export function Dashboard() {
       <button className={`status ${statusLabel.toLowerCase()}`} type="button" title={healthDetails || "Awaiting the first verified Arc Mainnet response"} aria-expanded={healthOpen} aria-controls="data-health" onClick={() => setHealthOpen(value => !value)}><i/><span>ARC MAINNET<span className="statusDetail"> · {statusLabel}</span></span><span aria-hidden="true">⌄</span></button>
     </header>
 
+    <section className="competitionHero" aria-label="AERIS autonomous intelligence">
+      <div className="competitionHeroCopy"><small>AUTONOMOUS USDC INTELLIGENCE · ARC MAINNET</small><h1>Watch money move.<br/><span>Understand what happens next.</span></h1><p>AERIS observes verified USDC activity, investigates material signals, applies deterministic policy, and produces verifiable evidence.</p></div>
+      <div className="competitionHeroProof"><span><i className={status === "live" ? "live" : ""}/>REAL DATA</span><span>STATEFUL AGENT</span><span>POLICY-GATED</span><span>VERIFIABLE PROOF</span></div>
+    </section>
+    <section className="agentLifecycleRail" aria-label="AERIS agent lifecycle">
+      <div className="lifecycleLead"><small>AERIS AGENT</small><strong>{status === "live" ? "ACTIVE · OBSERVING" : status.toUpperCase()}</strong></div>
+      {["OBSERVE","REASON","PLAN","POLICY","ACT","VERIFY","MEMORY"].map((phase,index)=><div className={"lifecycleStage "+(index < 4 ? "ready" : "gated")} key={phase}><span>{String(index+1).padStart(2,"0")}</span><strong>{phase}</strong><small>{index < 4 ? "READY" : index === 4 ? "CIRCLE PENDING" : "PROOF-GATED"}</small></div>)}
+    </section>
+
     {healthOpen && <section className="healthPanel" id="data-health" aria-label="Arc Mainnet data health">
       <div className="healthPanelHead"><div><small>DATA HEALTH · {statusLabel}</small><h2>Verified observation coverage</h2></div><button type="button" onClick={() => setHealthOpen(false)} aria-label="Close data health">×</button></div>
       <p>USDC transfers cover the chain-relative window when the scan completes. Contract calls and deployments sample up to 32 eligible transactions from the latest six blocks; their counts are not full-window totals. Known contracts reflect classified transfer endpoints only.</p>
@@ -170,7 +179,7 @@ export function Dashboard() {
       {health.rpcWarnings.length > 0 && <p className="healthWarnings">{health.rpcWarnings.join(" · ")}</p>}
     </section>}
 
-    <section className="observatory">
+    <section className="observatory competitionObservatory">
       <div className="scene" aria-label="Live Arc Mainnet entity network">
         {show2D ? <NetworkFallback transfers={transfers} endpointTypes={endpointTypes} selectedAddress={selected} selectedTransferId={activeTransferId} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId} reason={sceneFailed ? "unavailable" : "lightweight"}/> : <VisualizationBoundary onFailure={() => setSceneFailed(true)} fallback={<NetworkFallback transfers={transfers} endpointTypes={endpointTypes} selectedAddress={selected} selectedTransferId={activeTransferId} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId}/> }>
           <NetworkScene transfers={transfers} endpointTypes={endpointTypes} annotations={annotations} selectedAddress={selected} selectedTransferId={activeTransferId} resetViewToken={resetViewToken} intent={intent} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId}/>
@@ -179,7 +188,7 @@ export function Dashboard() {
         {!show2D && <button className="resetView" type="button" onClick={() => setResetViewToken(token => token + 1)} aria-label="Reset globe camera view" title="Reset globe camera view">RESET VIEW <span aria-hidden="true">↺</span></button>}
       </div>
 
-      <section className="metrics" aria-label="Live metrics">
+      <section className="metrics" aria-label="Live metrics"><div className="panelKicker">LIVE NETWORK · 10M</div>
         <p className="eyebrow">VERIFIED {rangeMinutes}M ACTIVITY · ≥1,000 USDC</p>
         <div className="assetHeading"><UsdcIcon/><span>ARC MAINNET USDC</span></div>
         <Metric icon primary label="USDC FLOW" value={`$${money(String(volume))}`}/>
@@ -189,7 +198,7 @@ export function Dashboard() {
         <Metric icon label="LARGEST TRANSFER" value={largest ? `${money(largest.value)} USDC` : "—"}/>
       </section>
 
-      <section className="entityPanel" ref={entityPanelRef}>
+      <section className="entityPanel commandCenterShell" ref={entityPanelRef}><div className="panelKicker">COMMAND CENTER · EVIDENCE FIRST</div>
         {selected ? <>
           <button className="close" onClick={() => select(null)} aria-label="Close selected entity">×</button>
           <small>ADDRESS · {entity?.type.toUpperCase() ?? "UNKNOWN"}</small>
