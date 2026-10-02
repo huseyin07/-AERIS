@@ -23,3 +23,5 @@ test("spend proposal never pretends execution happened", () => {
   assert.equal(action.status, "approval-required");
   assert.equal(action.verification.verified, false);
 });
+
+test("full observed transfer set verifies evidence outside ranked top flows",()=>{const action=proposeObservationAction({relatedTransferIds:["below-visual-threshold"],relatedAddresses:[]},snapshot,DEFAULT_AGENT_POLICY,0,new Set(["below-visual-threshold"]));assert.equal(action.status,"verified");assert.equal(action.verification.verified,true);});
