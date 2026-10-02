@@ -21,12 +21,12 @@ export type ProposedAction = {
 
 const safeDecision: PolicyDecision = {allowed: true, requiresApproval: false, reason: "Read-only inspection is allowed."};
 
-export function proposeObservationAction(answer: AerisAnswer, snapshot: IntelligenceSnapshot, policy: AgentPolicy, spentTodayUsdc = 0): ProposedAction {
+export function proposeObservationAction(answer: AerisAnswer, snapshot: IntelligenceSnapshot, _policy: AgentPolicy, _spentTodayUsdc = 0, observedTransferIds?: ReadonlySet<string>): ProposedAction {
   const now = snapshot.generatedAt;
   const transferId = answer.relatedTransferIds[0];
   const address = answer.relatedAddresses[0];
   if (transferId) {
-    const exists = snapshot.topFlows.some(item => item.id === transferId);
+    const exists = observedTransferIds ? observedTransferIds.has(transferId) : snapshot.topFlows.some(item => item.id === transferId);
     return {id: `inspect-transfer-${now}`, kind: "inspect-transfer", label: "Inspect verified transfer", status: exists ? "verified" : "failed", transferId, policy: safeDecision, phases: ["observe","analyze","plan","policy-check","verify","memory"], verification: {verified: exists, message: exists ? "Transfer exists in the current verified snapshot." : "Transfer is no longer present in the current snapshot."}};
   }
   if (address) {
