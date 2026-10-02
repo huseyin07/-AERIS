@@ -7,13 +7,15 @@ export const ADDRESS_QUERY = /^0x[\da-f]{40}$/i;
 export const TRANSACTION_QUERY = /^0x[\da-f]{64}$/i;
 export {MIN_VISIBLE_USDC};
 
-export function visibleUsdcAmount(value: string) {
+export type FlowThreshold = 0 | 1_000 | 10_000 | 100_000;
+
+export function visibleUsdcAmount(value: string, minimum: FlowThreshold = MIN_VISIBLE_USDC) {
   const amount = Number(value);
-  return Number.isFinite(amount) && amount >= MIN_VISIBLE_USDC;
+  return Number.isFinite(amount) && amount >= minimum;
 }
 
-export function visibleTransfers(transfers: readonly Transfer[]) {
-  return transfers.filter(item => visibleUsdcAmount(item.value));
+export function visibleTransfers(transfers: readonly Transfer[], minimum: FlowThreshold = MIN_VISIBLE_USDC) {
+  return transfers.filter(item => visibleUsdcAmount(item.value, minimum));
 }
 
 /** Apply optional verified endpoint classifications to every dashboard view. */
@@ -25,8 +27,8 @@ export function resolveTransferEndpointTypes(transfers: readonly Transfer[], end
   });
 }
 
-export function visibleEvents(events: readonly ArcActivityEvent[]) {
-  return events.filter(item => item.type !== "USDC_TRANSFER" || visibleUsdcAmount(item.amountUSDC));
+export function visibleEvents(events: readonly ArcActivityEvent[], minimum: FlowThreshold = MIN_VISIBLE_USDC) {
+  return events.filter(item => item.type !== "USDC_TRANSFER" || visibleUsdcAmount(item.amountUSDC, minimum));
 }
 
 /** A narrower view of the verified, chain-relative ten-minute observation. */
