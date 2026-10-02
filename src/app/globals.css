@@ -427,3 +427,15 @@ nav{font-size:12px;gap:34px}nav b:after{height:2px;background:#8bddff;box-shadow
 @media(max-width:1100px){.agentLifecycleRail{grid-template-columns:1.2fr repeat(4,1fr)}.lifecycleStage:nth-child(n+6){display:none}}
 @media(max-width:760px){.competitionHero{grid-template-columns:1fr;padding:24px 0 18px;gap:18px}.competitionHeroCopy h1{font-size:clamp(34px,11vw,52px)}.competitionHeroProof{grid-template-columns:1fr 1fr}.agentLifecycleRail{grid-template-columns:1fr 1fr 1fr}.lifecycleLead{grid-column:1/-1}.lifecycleStage:nth-child(n+5){display:none}}
 @media(max-width:480px){.competitionHeroProof{grid-template-columns:1fr}.competitionHeroProof span:nth-child(n+3){display:none}.agentLifecycleRail{grid-template-columns:1fr 1fr}.lifecycleLead{grid-column:1/-1}.lifecycleStage:nth-child(n+4){display:none}}
+
+
+/* Competition final polish */
+.competitionHero{position:relative;isolation:isolate}.competitionHero:before{content:"";position:absolute;z-index:-1;inset:0 38% 0 -5%;background:radial-gradient(ellipse at 38% 45%,rgba(70,184,229,.075),transparent 68%);pointer-events:none}
+.competitionHeroCopy h1{max-width:900px;text-wrap:balance}.competitionHeroCopy p{max-width:760px}.competitionHeroProof span{transition:border-color .2s ease,background .2s ease,transform .2s ease}.competitionHeroProof span:hover{border-color:#82d7fa48;background:#0a2231c9;transform:translateY(-1px)}
+.agentLifecycleRail{box-shadow:inset 0 1px 0 rgba(167,225,249,.035),0 12px 40px rgba(0,0,0,.12)}.lifecycleStage.ready strong{color:#e7f8ff}.lifecycleStage.gated{background:rgba(10,20,27,.22)}
+.commandCenterShell{position:relative}.commandCenterShell:before{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;box-shadow:inset 0 1px 0 rgba(141,220,250,.035)}
+.agentStateStrip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.agentStateStrip span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.agentDecision{border-radius:6px}.agentDecision>label,.agentEvidence>label{letter-spacing:.12em}.agentTrace{display:block;margin-top:5px;line-height:1.45}.agentLifecycle{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:10px}.agentLifecycle span{display:block;min-width:0;padding:6px 7px;border:1px solid #82cce81c;border-radius:4px;background:#071b26a8;font-size:7px;line-height:1.3;letter-spacing:.07em;color:#8eabb9}.agentLifecycle span[data-status="completed"]{border-color:#6ed4b22c;color:#a7ddcb}.agentLifecycle span[data-status="blocked"]{border-color:#d48b6a38;color:#e1a387}.agentLifecycle span[data-status="pending"]{border-color:#d6a15f2e;color:#cdb086}
+.agentEvidenceRow{gap:8px}.agentEvidenceRow span{min-width:0;overflow-wrap:anywhere}
+@media(max-width:760px){.competitionHeroCopy p{font-size:12px}.agentLifecycleRail{margin-top:10px}.commandCenterShell>.panelKicker{font-size:8px}.agentStateStrip{grid-template-columns:1fr 1fr}.agentLifecycle{grid-template-columns:1fr}.agentDecision{padding:10px}.agentTrace{font-size:7px}}
+@media(prefers-reduced-motion:reduce){.competitionHeroProof span{transition:none}.competitionHeroProof span:hover{transform:none}}
