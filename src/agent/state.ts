@@ -8,7 +8,7 @@ function sessionId() {
 }
 
 export function createAgentState(now = Date.now()): AgentState {
-  return {version: 1, sessionId: sessionId(), goal: DEFAULT_AGENT_GOAL, policy: {...DEFAULT_AGENT_POLICY}, memory: [], runs: [], ledger: [], lastProactiveRunAt: null, lastUpdatedAt: now};
+  return {version: 1, sessionId: sessionId(), goal: DEFAULT_AGENT_GOAL, policy: {...DEFAULT_AGENT_POLICY}, memory: [], runs: [], ledger: [], lastProactiveRunAt: null, lastProactiveSignature: null, lastUpdatedAt: now};
 }
 
 export function loadAgentState(): AgentState {
@@ -27,6 +27,7 @@ export function loadAgentState(): AgentState {
       runs: Array.isArray(parsed.runs) ? parsed.runs.slice(-20) : [],
       ledger: Array.isArray(parsed.ledger) ? parsed.ledger.slice(-30) : [],
       lastProactiveRunAt: typeof parsed.lastProactiveRunAt === "number" ? parsed.lastProactiveRunAt : null,
+      lastProactiveSignature: typeof parsed.lastProactiveSignature === "string" ? parsed.lastProactiveSignature : null,
       lastUpdatedAt: typeof parsed.lastUpdatedAt === "number" ? parsed.lastUpdatedAt : Date.now(),
     };
   } catch {
@@ -48,5 +49,5 @@ export function clearAgentMemory(state: AgentState, now = Date.now()): AgentStat
 }
 
 export function recordRun(state: AgentState, run: import("./types").AgentRun, ledger: import("./types").AgentLedgerEntry): AgentState {
-  return {...state, runs:[...state.runs,run].slice(-20), ledger:[...state.ledger,ledger].slice(-30), lastProactiveRunAt:run.trigger==="proactive"?run.createdAt:state.lastProactiveRunAt, lastUpdatedAt:run.updatedAt};
+  return {...state, runs:[...state.runs,run].slice(-20), ledger:[...state.ledger,ledger].slice(-30), lastProactiveRunAt:run.trigger==="proactive"?run.createdAt:state.lastProactiveRunAt, lastProactiveSignature:run.trigger==="proactive"?run.triggerReason:state.lastProactiveSignature, lastUpdatedAt:run.updatedAt};
 }
