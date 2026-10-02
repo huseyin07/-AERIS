@@ -411,3 +411,19 @@ nav{font-size:12px;gap:34px}nav b:after{height:2px;background:#8bddff;box-shadow
 .headerSocial:hover,.headerSocial:focus-visible{color:#eaf6ff;background:#ffffff12;outline-offset:2px}
 .headerSocial span{font-size:12px}
 @media(max-width:760px){.headerSocial{padding:8px 3px;font-size:12px}.headerSocial span{display:none}}
+
+
+/* Tameion competition narrative: agent-first, evidence-first. */
+.competitionHero{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,.8fr);gap:34px;align-items:end;padding:32px 4px 22px;border-bottom:1px solid #83cff31d}
+.competitionHeroCopy small,.panelKicker{font-size:9px;font-weight:700;letter-spacing:.16em;color:#7fcff3}
+.competitionHeroCopy h1{max-width:820px;margin:9px 0 10px;font-size:clamp(32px,4.2vw,64px);font-weight:620;letter-spacing:-.055em;line-height:.98;color:#eefaff}
+.competitionHeroCopy h1 span{color:#8fb4c7;font-weight:470}.competitionHeroCopy p{max-width:720px;margin:0;color:#9fb9c8;font-size:13px;line-height:1.65}
+.competitionHeroProof{display:grid;grid-template-columns:1fr 1fr;gap:7px}.competitionHeroProof span{display:flex;align-items:center;gap:7px;min-height:38px;padding:9px 11px;border:1px solid #84ccef22;border-radius:6px;background:#071a27a8;color:#a9c8d8;font-size:9px;font-weight:700;letter-spacing:.08em}.competitionHeroProof i{width:6px;height:6px;border-radius:50%;background:#67818e}.competitionHeroProof i.live{background:#6de0ad;box-shadow:0 0 10px #6de0ad99}
+.agentLifecycleRail{display:grid;grid-template-columns:1.35fr repeat(7,1fr);margin:16px 0 0;border:1px solid #83cef129;border-radius:10px;overflow:hidden;background:linear-gradient(100deg,#071c2aeb,#04121de8)}
+.lifecycleLead,.lifecycleStage{min-width:0;padding:13px 12px;border-right:1px solid #86cbed18}.lifecycleLead{display:flex;flex-direction:column;justify-content:center;background:#0a2635aa}.lifecycleLead small{color:#7fcff3;font-size:9px;letter-spacing:.15em}.lifecycleLead strong{margin-top:5px;color:#e9f9ff;font-size:11px;letter-spacing:.05em}
+.lifecycleStage{position:relative;display:grid;gap:3px}.lifecycleStage span{color:#587b8e;font-size:8px}.lifecycleStage strong{color:#d9edf7;font-size:10px;letter-spacing:.08em}.lifecycleStage small{font-size:7px;letter-spacing:.08em;color:#6f93a6}.lifecycleStage.ready:after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:#62c8f0;opacity:.7}.lifecycleStage.gated strong{color:#8da5b1}.lifecycleStage.gated:nth-last-child(n+3):after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:#d6a15f;opacity:.42}
+.competitionObservatory{margin-top:14px}.panelKicker{grid-column:1/-1;margin:0 0 8px;color:#71bddd}.commandCenterShell>.panelKicker{display:block;padding-bottom:10px;margin-bottom:8px;border-bottom:1px solid #83c9ec1a}
+.commandCenterShell .agentModule{border-top:1px solid #83d4f026}.commandCenterShell .agentName{color:#f0fbff}.commandCenterShell .agentIdentity small{color:#79b9d5}.commandCenterShell .agentDecision{border-left:2px solid #68c9f0;background:#0b27355e}.commandCenterShell .agentEvidence{border-color:#7dd5ff2e}
+@media(max-width:1100px){.agentLifecycleRail{grid-template-columns:1.2fr repeat(4,1fr)}.lifecycleStage:nth-child(n+6){display:none}}
+@media(max-width:760px){.competitionHero{grid-template-columns:1fr;padding:24px 0 18px;gap:18px}.competitionHeroCopy h1{font-size:clamp(34px,11vw,52px)}.competitionHeroProof{grid-template-columns:1fr 1fr}.agentLifecycleRail{grid-template-columns:1fr 1fr 1fr}.lifecycleLead{grid-column:1/-1}.lifecycleStage:nth-child(n+5){display:none}}
+@media(max-width:480px){.competitionHeroProof{grid-template-columns:1fr}.competitionHeroProof span:nth-child(n+3){display:none}.agentLifecycleRail{grid-template-columns:1fr 1fr}.lifecycleLead{grid-column:1/-1}.lifecycleStage:nth-child(n+4){display:none}}
