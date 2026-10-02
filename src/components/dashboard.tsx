@@ -169,7 +169,7 @@ export function Dashboard() {
     </section>
     <section className="agentLifecycleRail" aria-label="AERIS agent lifecycle">
       <div className="lifecycleLead"><small>AERIS AGENT</small><strong>{status === "live" ? "ACTIVE · OBSERVING" : status.toUpperCase()}</strong></div>
-      {["OBSERVE","REASON","PLAN","POLICY","ACT","VERIFY","MEMORY"].map((phase,index)=><div className={"lifecycleStage "+(index < 4 ? "ready" : "gated")} key={phase}><span>{String(index+1).padStart(2,"0")}</span><strong>{phase}</strong><small>{index < 4 ? "READY" : index === 4 ? "CIRCLE PENDING" : "PROOF-GATED"}</small></div>)}
+      {["OBSERVE","REASON","PLAN","POLICY","ACT","VERIFY","MEMORY"].map((phase,index)=><div className={"lifecycleStage "+(index < 4 ? "ready" : "gated")} key={phase}><span>{String(index+1).padStart(2,"0")}</span><strong>{phase}</strong><small>{index < 4 ? "ONLINE" : index === 4 ? "EXECUTION GATED" : "RUN-DEPENDENT"}</small></div>)}
     </section>
 
     {healthOpen && <section className="healthPanel" id="data-health" aria-label="Arc Mainnet data health">
