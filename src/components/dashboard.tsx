@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
+import Link from "next/link";
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {LiveActivity} from "./live-activity";
 import {useEndpointTypes} from "./use-endpoint-types";
@@ -277,7 +278,7 @@ export function Dashboard() {
       {!filtered.length && <p className="empty">{search.matchedEvent ? "Verified activity found; no matching USDC transfers." : search.kind === "address" || search.kind === "transaction" ? "No verified activity in the current observation window." : emptyMessage}</p>}
     </section>
 
-    <footer><b>AERIS</b><span>Observe the network. Never invent the data.</span></footer>
+    <footer><b>AERIS</b><Link href="/about">Product & evidence ↗</Link><span>Observe the network. Never invent the data.</span></footer>
   </main>;
 }
 

@@ -9,13 +9,13 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test:intelligence": "node --experimental-strip-types --test tests/intelligence.test.mjs",
-    "test:activity": "node --experimental-strip-types --test tests/activity-source.test.mjs",
-    "test:entity-types": "node --experimental-strip-types --test tests/entity-classifier.test.mjs",
-    "test:agent-policy": "node --experimental-strip-types --test tests/agent-policy.test.mjs",
-    "test:agent-decision": "node --experimental-strip-types --test tests/agent-decision.test.mjs",
-    "test:agent-runtime": "node --experimental-strip-types --test tests/agent-runtime.test.mjs",
-    "test:circle-execution": "node --experimental-strip-types --test tests/circle-execution.test.mjs"
+    "test:intelligence": "node --import tsx --test tests/intelligence.test.mjs",
+    "test:activity": "node --import tsx --test tests/activity-source.test.mjs",
+    "test:entity-types": "node --import tsx --test tests/entity-classifier.test.mjs",
+    "test:agent-policy": "node --import tsx --test tests/agent-policy.test.mjs",
+    "test:agent-decision": "node --import tsx --test tests/agent-decision.test.mjs",
+    "test:agent-runtime": "node --import tsx --test tests/agent-runtime.test.mjs",
+    "test:circle-execution": "node --import tsx --test tests/circle-execution.test.mjs tests/circle-wallet.test.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.114.3",
@@ -38,6 +38,7 @@
     "eslint-config-next": "14.2.13",
     "postcss": "^8.4.45",
     "tailwindcss": "^3.4.10",
+    "tsx": "^4.23.15",
     "typescript": "^5.5.4"
   }
 }

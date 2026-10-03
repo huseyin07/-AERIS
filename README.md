@@ -14,7 +14,13 @@ Pull requests and pushes to `main` run the test suite and production build in Gi
 
 The ingestion cursor processes at most eight new/reconciliation blocks per poll, uses six-way bounded transaction/address concurrency, prevents overlapping server and browser polls, and reconciles a two-block recent hash window. It uses `eth_chainId`, `eth_blockNumber`, `eth_getBlockByNumber`, `eth_getTransactionReceipt`, `eth_getLogs`, and `eth_getCode`; it does not depend on traces, debug methods, WebSockets, batch RPC, archive access, or an indexer.
 
-## Run
+## Product evidence and grants
+
+The `/about` page gives reviewers a product overview, demo steps, current scope and Circle Agent Wallet verification. `/api/agent-wallet` verifies Circle wallet identity and reads its native USDC balance from a current Arc Mainnet block. Missing credentials show setup pending; failed verification never publishes a balance. Wallet reads do not require an entity secret. Signing and economic execution remain unimplemented and disabled.
+
+See [grant preparation](docs/grants.md) for Arc Microgrants / Circle Developer Grants drafts, milestone evidence, operator setup and release gates. The application must distinguish shipped intelligence from planned approved financial actions.
+
+## Run locally
 
 ```bash
 npm install

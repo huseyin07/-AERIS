@@ -1,4 +1,6 @@
 "use client";
+
+import {AgentWallet} from "./agent-wallet";
 import Image from "next/image";
 import {useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent} from "react";
 import {answerDeterministically, withObservationStatus, type AerisAnswer} from "@/ai/deterministic";
@@ -146,6 +148,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
       {expanded && <button className="agentClose" onClick={onClose} aria-label="Close AERIS Agent">×</button>}
     </div>
     {expanded && <div className="agentReport">
+      <AgentWallet/>
       <small>{health.status === "partial" ? "◐ PARTIAL · VERIFIED DATA MAY BE INCOMPLETE" : connection === "live" ? "● LIVE · OBSERVING ARC" : connectionCopy[connection].toUpperCase()}</small>
       <div className="agentStateStrip"><span>GOAL · {agentState.goal}</span><span>RUNS · {agentState.runs.length}</span><span>MEMORY · {agentState.memory.length}</span><span>POLICY · {agentState.policy.emergencyStop ? "STOPPED" : agentState.policy.autoExecute ? "AUTONOMOUS" : "APPROVAL-GATED"}</span></div>
       <div className="agentDecision"><label>STATEFUL CONTEXT</label><p>LIVE 10M · {snapshot.transferCount} transfers · {money(String(snapshot.totalVolume))} USDC</p><small className="agentTrace">1H CONTEXT · {context.hourBuckets}/6 VERIFIED BUCKETS · AVG {money(String(context.hourAverageVolume))} USDC / 10M</small><small className="agentTrace">24H BASELINE · {context.dayBuckets}/144 VERIFIED BUCKETS · AVG {money(String(context.dayAverageVolume))} USDC / 10M{baselineRatio!==null?` · CURRENT ${baselineRatio.toFixed(2)}×`:""}</small><small className="agentTrace">MEMORY · {memoryComparison.seenBefore?`SEEN BEFORE · ${memoryComparison.priorObservations} PRIOR OBSERVATION${memoryComparison.priorObservations===1?"":"S"}`:"NEW TO AERIS MEMORY"}{memoryComparison.volumeChangePercent!==null?` · VOLUME ${memoryComparison.volumeChangePercent>=0?"+":""}${memoryComparison.volumeChangePercent.toFixed(1)}%`:""}</small></div>
