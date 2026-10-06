@@ -54,7 +54,17 @@ The first program rewards a working proof; the second supports a path to product
 4. Configure Circle credentials privately in the deployment settings. Check `/api/agent-wallet` against Circle and Arc; missing credentials must say setup pending.
 5. Record the exact live URL, reviewed commit and demo evidence in the application. Submit only after the builder reviews the final wording.
 
-## Wallet setup
+## Repeatable deployment verification
+
+Run `npm run verify:release -- https://aeris-two-eosin.vercel.app` against production, or supply the exact preview URL. The check verifies the dashboard, `/about`, current and covered Arc 5042 observations, and the wallet endpoint. A quiet but healthy window passes; stale or partial observations fail. Circle setup pending is explicitly reported without claiming live integration. Use `--require-circle` to require a verified Circle wallet and current balance evidence before presenting that integration.
+
+On 6 October 2026, Vercel reported production commit `e10d56d898d04ef37b5f655bcba676d872845622` and grant preview commit `b44d00aa6f09d97e50134e77cf888e41b71b03f2` as READY. The preview wallet endpoint returned `not-configured`. Production activity returned chain 5042 and actual transfer records, but `partial` with `headStale: true` and approximately 55 minutes of chain-head lag. This is not proof of a current live observation. Recheck before submission; do not label the release ready based on deployment state alone.
+
+A subsequent production check recovered to healthy, covered Arc observations at block `24563477`. Production still returned 404 for `/about` and `/api/agent-wallet` because PR #62 remains unmerged. The earlier stale observation was transient; record the latest check alongside submission evidence.
+
+The grant preview passed dashboard, product evidence and current Arc observation checks at block `24563539`; its Circle endpoint explicitly reported setup pending. This passes the default read-only check but cannot pass `--require-circle` until configured.
+
+## Wallet credentials
 
 For read-only observation, set `CIRCLE_API_KEY`, `CIRCLE_EVM_WALLET_ID` (UUID) and `CIRCLE_EVM_WALLET_ADDRESS` on the server. Use a live developer-controlled EOA with an Arc-compatible `EVM` or `ARC` network identifier. Testnet wallets, mismatched addresses, frozen wallets and SCAs fail closed. Circle wallet identity and Arc balance are verified separately; Circle is not used as an Arc balance indexer.
 

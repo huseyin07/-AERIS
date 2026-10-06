@@ -15,7 +15,8 @@
     "test:agent-policy": "node --import tsx --test tests/agent-policy.test.mjs",
     "test:agent-decision": "node --import tsx --test tests/agent-decision.test.mjs",
     "test:agent-runtime": "node --import tsx --test tests/agent-runtime.test.mjs",
-    "test:circle-execution": "node --import tsx --test tests/circle-execution.test.mjs tests/circle-wallet.test.mjs"
+    "test:circle-execution": "node --import tsx --test tests/circle-execution.test.mjs tests/circle-wallet.test.mjs",
+    "verify:release": "node scripts/verify-release.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.114.3",
