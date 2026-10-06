@@ -163,13 +163,8 @@ export function Dashboard() {
       <button className={`status ${statusLabel.toLowerCase()}`} type="button" title={healthDetails || "Awaiting the first verified Arc Mainnet response"} aria-expanded={healthOpen} aria-controls="data-health" onClick={() => setHealthOpen(value => !value)}><i/><span>ARC MAINNET<span className="statusDetail"> · {statusLabel}</span></span><span aria-hidden="true">⌄</span></button>
     </header>
 
-    <section className="competitionHero" aria-label="AERIS autonomous intelligence">
-      <div className="competitionHeroCopy"><small>AUTONOMOUS USDC INTELLIGENCE · ARC MAINNET</small><h1>Watch money move.<br/><span>Understand what happens next.</span></h1><p>AERIS observes verified USDC activity, investigates material signals, applies deterministic policy, and produces verifiable evidence.</p></div>
-      <div className="competitionHeroProof"><span><i className={status === "live" ? "live" : ""}/>REAL DATA</span><span>FULL OBSERVATION</span><span>POLICY-GATED</span><span>VERIFIABLE PROOF</span></div>
-    </section>
-    <section className="agentLifecycleRail" aria-label="AERIS agent lifecycle">
-      <div className="lifecycleLead"><small>AERIS SENTINEL</small><strong>{status === "live" ? "ACTIVE · FULL OBSERVATION" : status.toUpperCase()}</strong></div>
-      {["OBSERVE","REASON","PLAN","POLICY","ACT","VERIFY","MEMORY"].map((phase,index)=><div className={"lifecycleStage "+(index < 4 ? "ready" : "gated")} key={phase}><span>{String(index+1).padStart(2,"0")}</span><strong>{phase}</strong><small>{index < 4 ? "ONLINE" : index === 4 ? "EXECUTION GATED" : "RUN-DEPENDENT"}</small></div>)}
+    <section className="dashboardIntro" aria-label="AERIS live intelligence">
+      <h1>Watch money move.</h1>
     </section>
 
     {healthOpen && <section className="healthPanel" id="data-health" aria-label="Arc Mainnet data health">
