@@ -18,7 +18,7 @@ import {ledgerEntry} from "@/agent/ledger";
 type AgentRequest = {id: number; query: string} | null;
 type Exchange = {query: string; answer: AerisAnswer};
 type Props = {snapshot: IntelligenceSnapshot; transfers: Transfer[]; selected: string | null; connection: Connection; expanded: boolean; visualizationAvailable: boolean; request: AgentRequest; onExpand: () => void; onClose: () => void; onSelectAddress: (address: string) => void; onSelectTransfer: (id: string) => void};
-const suggestions = ["Map this network", "Find unusual flows", "Is activity accelerating?", "Concentration"];
+const suggestions = ["What is USDC?", "Map this network", "Find unusual flows", "Is activity accelerating?", "Concentration"];
 const connectionCopy: Record<Connection, string> = {
   live: "Observing verified Arc activity.", stale: "Using the last verified observation window.", connecting: "Connecting to Arc Mainnet...", unavailable: "Verified Arc activity unavailable.",
 };
@@ -68,10 +68,10 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
     processing.current = true;
     onExpand(); setPendingQuery(next); setQuery(""); setAnalyzing(true); setAnswer(null);
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
+    timer.current = setTimeout(async () => {
       try {
         const delta = diffSnapshots(previousSnapshot.current, snapshot, previousTransfers.current, transfers);
-        const result = connection === "connecting" && !transfers.length
+        let result: AerisAnswer = connection === "connecting" && !transfers.length
           ? {message: "Connecting to Arc Mainnet...", summary: "Connecting to Arc Mainnet...", evidence: [], relatedAddresses: [], relatedTransferIds: [], intent: {type: "reset"} as const, scope: "current-window" as const, trace: makeAgentTrace([], 0, 0)}
           : connection === "unavailable" && !transfers.length
             ? {message: "Verified Arc activity is currently unavailable.", summary: "Verified Arc activity is currently unavailable.", evidence: [], relatedAddresses: [], relatedTransferIds: [], intent: {type: "reset"} as const, scope: "current-window" as const, trace: makeAgentTrace([], 0, 0)}
@@ -81,6 +81,21 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
                 transferId: history.at(-1)?.answer.relatedTransferIds[0] ?? null,
                 delta,
               }), connection);
+        const unsupported = result.summary === "I can currently analyze verified activity in the live AERIS observation window.";
+        if (unsupported || !transfers.length) {
+          const observation = (connection === "live" || connection === "stale") && transfers.length
+            ? `Arc Mainnet chain 5042, last 10-minute observation: ${snapshot.transferCount} verified USDC transfers, ${snapshot.totalVolume} USDC, ${snapshot.uniqueAddresses} addresses. Deterministic analysis: ${result.summary}`
+            : "Verified Arc activity is unavailable or connecting; do not infer live network facts.";
+          try {
+            const response = await fetch("/api/agent", {method: "POST", headers: {"Content-Type": "application/json"},
+              body: JSON.stringify({query: next, observation, history: history.slice(-6).map(item => ({query: item.query, answer: item.answer.message}))})});
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || "AI service unavailable.");
+            result = {...result, message: payload.answer, summary: payload.answer, evidence: [], relatedAddresses: [], relatedTransferIds: [], intent: {type: "reset"}, trace: makeAgentTrace([], 0, 0)};
+          } catch (error) {
+            result = {...result, message: error instanceof Error ? error.message : "AI service unavailable.", summary: error instanceof Error ? error.message : "AI service unavailable.", evidence: [], relatedAddresses: [], relatedTransferIds: [], intent: {type: "reset"}, trace: makeAgentTrace([], 0, 0)};
+          }
+        }
         setAnswer(result); setHistory(current => [...current, {query: next, answer: result}].slice(-8)); setIntent(result.intent);
         const action = proposeObservationAction(result, snapshot, agentState.policy, 0, new Set(transfers.map(item => item.id)));
         setLastAction(action);
@@ -166,7 +181,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
         }}>INSPECT VERIFIED RESULT</button>}
       </div>
     </div>}
-    <form className="agentInput" onSubmit={submit}><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Ask about current Arc activity..." aria-label="Ask AERIS Agent about current Arc activity" disabled={analyzing}/><button type="submit" aria-label="Submit question" disabled={!query.trim() || analyzing}>→</button></form>
+    <form className="agentInput" onSubmit={submit}><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Ask AERIS anything..." aria-label="Ask AERIS Agent anything" disabled={analyzing}/><button type="submit" aria-label="Submit question" disabled={!query.trim() || analyzing}>→</button></form>
     <div className="agentCommands">{suggestions.map(item => <button type="button" key={item} disabled={analyzing} onClick={() => ask(item)}>{item}</button>)}</div>
     <div className="agentFoot"><span>{agentStatus === "partial" ? "Verified Arc activity is partially covered." : `${connectionCopy[connection]} · ${agentState.memory.length} persisted memories`}</span>{visualizationAvailable && intent.type !== "reset" && <button onClick={() => setIntent({type: "reset"})}>RESET VIEW</button>}</div>
   </section>;
