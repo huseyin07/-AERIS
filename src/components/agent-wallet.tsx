@@ -3,7 +3,7 @@
 import {useEffect, useState} from "react";
 import type {AgentWalletStatus} from "@/circle/wallet-types";
 
-export function AgentWallet() {
+export function AgentWallet({compact = false}: {compact?: boolean} = {}) {
   const [wallet, setWallet] = useState<AgentWalletStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
@@ -25,6 +25,16 @@ export function AgentWallet() {
       .finally(() => {window.clearTimeout(timeout); if (active) setLoading(false);});
     return () => {active = false; window.clearTimeout(timeout); controller.abort();};
   }, [revision]);
+
+  if (compact) return <section className="walletSummary" aria-label="AERIS agent wallet">
+    <div className="walletSummaryIdentity"><strong>AGENT WALLET</strong><span>CIRCLE · ARC MAINNET</span></div>
+    <div className="walletSummaryStatus" data-verified={!loading && wallet?.status === "verified"} role="status" aria-live="polite">
+      <i aria-hidden="true"/>{loading ? "Verifying…" : wallet?.status === "verified" ? "Verified" : wallet?.status === "not-configured" ? "Setup pending" : "Unavailable"}
+    </div>
+    <strong className="walletSummaryBalance">{!loading && wallet?.status === "verified" ? `${wallet.balanceUsdc} USDC` : "— USDC"}</strong>
+    <span className="walletSummaryMode">Read-only</span>
+    <a href="/about#agent-wallet">Wallet details <span aria-hidden="true">↗</span></a>
+  </section>;
 
   return <section className="buildCard" id="agent-wallet" aria-labelledby="wallet-heading">
     <div className="buildCardHeading"><h2 id="wallet-heading">AERIS Agent Wallet</h2><span className="buildBadge">CIRCLE WALLETS</span></div>

@@ -9,6 +9,7 @@ import {useEndpointTypes} from "./use-endpoint-types";
 import {VisualizationBoundary} from "./visualization-boundary";
 import {NetworkFallback} from "./network-fallback";
 import {IntelligencePanel} from "./intelligence-panel";
+import {AgentWallet} from "./agent-wallet";
 import {useActivity} from "@/state/activity-store";
 import {money, short} from "@/lib/format";
 import {ARC} from "@/data/arc";
@@ -166,6 +167,7 @@ export function Dashboard() {
 
     <section className="dashboardIntro" aria-label="AERIS live intelligence">
       <h1>Watch money move.</h1>
+      <AgentWallet compact/>
     </section>
 
     {healthOpen && <section className="healthPanel" id="data-health" aria-label="Arc Mainnet data health">
