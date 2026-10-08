@@ -1,4 +1,6 @@
 "use client";
+
+import {AgentWallet} from "./agent-wallet";
 import Image from "next/image";
 import {useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent} from "react";
 import {answerDeterministically, withObservationStatus, type AerisAnswer} from "@/ai/deterministic";
@@ -127,7 +129,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
     const run = createRun({goal:agentState.goal,trigger:"proactive",triggerReason:decision.reason,triggerSignature:decision.signature,answer:result,action,snapshot});
     setLastAction(action); setAnswer(result); setIntent(result.intent);
     setAgentState(current => recordRun(remember(current,{id:`memory-${run.createdAt}-proactive`,kind:memoryKindFor(action),createdAt:run.createdAt,query:"Proactive investigation",summary:result.summary,subject:result.relatedAddresses[0]??null,relatedTransferIds:result.relatedTransferIds.slice(0,8),evidenceCount:result.evidence.length,observationReference:snapshot.generatedAt,signalSignature:decision.signature||null,observedVolume:snapshot.totalVolume,transferCount:snapshot.transferCount,counterpartyCount:result.relatedAddresses.length}),run,ledgerEntry(run)));
-  }, [snapshot.generatedAt, memoryReady, connection, health.status]);
+  }, [snapshot, transfers, selected, memoryReady, connection, health.status, agentState.goal, agentState.policy, agentState.lastProactiveRunAt, agentState.lastProactiveSignature, setIntent]);
 
   function submit(event: FormEvent) { event.preventDefault(); ask(query); }
   const topFlow = answer?.intent.type === "highlight-transfers" ? snapshot.topFlows.find(flow => answer.intent.type === "highlight-transfers" && answer.intent.transferIds.includes(flow.id)) : null;
@@ -146,6 +148,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
       {expanded && <button className="agentClose" onClick={onClose} aria-label="Close AERIS Agent">×</button>}
     </div>
     {expanded && <div className="agentReport">
+      <AgentWallet/>
       <small>{health.status === "partial" ? "◐ PARTIAL · VERIFIED DATA MAY BE INCOMPLETE" : connection === "live" ? "● LIVE · OBSERVING ARC" : connectionCopy[connection].toUpperCase()}</small>
       <div className="agentStateStrip"><span>GOAL · {agentState.goal}</span><span>RUNS · {agentState.runs.length}</span><span>MEMORY · {agentState.memory.length}</span><span>POLICY · {agentState.policy.emergencyStop ? "STOPPED" : agentState.policy.autoExecute ? "AUTONOMOUS" : "APPROVAL-GATED"}</span></div>
       <div className="agentDecision"><label>STATEFUL CONTEXT</label><p>LIVE 10M · {snapshot.transferCount} transfers · {money(String(snapshot.totalVolume))} USDC</p><small className="agentTrace">1H CONTEXT · {context.hourBuckets}/6 VERIFIED BUCKETS · AVG {money(String(context.hourAverageVolume))} USDC / 10M</small><small className="agentTrace">24H BASELINE · {context.dayBuckets}/144 VERIFIED BUCKETS · AVG {money(String(context.dayAverageVolume))} USDC / 10M{baselineRatio!==null?` · CURRENT ${baselineRatio.toFixed(2)}×`:""}</small><small className="agentTrace">MEMORY · {memoryComparison.seenBefore?`SEEN BEFORE · ${memoryComparison.priorObservations} PRIOR OBSERVATION${memoryComparison.priorObservations===1?"":"S"}`:"NEW TO AERIS MEMORY"}{memoryComparison.volumeChangePercent!==null?` · VOLUME ${memoryComparison.volumeChangePercent>=0?"+":""}${memoryComparison.volumeChangePercent.toFixed(1)}%`:""}</small></div>

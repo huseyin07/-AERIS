@@ -59,7 +59,7 @@ test("duplicate USDC logs are deduplicated by transaction hash and log index", a
   assert.equal(result.events.filter(event => event.type === "USDC_TRANSFER").length, 1);
 });
 
-test("sub-threshold USDC logs do not trigger per-block metadata requests", async () => {
+test("sub-threshold USDC logs remain in full observation with verified block metadata", async () => {
   const requestedHeaders = [];
   const small = {...transferLog("994", 700n), args: {from: address("3"), to: address("4"), value: 999_999_999n}};
   const large = transferLog("993", 701n);
@@ -71,9 +71,9 @@ test("sub-threshold USDC logs do not trigger per-block metadata requests", async
     },
     getLogs: async () => [small, large],
   }), {now: () => now})();
-  assert.deepEqual(result.events.filter(event => event.type === "USDC_TRANSFER").map(event => event.transactionHash), [large.transactionHash]);
+  assert.deepEqual(result.events.filter(event => event.type === "USDC_TRANSFER").map(event => event.transactionHash), [small.transactionHash, large.transactionHash]);
   assert.ok(requestedHeaders.includes(701n));
-  assert.equal(requestedHeaders.includes(700n), false);
+  assert.equal(requestedHeaders.includes(700n), true);
 });
 
 test("USDC endpoint colors reuse verified classifications without extra bytecode lookups", async () => {
