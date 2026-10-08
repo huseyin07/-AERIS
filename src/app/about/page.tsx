@@ -36,7 +36,7 @@ export default function AboutPage() {
       <h2>What is shipped, what comes next</h2>
       <div className="buildTableWrap"><table><thead><tr><th>Capability</th><th>Current scope</th><th>Acceptance evidence</th></tr></thead><tbody>
         <tr><td>Arc intelligence</td><td>Implemented</td><td>Live RPC observation, ledger and evidence links; deployment health must be checked live.</td></tr>
-        <tr><td>Circle wallet observation</td><td>Implemented; setup required</td><td>Circle identity + current Arc block + native USDC balance.</td></tr>
+        <tr><td>Circle wallet observation</td><td>Configured; verified at runtime</td><td>Circle identity + current Arc block + native USDC balance.</td></tr>
         <tr><td>Circle invoice payments</td><td>Local runner implemented; live settlement demonstration pending</td><td>Recipient allowlist, durable budget reservations, local approval, Circle EVM signing and exact Arc receipt verification.</td></tr>
         <tr><td>Usage & pilots</td><td>To be measured</td><td>Real user feedback, investigation usage and pilot outcomes; no invented traction.</td></tr>
       </tbody></table></div>
@@ -44,7 +44,7 @@ export default function AboutPage() {
     <section className="buildCard">
       <h2>Technical scope</h2>
       <p>USDC totals use verified transfer events only. Contract activity is a bounded sample from recent blocks, rather than a full historical index. Wallet identity does not prove a transfer’s intent; the agent distinguishes evidence from interpretation.</p>
-      <p>Public server spending remains disabled. The invoice runner executes on the operator’s computer with privately entered Circle credentials and a persistent journal. Browser settings become authority only after the operator saves the policy locally. Funds, approval and a confirmed live receipt are still required to demonstrate an actual payment.</p>
+      <p>Public server spending remains disabled. The invoice runner executes on the operator’s computer with privately entered Circle credentials and a persistent journal. Browser settings become authority only after the operator saves the policy locally. Operator execution and a confirmed live receipt are still required to demonstrate an actual payment.</p>
       <div className="buildLinks"><Link href="/payments">Circle invoice payments ↗</Link></div>
       <div className="buildLinks"><a href="https://github.com/huseyin07/-AERIS/actions" target="_blank" rel="noopener noreferrer">CI checks ↗</a><a href="https://github.com/huseyin07/-AERIS/tree/main/tests" target="_blank" rel="noopener noreferrer">Tests ↗</a></div>
     </section>

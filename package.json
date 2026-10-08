@@ -18,7 +18,7 @@
     "test:circle-execution": "node --import tsx --test tests/circle-execution.test.mjs tests/circle-wallet.test.mjs",
     "verify:release": "node scripts/verify-release.mjs",
     "test:watchlist": "node --import tsx --test tests/watchlist.test.mjs",
-    "test:payments": "node --import tsx --test tests/payments.test.mjs",
+    "test:payments": "node --import tsx --test tests/payments.test.mjs tests/payment-planner.test.mjs",
     "circle:pay": "node --import tsx scripts/circle-pay.ts",
     "package:circle-runner": "python3 scripts/package-circle-runner.py"
   },

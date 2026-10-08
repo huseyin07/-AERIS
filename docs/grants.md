@@ -23,7 +23,7 @@ The first program rewards a working proof; the second supports a path to product
 
 **Live deployment:** https://aeris-two-eosin.vercel.app/ (confirmed production alias in Vercel; rerun the release check immediately before submitting).
 
-**Product evidence:** https://aeris-two-eosin.vercel.app/about (available in the grant preparation preview; requires the reviewed release to reach production).
+**Product evidence:** https://aeris-two-eosin.vercel.app/about (deployed to production after PR #65; verify the release before submitting).
 
 **Demo:** Open Data Health → select a USDC flow → compare ledger/explorer evidence → investigate a signal in Insights. Include a quiet-window or unavailable-state demonstration if RPC activity is sparse.
 
@@ -78,4 +78,8 @@ Reference: [Circle wallet retrieval API](https://developers.circle.com/api-refer
 
 ## Tameion invoice workflow — 8 October 2026
 
-The current target is also [Tameion Agents Hackathon](https://tameion.thecanteenapp.com/), with a complete invoice/payment workflow rather than a wallet balance card. The official page currently lists 17 October, 11:59 PM ET as the deadline. The workbench, local signing runner and recovery tests are implemented; a real funded Circle payment and verified Arc receipt are required before claiming the live execution milestone complete. Preview reads the existing public production wallet observer without copying the API secret into preview.
+The current target is also [Tameion Agents Hackathon](https://tameion.thecanteenapp.com/), with a complete invoice/payment workflow rather than a wallet balance card. The official page currently lists 17 October, 11:59 PM ET as the deadline. The workbench, local signing runner and recovery tests are implemented; an actual Circle payment and verified Arc receipt are required before claiming the live execution milestone complete. Preview reads the existing public production wallet observer without copying the API secret into preview.
+
+## Current release — 8 October 2026
+
+PR #65 is merged. Production commit `d1509ad58df75a2333c360d6f961163ed52ae443` was reported READY by Vercel. The wallet was subsequently observed with 0.3 USDC. Historical October 6 preview/setup notes above are not the current configuration. Tameion form copy and its required owner-specific fields are in [tameion-submission.md](tameion-submission.md). Live Circle payment evidence remains pending at the operator's request.

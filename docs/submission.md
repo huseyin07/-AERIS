@@ -1,6 +1,6 @@
 # AERIS submission copy
 
-Prepared 8 October 2026. Copy reflects the reviewed grant preparation branch. Recheck the live release before submitting; `/about` and the wallet observer are not yet in production. No application has been submitted.
+Prepared 8 October 2026. The Circle invoice feature was merged in PR #65 and deployed to production. No application has been submitted. For the current hackathon form, use [Tameion submission](tameion-submission.md); these grant drafts remain separate.
 
 ## Arc Microgrants
 
@@ -18,7 +18,7 @@ Prepared 8 October 2026. Copy reflects the reviewed grant preparation branch. Re
 
 **How it uses Arc:** Arc Mainnet, chain ID 5042, is AERIS's economic data source. The application reads native USDC transfer logs, block headers, transaction receipts and contract bytecode. It uses verified transaction and block references to support its conclusions. It does not replace unavailable observations with testnet or simulated transactions.
 
-**Current scope:** Working observation, visualization and deterministic investigation. Agent memory and policy preferences are stored in the visitor's browser. Financial execution is disabled. Circle wallet observation is configured. A local invoice payment runner is implemented; its first funded live settlement is pending.
+**Current scope:** Working observation, visualization and deterministic investigation. Agent memory and policy preferences are stored in the visitor's browser. Public server spending is disabled. Circle wallet observation and the local invoice payment runner are implemented. The treasury is funded; first live settlement is still pending.
 
 **Funding request:** The program's 500 USDC microgrant supports continued development of the working Arc intelligence prototype. Do not add an unverified spending breakdown.
 
@@ -30,9 +30,9 @@ Prepared 8 October 2026. Copy reflects the reviewed grant preparation branch. Re
 
 **Solution:** AERIS turns native USDC activity into a live network, an evidence-linked ledger and stateful investigations. Builders can inspect flows, compare counterparties and verify the underlying transactions. Classification and interpretation stay separate from what the chain proves.
 
-**Circle and Arc integration:** Arc Mainnet and native USDC are used by the working observation layer. A server-side Circle Developer-Controlled Wallets observer has been implemented; live wallet identity and balance verification are configured. Circle EVM signing, local operator policy and Arc receipt reconciliation are implemented for invoices; live payment evidence still requires treasury funding and execution.
+**Circle and Arc integration:** Arc Mainnet and native USDC are used by the working observation layer. A server-side Circle Developer-Controlled Wallets observer has been implemented; live wallet identity and balance verification are configured. Circle EVM signing, local operator policy and Arc receipt reconciliation are implemented for invoices; live payment evidence still requires operator execution and receipt verification.
 
-**Proposed next phase:** Configure and verify the dedicated agent wallet, implement authenticated operator approval with persistent spending controls, then add idempotent Circle execution and reconcile actual Arc receipts. Run a builder pilot and report measured usage and feedback. Acceptance evidence for each stage is in [grants.md](grants.md).
+**Proposed next phase:** Demonstrate the implemented local Circle payment workflow with actual receipts, improve operator authentication and cross-device spending coordination, then pilot with real businesses. Run a builder pilot and report measured usage and feedback. Acceptance evidence for each stage is in [grants.md](grants.md).
 
 **Traction:** No verified user, pilot, revenue or partnership metrics are available in the repository. Report actual figures supplied by the builder; otherwise state that the project is at the working prototype stage.
 
@@ -55,6 +55,6 @@ If the window is quiet, show the healthy empty state. If the chain is stale or c
 
 ## Tameion is a separate target
 
-The current official page lists 17 October 2026, 23:59 ET (18 October, 06:59 Istanbul), a public repository and a recorded demo under three minutes. Its focus is agents managing business money. AERIS currently supplies observation and investigation, with no working financial execution. Do not present the grant preparation release as a completed treasury agent. A credible Tameion entry needs an actual business use case and verified action/settlement flow, alongside truthful traction answers.
+The current official page lists 17 October 2026, 23:59 ET (18 October, 06:59 Istanbul), a public repository and a recorded demo under three minutes. Its focus is agents managing business money. AERIS has observation, investigation and an implemented local Circle invoice payment path. A live payment has not been demonstrated. Use [the current form draft and reviewer guide](tameion-submission.md), and do not claim a completed live treasury agent or unverified business traction.
 
 Sources checked 8 October 2026: [Arc Microgrants](https://community.arc.io/public/events/arc-microgrants-f8tijfjhyq), [Circle Developer Grants](https://www.circle.com/grant), [Tameion](https://tameion.thecanteenapp.com/).

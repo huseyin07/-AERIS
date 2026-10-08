@@ -1,6 +1,8 @@
 # Circle invoice payments on Arc
 
-AERIS now has an invoice workbench at `/payments` and an operator-owned Circle payment runner. This is a real signing/broadcasting implementation, not a simulated transaction. An actual mainnet settlement has not yet been demonstrated: the configured treasury currently has zero USDC. Do not claim the live payment milestone complete until a matching receipt is verified.
+AERIS now has an invoice workbench at `/payments` and an operator-owned Circle payment runner. This is a real signing/broadcasting implementation, not a simulated transaction. An actual mainnet settlement has not yet been demonstrated: the treasury was funded with 0.3 USDC on 8 October 2026, but the operator cancelled the live payment demonstration. Do not claim the live payment milestone complete until a matching receipt is verified.
+
+The workbench also prioritizes due invoices against the verified balance, maximum gas allowance and reserve, and exports its decision evidence. This estimate excludes earlier local-journal reservations; the runner rechecks those before any signature.
 
 ## Business flow
 
