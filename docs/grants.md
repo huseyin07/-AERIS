@@ -33,7 +33,7 @@ The first program rewards a working proof; the second supports a path to product
 
 **Product:** AERIS provides the observation and investigation layer for Arc economic activity. Its next phase connects verified intelligence to operator-approved USDC actions through Circle Developer-Controlled Wallets, then verifies the resulting receipt on Arc.
 
-**Integration status:** The Circle wallet read adapter is implemented. It authenticates server-side to Circle's wallet retrieval endpoint, verifies the configured developer-controlled EOA, checks Arc chain ID and head freshness, and reads native USDC balance at a specific block. Runtime verification still requires operator credentials and the correct wallet. Signing, transfers, persistent spending budgets and authenticated approvals are planned, not shipped. USDC observation is already implemented; Circle execution scaffolding remains disabled.
+**Integration status:** Production Circle identity and Arc balance observation are configured. The invoice workbench and local Circle EVM signing/broadcast runner are implemented, with allowlists, operator approval thresholds, persistent fee-inclusive budget reservations and exact Arc receipt verification. The first funded live payment remains pending; do not equate passing synthetic tests with live settlement. Public server spending and the legacy browser spend scaffold remain disabled. See [Circle payments](circle-payments.md).
 
 **Milestones and acceptance evidence:**
 
@@ -53,7 +53,7 @@ The first program rewards a working proof; the second supports a path to product
 1. Review the PR, run tests/typecheck/lint/build, and verify the preview on desktop and mobile.
 2. Verify the production deployment is Ready and `/api/activity` reports chain 5042 with current, covered observations. A successful compile is not proof of RPC availability.
 3. Verify `/about` accurately distinguishes implemented, configured and planned features.
-4. For Arc Microgrants, Circle configuration is not a release prerequisite. Keep the wallet status explicitly setup pending. Before claiming a live Circle Wallets integration, configure credentials privately and verify `/api/agent-wallet` against Circle and Arc.
+4. For Arc Microgrants, Circle configuration is not a release prerequisite. Report the actual runtime wallet status. Before claiming a live Circle Wallets integration, configure credentials privately and verify `/api/agent-wallet` against Circle and Arc.
 5. Record the exact live URL, reviewed commit and demo evidence in the application. Submit only after the builder reviews the final wording.
 
 ## Repeatable deployment verification
@@ -72,6 +72,10 @@ For read-only observation, set `CIRCLE_API_KEY`, `CIRCLE_EVM_WALLET_ID` (UUID) a
 
 The public endpoint intentionally publishes the configured agent's public address and balance after verification. Use a dedicated project wallet, not a personal treasury wallet. Requests are coalesced and cached in-process for 30 seconds on success; this is not a global rate limiter across serverless instances.
 
-`CIRCLE_ENTITY_SECRET` is not needed for reads. `AERIS_CIRCLE_EXECUTION_ENABLED` cannot turn the unimplemented signing adapter into an executor. No route in this release sends or signs transactions.
+`CIRCLE_ENTITY_SECRET` is not needed for reads. Public server routes do not sign or send payments. The dedicated local runner uses the registered secret privately at execution time and enforces its own saved operator policy; the browser execution feature flag cannot authorize those funds.
 
 Reference: [Circle wallet retrieval API](https://developers.circle.com/api-reference/w3s/developer-controlled-wallets/get-wallet).
+
+## Tameion invoice workflow — 8 October 2026
+
+The current target is also [Tameion Agents Hackathon](https://tameion.thecanteenapp.com/), with a complete invoice/payment workflow rather than a wallet balance card. The official page currently lists 17 October, 11:59 PM ET as the deadline. The workbench, local signing runner and recovery tests are implemented; a real funded Circle payment and verified Arc receipt are required before claiming the live execution milestone complete. Preview reads the existing public production wallet observer without copying the API secret into preview.
