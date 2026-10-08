@@ -56,3 +56,11 @@ The default state directory is `~/.aeris-payments`, outside the repository. Keep
 For the Tameion demo, show one real invoice from preparation through agent policy decision, Circle signing, Arc settlement and journal/evidence verification. Report actual payment volume and no invented customers. Local policy limits are enforced by the runner, not by a deployed smart contract. This narrower invoice workflow does not claim all autonomous treasury features in the RFBs.
 
 References: [Tameion](https://tameion.thecanteenapp.com/), [Circle signing API](https://developers.circle.com/api-reference/wallets/developer-controlled-wallets/sign-transaction), [Circle entity-secret encryption](https://github.com/circlefin/w3s-entity-secret-sample-code).
+
+## Invoice workspace — 9 October 2026
+
+Payments follows Add invoice → Review decision → Verify payment. Spending limits and runner commands expand on demand. Operator limits are retained in browser storage, including an explicit pause flag. Changes to browser settings do not modify the configured local runner: download and configure the new policy to enforce them.
+
+Import one invoice JSON or restore a `version: 1` backup with an `invoices` array. Imports validate exact amounts, network, recipient, duplicate vendor references and stored transaction hashes. Imported receipts are always unverified until checked against Arc. A backup is portable invoice data, not a copy of the local runner journal. Never use it to reset spending history.
+
+After a receipt passes the server's canonical Arc checks, download the invoice and settlement evidence together. A transaction hash, screenshot or imported `verified` field cannot mark an invoice settled. The liquidity plan excludes only receipts verified in the current session.

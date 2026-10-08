@@ -9,14 +9,19 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   return <main className="buildPage">
-    <header><Link href="/" className="brand">AERIS</Link><Link href="/">Open live dashboard ↗</Link><span className="buildBadge">ARC MAINNET</span></header>
+    <header><Link href="/" className="brand">AERIS</Link><nav aria-label="Product pages"><Link href="/">Live</Link><Link href="/payments">Payments</Link><b aria-current="page">Evidence</b></nav><span className="buildBadge">ARC MAINNET</span></header>
     <section className="buildIntro">
       <small>PRODUCT & EVIDENCE</small>
-      <h1>Intelligence for the Arc economy.</h1>
-      <p>AERIS turns verified USDC activity into an explorable network and evidence-backed investigations. Builders can inspect material flows, identify active contracts, and trace an agent’s conclusions back to transactions.</p>
+      <h1>Follow the money. Check the decision.</h1>
+      <p>AERIS connects live Arc USDC activity with invoice decisions and independently checked payment receipts.</p>
       <div className="buildLinks"><Link href="/">Explore live activity ↗</Link><a href="https://github.com/huseyin07/-AERIS" target="_blank" rel="noopener noreferrer">Public source ↗</a><a href="https://x.com/AERIS_arc" target="_blank" rel="noopener noreferrer">Builder updates ↗</a></div>
     </section>
-    <section className="buildCard">
+    <section className="buildCard reviewerPath">
+      <h2>Review AERIS in three steps</h2>
+      <ol><li><Link href="/">Inspect live activity</Link> — open Data Health, select a transfer and compare its Arc explorer evidence.</li><li><Link href="/payments">Review an invoice decision</Link> — refresh the Circle balance, add a due invoice and inspect liquidity, gas allowance and reserve.</li><li><Link href="/payments#settlement-evidence">Check settlement</Link> — after a locally executed payment, match its recipient, amount and confirmed receipt. Export the receipt for independent review.</li></ol>
+      <p className="buildMuted">No wallet connection is required to observe the network. Payments use the operator’s configured Circle wallet, not a connected visitor wallet.</p>
+    </section>
+    <details className="buildCard paymentDetails"><summary><span>How the evidence works</span><small>Observation, analysis and verification</small></summary>
       <h2>Observe → Analyze → Verify</h2>
       <p>Arc is the source of the product’s economic evidence: native USDC transfer events, contract calls, deployments, and wallet/contract classification. The observation window follows chain time, rather than a simulated clock.</p>
       <dl className="buildFacts">
@@ -25,15 +30,14 @@ export default function AboutPage() {
         <div><dt>Verify</dt><dd>Transaction and block references, linked ledger selections, explorer evidence.</dd></div>
         <div><dt>Visualize</dt><dd>Responsive 2D/3D views. Flows ≥1,000 USDC are visualized; ingestion observes smaller transfers too.</dd></div>
       </dl>
-    </section>
-    <AgentWallet/>
+    </details>
+    <details className="buildCard paymentDetails"><summary><span>Circle wallet identity</span><small>Live verification on Arc</small></summary><AgentWallet/></details>
     <section className="buildCard">
-      <h2>Try the product in three steps</h2>
-      <ol><li>Open the dashboard and check Data Health for the network, chain head and scan coverage.</li><li>Select a flow or paste a full address / transaction hash. Compare the ledger entry with its explorer reference.</li><li>Open Insights and investigate a material signal. Inspect the evidence and the agent’s task progress.</li></ol>
+      <h2>Real data, explicit limits</h2>
       <p>When RPC access is unavailable, AERIS reports unavailable or partial data. Empty activity is never replaced by mock transactions.</p>
     </section>
     <section className="buildCard">
-      <h2>What is shipped, what comes next</h2>
+      <h2>What is demonstrated</h2>
       <div className="buildTableWrap"><table><thead><tr><th>Capability</th><th>Current scope</th><th>Acceptance evidence</th></tr></thead><tbody>
         <tr><td>Arc intelligence</td><td>Implemented</td><td>Live RPC observation, ledger and evidence links; deployment health must be checked live.</td></tr>
         <tr><td>Circle wallet observation</td><td>Configured; verified at runtime</td><td>Circle identity + current Arc block + native USDC balance.</td></tr>
@@ -41,13 +45,12 @@ export default function AboutPage() {
         <tr><td>Usage & pilots</td><td>To be measured</td><td>Real user feedback, investigation usage and pilot outcomes; no invented traction.</td></tr>
       </tbody></table></div>
     </section>
-    <section className="buildCard">
-      <h2>Technical scope</h2>
+    <details className="buildCard paymentDetails"><summary><span>Technical scope & source</span><small>Execution, tests and limitations</small></summary>
       <p>USDC totals use verified transfer events only. Contract activity is a bounded sample from recent blocks, rather than a full historical index. Wallet identity does not prove a transfer’s intent; the agent distinguishes evidence from interpretation.</p>
       <p>Public server spending remains disabled. The invoice runner executes on the operator’s computer with privately entered Circle credentials and a persistent journal. Browser settings become authority only after the operator saves the policy locally. Operator execution and a confirmed live receipt are still required to demonstrate an actual payment.</p>
       <div className="buildLinks"><Link href="/payments">Circle invoice payments ↗</Link></div>
       <div className="buildLinks"><a href="https://github.com/huseyin07/-AERIS/actions" target="_blank" rel="noopener noreferrer">CI checks ↗</a><a href="https://github.com/huseyin07/-AERIS/tree/main/tests" target="_blank" rel="noopener noreferrer">Tests ↗</a></div>
-    </section>
+    </details>
     <footer><b>AERIS</b><Link href="/">Return to dashboard ↗</Link></footer>
   </main>;
 }
