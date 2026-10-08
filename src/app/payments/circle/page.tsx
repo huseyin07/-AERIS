@@ -1,5 +1,12 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { CircleUserWallet } from "@/components/circle-user-wallet";
+
+export const metadata: Metadata = {
+  title: "AERIS — Your Circle wallet",
+  description: "Open your own Circle wallet on Arc when email onboarding is available.",
+};
+
 export default function CircleWalletPage() {
   return (
     <main className="buildPage paymentPage">
@@ -7,9 +14,9 @@ export default function CircleWalletPage() {
         <Link href="/" className="brand">
           AERIS
         </Link>
-        <nav>
+        <nav aria-label="Product pages">
           <Link href="/payments">Payments</Link>
-          <b>Circle wallet</b>
+          <b aria-current="page">Circle wallet</b>
           <Link href="/about">Evidence</Link>
         </nav>
         <span className="buildBadge">ARC MAINNET</span>
