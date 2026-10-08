@@ -40,7 +40,8 @@ export function AgentWallet() {
       <div><dt>Checked</dt><dd>{wallet.checkedAt ? new Date(wallet.checkedAt).toISOString() : "—"}</dd></div>
       <div><dt>Wallet</dt><dd><a href={wallet.explorerUrl} target="_blank" rel="noopener noreferrer">{wallet.address} ↗</a></dd></div>
     </dl>}
-    <p className="buildMuted">Wallet observation is read-only. Transaction signing and spending are not available in this release.</p>
+    <p className="buildMuted">The public server observes this wallet. Invoice payments are signed by Circle through the operator’s local runner.</p>
+    <p><a href="/payments">Open invoice payments →</a></p>
     <button className="buildButton" disabled={loading} onClick={() => setRevision(value => value + 1)}>Refresh verification</button>
   </section>;
 }

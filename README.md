@@ -16,7 +16,7 @@ The ingestion cursor processes at most eight new/reconciliation blocks per poll,
 
 ## Product evidence and grants
 
-The `/about` page gives reviewers a product overview, demo steps, current scope and Circle Agent Wallet verification. `/api/agent-wallet` verifies Circle wallet identity and reads its native USDC balance from a current Arc Mainnet block. Missing credentials show setup pending; failed verification never publishes a balance. Wallet reads do not require an entity secret. Signing and economic execution remain unimplemented and disabled.
+The `/about` page gives reviewers a product overview, demo steps, current scope and Circle Agent Wallet verification. `/api/agent-wallet` verifies Circle wallet identity and reads its native USDC balance from a current Arc Mainnet block. Missing credentials show setup pending; failed verification never publishes a balance. Wallet reads do not require an entity secret. `/payments` prepares invoices and verifies settlement. The local Circle runner implements EVM signing, Arc broadcasting, operator limits and a durable recovery journal; public server spending stays disabled. Its first real mainnet payment still requires treasury funding and operator execution. See [Circle payments](docs/circle-payments.md).
 
 See [grant preparation](docs/grants.md) for Arc Microgrants / Circle Developer Grants drafts, milestone evidence, operator setup and release gates. The application must distinguish shipped intelligence from planned approved financial actions.
 
