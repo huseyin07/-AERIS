@@ -33,3 +33,11 @@ npm run build
 Optional production overrides are `ARC_MAINNET_RPC_URL`, `ARC_MAINNET_EXPLORER`, and `ARC_MAINNET_USDC`. Overrides are validated and the activity pipeline rejects any RPC whose `eth_chainId` is not `5042`.
 
 Architecture: Arc Mainnet RPC → incremental activity ingestion → normalized rolling observation → Zustand → economic/activity intelligence → significance candidates → bounded React Three Fiber visualization and deterministic AERIS Agent.
+
+## Public transfers
+
+`/payments` connects an injected EIP-1193 wallet (EIP-6963 selection; mobile wallet browsers supported). Visitors review an exact USDC transfer and fresh mainnet balance/fee quote, then approve in their own wallet. No token approval, Circle credentials or hosted treasury signing are used by this visitor flow. Receipt verification accepts an explicit payer and verifies exact calldata, sender, recipient, USDC transfer log and a canonical confirmed block. This does not establish Circle wallet identity for visitor wallets.
+
+The browser saves an unresolved attempt before submitting and uses Web Locks to prevent concurrent tabs for the same wallet. It never automatically retries a wallet submission. Unknown outcomes require wallet-activity reconciliation; stored hashes must be freshly verified after reload. Local records are not shared between devices and do not prevent a user from independently sending from another site or wallet. Fee estimates are refreshed before approval; a higher maximum requires another review. The wallet can display its own final fee before approval.
+
+`/payments/operator` retains the separate configured Circle treasury planning and local signing workflow. A public visitor cannot spend that treasury. WalletConnect QR connections, visitor-created Circle wallets and hosted automatic payments are not included. A live personal transfer is not claimed until a user approves it and its receipt verifies.

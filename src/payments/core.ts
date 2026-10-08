@@ -67,3 +67,8 @@ export function verifyPaymentEvidence(invoice: Invoice, payer: string, receipt: 
   if (matching.length !== 1 || matching[0].logIndex === null) throw new Error("Matching USDC transfer event is missing or ambiguous.");
   return {txHash: receipt.transactionHash, blockNumber: receipt.blockNumber.toString(), logIndex: matching[0].logIndex, gasCostNativeUnits: (receipt.gasUsed * receipt.effectiveGasPrice).toString(), explorerUrl: `${PAYMENT_EXPLORER}/tx/${receipt.transactionHash}`};
 }
+export function isConfirmedFailedTransfer(invoice: Invoice, payer: string, receipt: ReceiptEvidence, tx: {hash: string; from: string; to: string | null; input: string; value: bigint; chainId?: number}, head: bigint, canonicalBlockHash: string) {
+  return receipt.status === "reverted" && receipt.transactionHash.toLowerCase() === tx.hash.toLowerCase() && receipt.blockHash.toLowerCase() === canonicalBlockHash.toLowerCase()
+    && receipt.from.toLowerCase() === payer.toLowerCase() && tx.from.toLowerCase() === payer.toLowerCase() && receipt.to?.toLowerCase() === PAYMENT_TOKEN && tx.to?.toLowerCase() === PAYMENT_TOKEN
+    && tx.input.toLowerCase() === paymentData(invoice).toLowerCase() && tx.value === 0n && tx.chainId === PAYMENT_CHAIN && head >= receipt.blockNumber + 1n;
+}

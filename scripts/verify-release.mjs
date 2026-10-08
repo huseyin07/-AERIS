@@ -22,10 +22,12 @@ const results = await Promise.allSettled([
   })(),
   (async () => {
     const page = await (await fetchPath("/payments")).text();
-    if (!page.includes("Pay an invoice") || !page.includes("Agent liquidity plan")) throw new Error("Invoice workbench or liquidity plan missing");
+    if (!page.includes("Your wallet. Your transfer.") || !page.includes("Connect your wallet")) throw new Error("Public transfer workspace missing");
+    const operator = await (await fetchPath("/payments/operator")).text();
+    if (!operator.includes("Agent liquidity plan")) throw new Error("Circle operator tools missing");
     const archive = new Uint8Array(await (await fetchPath("/aeris-circle-runner.zip")).arrayBuffer());
     if (archive.length < 1000 || archive[0] !== 80 || archive[1] !== 75) throw new Error("Circle runner download is invalid");
-    return "Invoice workbench, liquidity planning and Circle runner download reachable";
+    return "Public transfers, Circle operator tools and runner download reachable";
   })(),
   (async () => {
     const data = await (await fetchPath("/api/activity")).json();

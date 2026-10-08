@@ -13,13 +13,13 @@ export default function AboutPage() {
     <section className="buildIntro">
       <small>PRODUCT & EVIDENCE</small>
       <h1>Follow the money. Check the decision.</h1>
-      <p>AERIS connects live Arc USDC activity with invoice decisions and independently checked payment receipts.</p>
+      <p>AERIS connects live Arc USDC activity with personal wallet transfers and independently checked receipts.</p>
       <div className="buildLinks"><Link href="/">Explore live activity ↗</Link><a href="https://github.com/huseyin07/-AERIS" target="_blank" rel="noopener noreferrer">Public source ↗</a><a href="https://x.com/AERIS_arc" target="_blank" rel="noopener noreferrer">Builder updates ↗</a></div>
     </section>
     <section className="buildCard reviewerPath">
       <h2>Review AERIS in three steps</h2>
-      <ol><li><Link href="/">Inspect live activity</Link> — open Data Health, select a transfer and compare its Arc explorer evidence.</li><li><Link href="/payments">Review an invoice decision</Link> — refresh the Circle balance, add a due invoice and inspect liquidity, gas allowance and reserve.</li><li><Link href="/payments#settlement-evidence">Check settlement</Link> — after a locally executed payment, match its recipient, amount and confirmed receipt. Export the receipt for independent review.</li></ol>
-      <p className="buildMuted">No wallet connection is required to observe the network. Payments use the operator’s configured Circle wallet, not a connected visitor wallet.</p>
+      <ol><li><Link href="/">Inspect live activity</Link> — open Data Health, select a transfer and compare its Arc explorer evidence.</li><li><Link href="/payments">Prepare a personal transfer</Link> — connect your wallet, enter a recipient and amount, and review the USDC network fee.</li><li><Link href="/payments#settlement-evidence">Check settlement</Link> — after approving a transfer in your wallet, match its recipient, amount and confirmed receipt. Export the receipt for independent review.</li></ol>
+      <p className="buildMuted">No wallet connection is required to observe the network. Public transfers use each visitor’s own wallet. Circle treasury tools are a separate operator workflow.</p>
     </section>
     <details className="buildCard paymentDetails"><summary><span>How the evidence works</span><small>Observation, analysis and verification</small></summary>
       <h2>Observe → Analyze → Verify</h2>
@@ -40,6 +40,7 @@ export default function AboutPage() {
       <h2>What is demonstrated</h2>
       <div className="buildTableWrap"><table><thead><tr><th>Capability</th><th>Current scope</th><th>Acceptance evidence</th></tr></thead><tbody>
         <tr><td>Arc intelligence</td><td>Implemented</td><td>Live RPC observation, ledger and evidence links; deployment health must be checked live.</td></tr>
+        <tr><td>Personal USDC transfers</td><td>Browser wallets and wallet mobile browsers</td><td>User wallet approval, fresh balance/fee checks and exact Arc receipt verification. No hosted custody or automatic spending.</td></tr>
         <tr><td>Circle wallet observation</td><td>Configured; verified at runtime</td><td>Circle identity + current Arc block + native USDC balance.</td></tr>
         <tr><td>Circle invoice payments</td><td>Local runner implemented; live settlement demonstration pending</td><td>Recipient allowlist, durable budget reservations, local approval, Circle EVM signing and exact Arc receipt verification.</td></tr>
         <tr><td>Usage & pilots</td><td>To be measured</td><td>Real user feedback, investigation usage and pilot outcomes; no invented traction.</td></tr>
@@ -48,7 +49,7 @@ export default function AboutPage() {
     <details className="buildCard paymentDetails"><summary><span>Technical scope & source</span><small>Execution, tests and limitations</small></summary>
       <p>USDC totals use verified transfer events only. Contract activity is a bounded sample from recent blocks, rather than a full historical index. Wallet identity does not prove a transfer’s intent; the agent distinguishes evidence from interpretation.</p>
       <p>Public server spending remains disabled. The invoice runner executes on the operator’s computer with privately entered Circle credentials and a persistent journal. Browser settings become authority only after the operator saves the policy locally. Operator execution and a confirmed live receipt are still required to demonstrate an actual payment.</p>
-      <div className="buildLinks"><Link href="/payments">Circle invoice payments ↗</Link></div>
+      <div className="buildLinks"><Link href="/payments/operator">Circle operator payments ↗</Link></div>
       <div className="buildLinks"><a href="https://github.com/huseyin07/-AERIS/actions" target="_blank" rel="noopener noreferrer">CI checks ↗</a><a href="https://github.com/huseyin07/-AERIS/tree/main/tests" target="_blank" rel="noopener noreferrer">Tests ↗</a></div>
     </details>
     <footer><b>AERIS</b><Link href="/">Return to dashboard ↗</Link></footer>

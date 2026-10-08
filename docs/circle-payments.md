@@ -64,3 +64,7 @@ Payments follows Add invoice → Review decision → Verify payment. Spending li
 Import one invoice JSON or restore a `version: 1` backup with an `invoices` array. Imports validate exact amounts, network, recipient, duplicate vendor references and stored transaction hashes. Imported receipts are always unverified until checked against Arc. A backup is portable invoice data, not a copy of the local runner journal. Never use it to reset spending history.
 
 After a receipt passes the server's canonical Arc checks, download the invoice and settlement evidence together. A transaction hash, screenshot or imported `verified` field cannot mark an invoice settled. The liquidity plan excludes only receipts verified in the current session.
+
+## Public visitor transfers
+
+The public `/payments` page now uses visitors’ own browser wallets. Circle treasury planning and the local runner remain at `/payments/operator`. Visitor transfers are not Circle-signed and cannot spend the configured AERIS treasury. Both flows use exact Arc receipt checks; only the operator flow verifies a Circle payer identity.
