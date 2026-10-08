@@ -58,21 +58,27 @@ Arc OSS and a feedback call are optional commitments; leave them unchecked unles
 1. Open the live dashboard. Inspect Data Health before interpreting the network.
 2. Open Circle operator tools and refresh the Circle treasury. Add an actual vendor invoice, or label any interface-only example clearly as an unpaid draft.
 3. Inspect the liquidity plan: due date, reserve, gas allowance, approval threshold and a hold when the next invoice would exhaust cash.
-4. Download the invoice, policy and decision evidence. The public workbench cannot spend funds.
+4. Download the invoice, policy and decision evidence. The browser invoice planner cannot authorize treasury spending.
 5. Review the local runner and recovery tests. Run preview privately if credentials are available. Do not expose credentials in the video.
 6. Show a matching confirmed receipt only if a real payment was authorized and executed. In the current draft, state explicitly that live settlement remains pending.
 
-## Required demo storyboard — 2 minutes, no invented settlement
+## Provided demo — 1 minute 56 seconds, no invented settlement
 
-| Time | Actual screen | Message |
+The MP4 is a 1920 × 1080 captioned product walkthrough with actual UI screenshots, readable chapter captions, gentle transitions and an original ambient audio track. It shows an unpaid interface example, not a customer invoice or a signed payment.
+
+| Time | Actual content | Message |
 | --- | --- | --- |
-| 0:00–0:15 | Live Arc dashboard | Business money needs evidence, decisions and a verifiable outcome |
-| 0:15–0:35 | Ledger / data health | Chain 5042, chain-relative coverage, exact transaction evidence |
-| 0:35–0:55 | Payments / Circle balance | Circle identity is verified; the wallet holds real mainnet USDC |
-| 0:55–1:20 | Clearly labelled unpaid invoice and liquidity plan | Due invoices are prioritized; gas, reserve and approval limits constrain the plan |
-| 1:20–1:40 | Second invoice held | A payment that exhausts liquidity is held with a reason |
-| 1:40–1:55 | Runner download and evidence export | Circle signs locally; recovery preserves one invoice and one signed transaction |
-| 1:55–2:00 | Product scope | Live payment trial pending; no claimed customers or settled volume |
+| 0:00–0:07 | Opening title | Arc intelligence, wallet transfers and independently checked outcomes |
+| 0:07–0:21 | Live Arc dashboard | Observe USDC activity without connecting a wallet |
+| 0:21–0:33 | Data Health | Expose coverage, freshness and contract-sample limits |
+| 0:33–0:47 | Public Payments | A recipient/amount review followed by the visitor's own wallet approval |
+| 0:47–1:01 | Transfer history section | Recover outgoing records from Arc and carry notes in a backup |
+| 1:01–1:13 | Circle operator treasury | Current Circle identity and 0.3 USDC observed balance; funding is not payment volume |
+| 1:13–1:29 | UNPAID-IMPORT-CHECK liquidity plan | Due obligations, maximum gas and approval requirement; no payment executed |
+| 1:29–1:41 | Circle user-wallet setup gate | User onboarding and QR implementation remain unavailable until configuration |
+| 1:41–1:56 | Closing evidence summary | 131 tests/build passed; no live outgoing Circle receipt or genuine business usage claimed |
+
+Upload this file to the organizer's supported public video host and add the accessible URL. No video-host upload or application submission is claimed here.
 
 ## Submission readiness
 
