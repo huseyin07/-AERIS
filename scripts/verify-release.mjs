@@ -21,6 +21,13 @@ const results = await Promise.allSettled([
     return "Product evidence page reachable";
   })(),
   (async () => {
+    const page = await (await fetchPath("/payments")).text();
+    if (!page.includes("Pay an invoice") || !page.includes("Agent liquidity plan")) throw new Error("Invoice workbench or liquidity plan missing");
+    const archive = new Uint8Array(await (await fetchPath("/aeris-circle-runner.zip")).arrayBuffer());
+    if (archive.length < 1000 || archive[0] !== 80 || archive[1] !== 75) throw new Error("Circle runner download is invalid");
+    return "Invoice workbench, liquidity planning and Circle runner download reachable";
+  })(),
+  (async () => {
     const data = await (await fetchPath("/api/activity")).json();
     if (data.chainId !== 5042 || data.status !== "ok" || data.windowCovered !== true || data.headStale !== false || data.headFutureSkewed !== false) throw new Error("Arc observation is unhealthy or incomplete");
     if (!Number.isFinite(data.fetchedAt) || Math.abs(Date.now() - data.fetchedAt) > 120_000) throw new Error("Observation response is stale");
