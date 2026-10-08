@@ -9,6 +9,7 @@ import {useEndpointTypes} from "./use-endpoint-types";
 import {VisualizationBoundary} from "./visualization-boundary";
 import {NetworkFallback} from "./network-fallback";
 import {IntelligencePanel} from "./intelligence-panel";
+import {Watchlist} from "./watchlist";
 import {useActivity} from "@/state/activity-store";
 import {money, short} from "@/lib/format";
 import {ARC} from "@/data/arc";
@@ -167,6 +168,8 @@ export function Dashboard() {
     <section className="dashboardIntro" aria-label="AERIS live intelligence">
       <h1>Watch money move.</h1>
     </section>
+
+    <Watchlist transfers={observedTransfers} reference={referenceTimestamp} healthy={statusLabel === "LIVE" && health.windowCovered === true} selected={selected} onInspect={address => {setQuery(address); select(address); setSelectedTransferId(null);}}/>
 
     {healthOpen && <section className="healthPanel" id="data-health" aria-label="Arc Mainnet data health">
       <div className="healthPanelHead"><div><small>DATA HEALTH · {statusLabel}</small><h2>Verified observation coverage</h2></div><button type="button" onClick={() => setHealthOpen(false)} aria-label="Close data health">×</button></div>

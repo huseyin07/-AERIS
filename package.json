@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "test": "npm run test:activity && npm run test:intelligence && npm run test:entity-types && npm run test:agent-policy && npm run test:agent-decision && npm run test:agent-runtime && npm run test:circle-execution",
+    "test": "npm run test:activity && npm run test:intelligence && npm run test:entity-types && npm run test:agent-policy && npm run test:agent-decision && npm run test:agent-runtime && npm run test:circle-execution && npm run test:watchlist",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -16,7 +16,8 @@
     "test:agent-decision": "node --import tsx --test tests/agent-decision.test.mjs",
     "test:agent-runtime": "node --import tsx --test tests/agent-runtime.test.mjs",
     "test:circle-execution": "node --import tsx --test tests/circle-execution.test.mjs tests/circle-wallet.test.mjs",
-    "verify:release": "node scripts/verify-release.mjs"
+    "verify:release": "node scripts/verify-release.mjs",
+    "test:watchlist": "node --import tsx --test tests/watchlist.test.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.114.3",
