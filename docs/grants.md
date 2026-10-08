@@ -2,7 +2,7 @@
 
 ## Programs and scope
 
-Official criteria checked on 4 October 2026 (Europe/Istanbul):
+Official criteria checked on 8 October 2026 (Europe/Istanbul):
 
 - [Arc Microgrants](https://community.arc.io/public/events/arc-microgrants-f8tijfjhyq): working Arc Mainnet deployment, public repository, short description and public builder profile. Submissions close 14 October 2026, 23:59 ET (15 October, 06:59 in Istanbul). The current round offers twenty grants of 500 USDC. Prior Circle/Arc-funded work is ineligible. Do not represent eligibility as approved by the organizer.
 - [Circle Developer Grants](https://www.circle.com/grant): meaningful Arc/Circle architecture, shipping evidence, usage or a credible path to it, and milestone-based ecosystem impact. No fixed deadline was stated on the reviewed page.
@@ -21,7 +21,9 @@ The first program rewards a working proof; the second supports a path to product
 
 **Public profile:** https://x.com/AERIS_arc
 
-**Live deployment:** Supply the verified production URL when submitting. The repository does not declare a canonical production hostname; do not invent one.
+**Live deployment:** https://aeris-two-eosin.vercel.app/ (confirmed production alias in Vercel; rerun the release check immediately before submitting).
+
+**Product evidence:** https://aeris-two-eosin.vercel.app/about (available in the grant preparation preview; requires the reviewed release to reach production).
 
 **Demo:** Open Data Health → select a USDC flow → compare ledger/explorer evidence → investigate a signal in Insights. Include a quiet-window or unavailable-state demonstration if RPC activity is sparse.
 
@@ -51,7 +53,7 @@ The first program rewards a working proof; the second supports a path to product
 1. Review the PR, run tests/typecheck/lint/build, and verify the preview on desktop and mobile.
 2. Verify the production deployment is Ready and `/api/activity` reports chain 5042 with current, covered observations. A successful compile is not proof of RPC availability.
 3. Verify `/about` accurately distinguishes implemented, configured and planned features.
-4. Configure Circle credentials privately in the deployment settings. Check `/api/agent-wallet` against Circle and Arc; missing credentials must say setup pending.
+4. For Arc Microgrants, Circle configuration is not a release prerequisite. Keep the wallet status explicitly setup pending. Before claiming a live Circle Wallets integration, configure credentials privately and verify `/api/agent-wallet` against Circle and Arc.
 5. Record the exact live URL, reviewed commit and demo evidence in the application. Submit only after the builder reviews the final wording.
 
 ## Repeatable deployment verification

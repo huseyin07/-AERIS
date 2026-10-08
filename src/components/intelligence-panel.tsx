@@ -129,7 +129,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
     const run = createRun({goal:agentState.goal,trigger:"proactive",triggerReason:decision.reason,triggerSignature:decision.signature,answer:result,action,snapshot});
     setLastAction(action); setAnswer(result); setIntent(result.intent);
     setAgentState(current => recordRun(remember(current,{id:`memory-${run.createdAt}-proactive`,kind:memoryKindFor(action),createdAt:run.createdAt,query:"Proactive investigation",summary:result.summary,subject:result.relatedAddresses[0]??null,relatedTransferIds:result.relatedTransferIds.slice(0,8),evidenceCount:result.evidence.length,observationReference:snapshot.generatedAt,signalSignature:decision.signature||null,observedVolume:snapshot.totalVolume,transferCount:snapshot.transferCount,counterpartyCount:result.relatedAddresses.length}),run,ledgerEntry(run)));
-  }, [snapshot.generatedAt, memoryReady, connection, health.status]);
+  }, [snapshot, transfers, selected, memoryReady, connection, health.status, agentState.goal, agentState.policy, agentState.lastProactiveRunAt, agentState.lastProactiveSignature, setIntent]);
 
   function submit(event: FormEvent) { event.preventDefault(); ask(query); }
   const topFlow = answer?.intent.type === "highlight-transfers" ? snapshot.topFlows.find(flow => answer.intent.type === "highlight-transfers" && answer.intent.transferIds.includes(flow.id)) : null;
