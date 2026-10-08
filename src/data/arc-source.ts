@@ -5,7 +5,7 @@ import {AddressClassificationCache, normalizeTransactionActivity, OBSERVATION_WI
 import type {ActivityStatus, ArcActivityEvent, EntityType, HexAddress, HexHash, Transfer} from "./types";
 
 const transferEvent = parseAbiItem("event Transfer(address indexed from, address indexed to, uint256 value)");
-const publicClient = createPublicClient({chain: arcChain, transport: http(ARC.rpcUrl, {timeout: 8_000, retryCount: 1, retryDelay: 500})});
+const publicClient = createPublicClient({chain: arcChain, transport: http(ARC.rpcUrl, {fetchOptions: {cache: "no-store", headers: {"Cache-Control": "no-cache"}}, timeout: 8_000, retryCount: 1, retryDelay: 500})});
 const BOOTSTRAP_BLOCKS = 6n;
 const MAX_WINDOW_BLOCKS = 4_096n;
 /** Freshness diagnostic only; it never excludes verified chain-relative activity. */

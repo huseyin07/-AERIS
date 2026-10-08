@@ -7,7 +7,7 @@ import type {HexAddress} from "@/data/types";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const rpc = createPublicClient({chain: arcChain, transport: http(ARC.rpcUrl, {timeout: 4_000, retryCount: 0})});
+const rpc = createPublicClient({chain: arcChain, transport: http(ARC.rpcUrl, {fetchOptions: {cache: "no-store", headers: {"Cache-Control": "no-cache"}}, timeout: 4_000, retryCount: 0})});
 const classify = createEntityClassifier(rpc);
 const addressPattern = /^0x[\da-f]{40}$/i;
 

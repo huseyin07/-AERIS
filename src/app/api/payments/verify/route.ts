@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   if (!pending.has(key)) pending.set(key, (async () => {
     const wallet = await getAgentWalletStatus();
     if (wallet.status !== "verified" || !wallet.address) throw new Error("Identity unavailable");
-    const rpc = createPublicClient({chain: arcChain, transport: http(ARC.rpcUrl, {timeout: 8_000, retryCount: 0})});
+    const rpc = createPublicClient({chain: arcChain, transport: http(ARC.rpcUrl, {fetchOptions: {cache: "no-store", headers: {"Cache-Control": "no-cache"}}, timeout: 8_000, retryCount: 0})});
     const [chainId, head, receipt, tx] = await Promise.all([rpc.getChainId(), rpc.getBlock(), rpc.getTransactionReceipt({hash: hash as Hex}), rpc.getTransaction({hash: hash as Hex})]);
     const age = Date.now() - Number(head.timestamp) * 1000;
     if (chainId !== 5042 || head.number === null || age > 120_000 || age < -30_000) throw new Error("Unverified head");
