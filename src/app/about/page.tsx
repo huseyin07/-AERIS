@@ -41,6 +41,8 @@ export default function AboutPage() {
       <div className="buildTableWrap"><table><thead><tr><th>Capability</th><th>Current scope</th><th>Acceptance evidence</th></tr></thead><tbody>
         <tr><td>Arc intelligence</td><td>Implemented</td><td>Live RPC observation, ledger and evidence links; deployment health must be checked live.</td></tr>
         <tr><td>Personal USDC transfers</td><td>Browser wallets and wallet mobile browsers</td><td>User wallet approval, fresh balance/fee checks and exact Arc receipt verification. No hosted custody or automatic spending.</td></tr>
+        <tr><td>History & pending requests</td><td>Arc recovery and portable notes</td><td>Validated backups, fresh receipts, bounded status polling and nonce-checked replacement/cancellation.</td></tr>
+        <tr><td>Mobile QR / Circle email wallets</td><td>Implemented; configuration pending</td><td>Reown project setup and Circle App ID/email delivery required before these connections are available.</td></tr>
         <tr><td>Circle wallet observation</td><td>Configured; verified at runtime</td><td>Circle identity + current Arc block + native USDC balance.</td></tr>
         <tr><td>Circle invoice payments</td><td>Local runner implemented; live settlement demonstration pending</td><td>Recipient allowlist, durable budget reservations, local approval, Circle EVM signing and exact Arc receipt verification.</td></tr>
         <tr><td>Usage & pilots</td><td>To be measured</td><td>Real user feedback, investigation usage and pilot outcomes; no invented traction.</td></tr>
@@ -48,7 +50,7 @@ export default function AboutPage() {
     </section>
     <details className="buildCard paymentDetails"><summary><span>Technical scope & source</span><small>Execution, tests and limitations</small></summary>
       <p>USDC totals use verified transfer events only. Contract activity is a bounded sample from recent blocks, rather than a full historical index. Wallet identity does not prove a transfer’s intent; the agent distinguishes evidence from interpretation.</p>
-      <p>Public server spending remains disabled. The invoice runner executes on the operator’s computer with privately entered Circle credentials and a persistent journal. Browser settings become authority only after the operator saves the policy locally. Operator execution and a confirmed live receipt are still required to demonstrate an actual payment.</p>
+      <p>Public treasury spending remains disabled. User-controlled Circle payments require each user’s own approval challenge. The invoice runner executes on the operator’s computer with privately entered Circle credentials and a persistent journal. Browser settings become authority only after the operator saves the policy locally. Operator execution and a confirmed live receipt are still required to demonstrate an actual payment.</p>
       <div className="buildLinks"><Link href="/payments/operator">Circle operator payments ↗</Link></div>
       <div className="buildLinks"><a href="https://github.com/huseyin07/-AERIS/actions" target="_blank" rel="noopener noreferrer">CI checks ↗</a><a href="https://github.com/huseyin07/-AERIS/tree/main/tests" target="_blank" rel="noopener noreferrer">Tests ↗</a></div>
     </details>

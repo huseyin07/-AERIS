@@ -444,3 +444,7 @@ header nav a{font-size:inherit;color:inherit;text-decoration:none;letter-spacing
 
 /* Personal USDC transfers. */
 .transferAddress,.transferReview dd{overflow-wrap:anywhere;word-break:break-word}.transferReview{margin-top:24px;padding:22px;border:1px solid #8bd9ff55;border-radius:8px;background:#081d29}.transferReview h3{color:#e1f3fc;font-size:17px;margin:0 0 16px}.transferReview .buildFacts div{grid-template-columns:160px minmax(0,1fr)}.transferPrimary{background:#163b4e!important;border-color:#87d6fa!important;color:#eaf8ff!important}.paymentPage .buildButton:disabled{opacity:.45;cursor:not-allowed}.paymentPage section[id]{scroll-margin-top:24px}.paymentPage .buildLinks{flex-wrap:wrap;gap:12px}.paymentPage .buildButton:focus-visible{outline:2px solid #8bd9ff;outline-offset:4px}@media(max-width:600px){.transferReview{padding:16px}.transferReview .buildFacts div{grid-template-columns:1fr;gap:7px}.paymentPage footer{display:flex;flex-wrap:wrap;gap:16px}.paymentPage .paymentSteps{letter-spacing:0}}
+
+.historyFile {display:block;max-width:240px;margin-top:8px;font-size:12px;}
+.walletQr {text-align:center;max-width:440px;margin:16px auto;}
+.walletQr img {display:block;margin:20px auto;border-radius:12px;}

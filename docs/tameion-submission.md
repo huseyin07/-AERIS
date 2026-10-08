@@ -1,6 +1,6 @@
 # AERIS — Tameion submission draft
 
-Prepared 8 October 2026. This is a draft, not a submitted application. The organizer's form was read on this date. Complete the owner-specific fields and upload the recorded demo before submitting.
+Updated 9 October 2026 (Türkiye). This is a draft, not a submitted application. The organizer's form was read on this date. Complete the owner-specific fields and upload the recorded demo before submitting.
 
 ## Entry positioning
 
@@ -22,7 +22,11 @@ Prepared 8 October 2026. This is a draft, not a submitted application. The organ
 
 **Live product:** https://aeris-two-eosin.vercel.app/
 
-**Invoice flow:** https://aeris-two-eosin.vercel.app/payments
+**Public personal transfers:** https://aeris-two-eosin.vercel.app/payments
+
+**Circle operator invoice flow:** https://aeris-two-eosin.vercel.app/payments/operator
+
+**Circle email wallets:** https://aeris-two-eosin.vercel.app/payments/circle (implementation prepared; production configuration pending)
 
 **Reviewer guide:** https://aeris-two-eosin.vercel.app/about
 
@@ -52,7 +56,7 @@ Arc OSS and a feedback call are optional commitments; leave them unchecked unles
 ## Reviewer path
 
 1. Open the live dashboard. Inspect Data Health before interpreting the network.
-2. Open Payments and refresh the Circle treasury. Add an actual vendor invoice, or label any interface-only example clearly as an unpaid draft.
+2. Open Circle operator tools and refresh the Circle treasury. Add an actual vendor invoice, or label any interface-only example clearly as an unpaid draft.
 3. Inspect the liquidity plan: due date, reserve, gas allowance, approval threshold and a hold when the next invoice would exhaust cash.
 4. Download the invoice, policy and decision evidence. The public workbench cannot spend funds.
 5. Review the local runner and recovery tests. Run preview privately if credentials are available. Do not expose credentials in the video.
@@ -79,3 +83,9 @@ Code can be released without a live payment trial, but the entry cannot honestly
 **Submission form:** https://forms.gle/BBWrdfuircrKiG2i6
 
 **Official rules:** https://tameion.thecanteenapp.com/
+
+## Public-wallet release update
+
+The visitor transfer page now includes validated history import/export, chain-based cross-device recovery of direct outgoing transfers, bounded pending/confirming/unknown status polling and sender/nonce-checked replacement or cancellation reconciliation. Private notes travel in the backup; this is not automatic private-data cloud sync. Mobile WalletConnect QR and a separate user-controlled Circle email-wallet flow are implemented, but the deployed feature gates stay closed until the Reown Project ID and Circle App ID/production SMTP/abuse controls are configured. The mainnet developer-wallet observer and local signing runner remain distinct from user-controlled wallets.
+
+The updated video is a captioned screen walkthrough of observed product capabilities and deployment limits, under three minutes. It does not depict a signed payment or a fabricated receipt. A verified outgoing Circle receipt, real business usage and builder-owned form fields still require genuine evidence before claiming a complete Tameion submission. The owner explicitly excluded live transfer testing. See `docs/public-wallet-setup.md` and `docs/pilot-evidence.md`.

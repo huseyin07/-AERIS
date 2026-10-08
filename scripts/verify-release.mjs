@@ -10,6 +10,14 @@ async function fetchPath(path) {
   return response;
 }
 const results = await Promise.allSettled([
+  (async()=>{
+    const connections=await (await fetchPath("/api/payments/connections")).json();
+    if(typeof connections.walletConnect!=="boolean"||typeof connections.circle!=="boolean")throw Error("Connection gates invalid");
+    if(!connections.walletConnect&&connections.projectId!==null)throw Error("Unexpected mobile configuration");
+    const page=await (await fetchPath("/payments/circle")).text();if(!page.includes("A wallet of your own."))throw Error("Circle onboarding page missing");
+    const invalid=await fetch(new URL("/api/payments/history?payer=invalid",base),{signal:AbortSignal.timeout(30000)});if(invalid.status!==400)throw Error("Invalid history wallet accepted");
+    return `History validation and wallet availability gates checked · QR ${connections.walletConnect?"configured":"setup pending"} · Circle email ${connections.circle?"configured":"setup pending"}`;
+  })(),
   (async () => {
     const page = await (await fetchPath("/")).text();
     if (!page.includes("AERIS")) throw new Error("Dashboard identity missing");
