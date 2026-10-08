@@ -26,6 +26,10 @@ Prepared 8 October 2026. This is a draft, not a submitted application. The organ
 
 **Reviewer guide:** https://aeris-two-eosin.vercel.app/about
 
+**Event comparison:** https://github.com/huseyin07/-AERIS/compare/bdb48f8366477a985fa84d8f69682d1c14c43552...main
+
+Baseline: latest main-branch commit before 27 September 2026 UTC, committed 26 September at 15:49 UTC. This separates event-period progress from the earlier dashboard; keep the final head fixed when submitting.
+
 **GitHub handle:** huseyin07
 
 **X profile:** https://x.com/AERIS_arc
@@ -39,7 +43,7 @@ Prepared 8 October 2026. This is a draft, not a submitted application. The organ
 | Telegram handle | Builder must supply the registered handle |
 | Team member count and names | Confirm the actual team; do not infer a solo team |
 | Prior Canteen participation and awards | Confirm from actual records |
-| Event-only GitHub comparison link | Use the last commit before the event as the base, not the full repository history; baseline still needs confirmation |
+| Event-only GitHub comparison link | Prepared above using the last main-branch commit before 27 September UTC; freeze the final head at submission |
 | Traction | Confirm real users/business use and event-period feedback; unverified metrics stay unclaimed |
 | Video demo URL | Upload the provided recording to Loom/YouTube/Vimeo and provide a publicly accessible link under three minutes |
 

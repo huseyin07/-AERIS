@@ -51,7 +51,7 @@ export function PaymentWorkbench() {
     let active = true;
     const timeout = window.setTimeout(() => controller.abort(), 25_000);
     setLoading(true); setWallet(null);
-    fetch("/api/agent-wallet", {cache: "no-store", signal: controller.signal}).then(r => r.json()).then(value => {if (active) setWallet(value);}).catch(() => {if (active) setWallet(null);}).finally(() => {window.clearTimeout(timeout); if (active) setLoading(false);});
+    fetch("/api/agent-wallet", {cache: "no-store", signal: controller.signal}).then(r => r.json()).then(value => {if (active) {setWallet(value); setNow(Date.now());}}).catch(() => {if (active) setWallet(null);}).finally(() => {window.clearTimeout(timeout); if (active) setLoading(false);});
     return () => {active = false; controller.abort(); window.clearTimeout(timeout);};
   }, [revision]);
   useEffect(() => {const timer = window.setInterval(() => setNow(Date.now()), 30_000); return () => window.clearInterval(timer);}, []);
