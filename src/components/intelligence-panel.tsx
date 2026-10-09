@@ -34,7 +34,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
   const [agentState, setAgentState] = useState<AgentState>(() => createAgentState());
   const [memoryReady, setMemoryReady] = useState(false);
   const [lastAction, setLastAction] = useState<ProposedAction | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const previousSnapshot = useRef<IntelligenceSnapshot | null>(null);
   const previousTransfers = useRef<Transfer[]>([]);
   const processing = useRef(false);

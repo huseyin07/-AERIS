@@ -222,6 +222,9 @@ export function PublicTransfers({
     };
   }, [selected]);
   useEffect(() => {
+    setCursor(null);
+    setHistoryMessage("");
+    setHistoryBusy(false);
     if (!payer) return;
     let cancelled = false;
     async function recover() {
@@ -242,9 +245,7 @@ export function PublicTransfers({
             ? { before: data.nextBefore, offset: data.nextOffset ?? 0 }
             : null,
         );
-        setHistoryMessage(
-          "Recent outgoing transfers recovered from Arc. Load older ranges below; import your backup to restore notes.",
-        );
+        setHistoryMessage(`Checked blocks ${data.fromBlock}–${data.toBlock}. ${data.transfers?.length ?? 0} outgoing transfers found in this range.`);
       } catch (e) {
         if (!cancelled) setHistoryMessage(errorMessage(e));
       } finally {
@@ -284,6 +285,7 @@ export function PublicTransfers({
   async function olderHistory() {
     if (!payer || !cursor || historyBusy) return;
     const owner = payer;
+    const token = session.current;
     setHistoryBusy(true);
     try {
       const q = new URLSearchParams({
@@ -297,6 +299,7 @@ export function PublicTransfers({
       });
       const data = await r.json();
       if (!r.ok) throw Error(data.message);
+      if (token !== session.current) return;
       const values = mergeHistory(readHistory(), data, owner);
       localStorage.setItem(HISTORY, JSON.stringify(values));
       setHistory(values);
@@ -307,23 +310,23 @@ export function PublicTransfers({
       );
       setHistoryMessage(`Loaded blocks ${data.fromBlock}–${data.toBlock}.`);
     } catch (e) {
-      setHistoryMessage(errorMessage(e));
+      if (token === session.current) setHistoryMessage(errorMessage(e));
     } finally {
-      setHistoryBusy(false);
+      if (token === session.current) setHistoryBusy(false);
     }
   }
   async function importBackup(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file || !payer) return;
+    const owner = payer;
+    const token = session.current;
     try {
       if (file.size > 12000000)
         throw Error("History file must be smaller than 12 MB.");
-      const values = mergeHistory(
-        readHistory(),
-        JSON.parse(await file.text()),
-        payer,
-      );
+      const contents = JSON.parse(await file.text());
+      if (token !== session.current) return;
+      const values = mergeHistory(readHistory(), contents, owner);
       localStorage.setItem(HISTORY, JSON.stringify(values));
       setHistory(values);
       setEvidence({});
@@ -332,7 +335,7 @@ export function PublicTransfers({
         "Backup restored. Receipts will be checked against Arc again.",
       );
     } catch (e) {
-      setError(errorMessage(e));
+      if (token === session.current) setError(errorMessage(e));
     }
   }
   async function mobileConnect() {
@@ -753,6 +756,7 @@ export function PublicTransfers({
                 ? "Choose your browser wallet. On mobile, open this page inside your wallet’s browser."
                 : "Open this page in a wallet’s mobile browser or use a browser wallet extension, such as MetaMask or Rabby."}
             </p>
+            {!choices.length && connections && !connections.projectId && !connections.circle && <div className="walletEmpty"><strong>No wallet detected in this browser.</strong><p>Install a browser wallet, or open this page from your wallet app’s built-in browser. Return here to connect.</p></div>}
           </>
         )}
         <p className="buildMuted">
@@ -819,6 +823,8 @@ export function PublicTransfers({
       )}
       <section className="buildCard" id="send-transfer">
         <h2>Send USDC</h2>
+        {!payer && <p className="transferNext">First connect your wallet above. Then enter a recipient and amount.</p>}
+        {payer && chainId !== PAYMENT_CHAIN && <p className="transferNext">Switch to Arc Mainnet above to review this transfer.</p>}
         <form className="paymentForm" onSubmit={prepare}>
           <label className="paymentWide">
             Recipient address
@@ -942,17 +948,15 @@ export function PublicTransfers({
             </button>
           )}
         </div>
-        <p className="buildMuted">
-          Outgoing transfers can be recovered from Arc on another device.
-          Download and import a backup to carry your private notes across
-          devices. Every receipt is checked again.
-        </p>
+        <p className="buildMuted">Check outgoing transfers and confirmed receipts for your connected wallet.</p>
         {payer && (
-          <div className="buildLinks">
-            <label className="buildButton">
+          <details className="historyTools paymentDetails">
+            <summary><span>History & backups</span><small>Older transfers and private notes</small></summary>
+            <p className="buildMuted">Arc can recover outgoing transfers on another device. Download and import a backup to carry your private notes across devices.</p>
+            <div className="buildLinks"><label className="paymentImport">
               Import history backup
               <input
-                className="historyFile"
+                aria-label="Import history backup"
                 type="file"
                 accept="application/json,.json"
                 onChange={importBackup}
@@ -968,7 +972,8 @@ export function PublicTransfers({
                 {historyBusy ? "Loading history…" : "Load older Arc history"}
               </button>
             )}
-          </div>
+            </div>
+          </details>
         )}
         {historyMessage && (
           <p className="buildMuted" role="status">
@@ -980,6 +985,8 @@ export function PublicTransfers({
             Connect your wallet to recover its outgoing transfers and view saved
             notes.
           </p>
+        ) : historyBusy && !ownHistory.length ? (
+          <p role="status">Checking outgoing transfers on Arc…</p>
         ) : !ownHistory.length ? (
           <p>No outgoing transfers found in the loaded range.</p>
         ) : (

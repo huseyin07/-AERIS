@@ -451,7 +451,7 @@ function TransferLabel({flow, selected, hovered, occupied}: {flow: Flow; selecte
 function NetworkSceneComponent(props: Props) {
   const interacting = useRef(false);
   const lastInteraction = useRef(Number.NEGATIVE_INFINITY);
-  const interactionTimer = useRef<ReturnType<typeof setTimeout>>();
+  const interactionTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
   useEffect(() => {
     if (!props.resetViewToken) return;

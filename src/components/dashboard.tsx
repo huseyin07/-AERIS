@@ -153,7 +153,7 @@ export function Dashboard() {
     <LiveActivity/>
     <header>
       <div className="brand"><Image className="brandMark" src="/aeris-logo.jpg" alt="" width={18} height={18}/>AERIS</div>
-      <nav aria-label="Dashboard sections"><b>LIVE</b><button onClick={() => setAgentOpen(true)}>INSIGHTS</button><Link href="/payments">PAYMENTS</Link></nav>
+      <nav aria-label="Dashboard sections"><b aria-current="page">LIVE</b><button onClick={() => setAgentOpen(true)}>INSIGHTS</button><Link href="/payments">PAYMENTS</Link><Link href="/about">ABOUT</Link></nav>
       <a className="headerSocial" href="https://x.com/AERIS_arc" target="_blank" rel="noopener noreferrer" aria-label="AERIS on X">X <span aria-hidden="true">↗</span></a>
       <input
         className="search"
@@ -169,7 +169,7 @@ export function Dashboard() {
       <h1>Watch money move.</h1>
     </section>
 
-    <Watchlist transfers={observedTransfers} reference={referenceTimestamp} healthy={statusLabel === "LIVE" && health.windowCovered === true} selected={selected} onInspect={address => {setQuery(address); select(address); setSelectedTransferId(null);}}/>
+    {query && <div className="searchFeedback" role="status"><span>{search.kind === "invalid" ? "Enter a full 0x address or transaction hash. The ledger below is unchanged." : search.matchedAddress || search.matchedEvent || filtered.length ? "Matching activity selected. View its details and receipt below." : "No match in this observation window. Try 10M or check the Arc explorer."}</span><button type="button" onClick={() => setQuery("")}>Clear search</button></div>}
 
     {healthOpen && <section className="healthPanel" id="data-health" aria-label="Arc Mainnet data health">
       <div className="healthPanelHead"><div><small>DATA HEALTH · {statusLabel}</small><h2>Verified observation coverage</h2></div><button type="button" onClick={() => setHealthOpen(false)} aria-label="Close data health">×</button></div>
@@ -187,7 +187,7 @@ export function Dashboard() {
         {!show2D && <button className="resetView" type="button" onClick={() => setResetViewToken(token => token + 1)} aria-label="Reset globe camera view" title="Reset globe camera view">RESET VIEW <span aria-hidden="true">↺</span></button>}
       </div>
 
-      <section className="metrics" aria-label="Live metrics"><div className="panelKicker">LIVE NETWORK · 10M</div>
+      <section className="metrics" aria-label="Live metrics"><div className="panelKicker">LIVE NETWORK · {rangeMinutes}M</div>
         <p className="eyebrow">VERIFIED {rangeMinutes}M ACTIVITY · ≥1,000 USDC</p>
         <div className="assetHeading"><UsdcIcon/><span>ARC MAINNET USDC</span></div>
         <Metric icon primary label="USDC FLOW" value={`$${money(String(volume))}`}/>
@@ -262,6 +262,8 @@ export function Dashboard() {
       {inspectedSignal.relatedAddresses[0] && <a href={`${ARC.explorer}/address/${inspectedSignal.relatedAddresses[0]}`} target="_blank" rel="noopener noreferrer">VIEW RELATED ADDRESS ON ARCSCAN ↗</a>}
     </section>}
 
+
+    <Watchlist transfers={observedTransfers} reference={referenceTimestamp} healthy={statusLabel === "LIVE" && health.windowCovered === true} selected={selected} onInspect={address => {setQuery(address); select(address); setSelectedTransferId(null);}}/>
 
     <section className="feed" id="live-ledger" ref={feedRef}>
       <div className="feedHead"><div><small>VERIFIED {rangeMinutes}M LEDGER · MIN 1,000 USDC</small><h2>Recent verified transfers <span className="feedCount">{Math.min(filtered.length, 16)} / {filtered.length} shown</span></h2></div><span>{ARC.name} · USDC · {statusLabel === "LIVE" ? "REAL-TIME" : "LAST VERIFIED WINDOW"}</span></div>

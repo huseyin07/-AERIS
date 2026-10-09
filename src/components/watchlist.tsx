@@ -87,11 +87,11 @@ export function Watchlist({transfers, reference, healthy, selected, onInspect}: 
 
   return <section className="watchlist" id="watchlist" aria-labelledby="watchlist-heading">
     <div className="watchlistHeader">
-      <div><h2 id="watchlist-heading">Watchlist & alerts</h2><p>Track addresses. Get transaction-backed alerts.</p></div>
+      <div><h2 id="watchlist-heading">Track an address</h2>{open && <p>Watch outgoing USDC transfers and new recipients.</p>}</div>
       <span className="watchlistMonitoring" role="status">{ready ? `${state.watches.filter(w => w.enabled).length} tracking · ${healthy ? "Live" : "Waiting for complete live data"}` : "Loading saved addresses…"}</span>
       <button className="watchlistButton" type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-controls="watchlist-content">{open ? "Close watchlist" : "Manage watchlist"}{unread > 0 ? ` · ${unread} unread` : ""}</button>
     </div>
-    <p className="watchlistScope">Alerts run while this page is open. Saved on this browser only. No wallet connection needed.</p>
+    {open && <p className="watchlistScope">Alerts run while this page is open. Saved on this browser only. No wallet connection needed.</p>}
     <div className="watchlistAnnouncement" role="status" aria-live="polite">{unread > 0 ? `${unread} unread alert${unread === 1 ? "" : "s"}. Open the watchlist to inspect transaction evidence.` : ""}</div>
     {open && <div id="watchlist-content" className="watchlistContent">
       {storageError && <p className="watchlistError" role="alert">Browser storage is unavailable. Changes will last only for this page session.</p>}

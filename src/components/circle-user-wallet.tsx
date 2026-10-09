@@ -39,7 +39,7 @@ export function CircleUserWallet() {
     [transactions, setTransactions] = useState<Transaction[]>([]),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
-  const sdk = useRef<W3SSdk>(),
+  const sdk = useRef<W3SSdk | undefined>(undefined),
     pending = useRef(false);
   useEffect(() => {
     let alive = true;
@@ -219,10 +219,10 @@ export function CircleUserWallet() {
         {!config ? (
           <p>Checking availability…</p>
         ) : !config.circle ? (
-          <p className="paymentHold">
-            Email wallets are not available on this deployment yet. Use your
-            existing wallet on the Payments page.
-          </p>
+          <div className="walletEmpty">
+            <strong>Email wallets are not available yet.</strong><p>
+            Connect your existing wallet to send USDC on Arc.</p><a className="buildButton" href="/payments">Use my wallet →</a>
+          </div>
         ) : !signedIn ? (
           <>
             <form className="paymentForm" onSubmit={login}>
