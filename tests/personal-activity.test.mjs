@@ -28,3 +28,21 @@ test('receipt parsing accepts native USDC logs and rejects other tokens or malfo
  const events=usdcReceiptTransfers([log,{...log,address:a},{...log,data:'0x'}]);
  assert.deepEqual(events,[{from:a,to:b,amountUsdc:'10.000001',logIndex:4}]);
 });
+
+import {boundedLogs} from '../src/activity/log-ranges.ts';
+test('RPC result limits split into contiguous ranges without losing events',async()=>{
+ const seen=[];
+ const values=await boundedLogs(async(from,to)=>{
+  if(to-from>63n){const error=new Error('limit');error.name='LimitExceededRpcError';throw error;}
+  seen.push([from,to]);return Array.from({length:Number(to-from+1n)},(_,i)=>from+BigInt(i));
+ },0n,255n);
+ assert.deepEqual(seen,[[0n,63n],[64n,127n],[128n,191n],[192n,255n]]);
+ assert.equal(values.length,256);assert.equal(new Set(values).size,256);
+});
+test('unrelated RPC failures are never converted into an empty history',async()=>{
+ let calls=0;await assert.rejects(()=>boundedLogs(async()=>{calls++;throw Error('offline');},0n,1000n),/offline/);assert.equal(calls,1);
+});
+test('limits in the smallest supported range remain explicit failures',async()=>{
+ const error=new Error('limit');error.name='LimitExceededRpcError';
+ await assert.rejects(()=>boundedLogs(async()=>{throw error;},0n,63n),/limit/);
+});

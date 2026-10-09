@@ -4,6 +4,7 @@ import {createPublicClient,http,erc20Abi} from "viem";
 import {ARC,arcChain} from "@/data/arc";
 import {normalizeTransfer} from "@/data/normalize";
 import type {Transfer} from "@/data/types";
+import {boundedLogs} from "./log-ranges";
 type StoredPage={version:1;chainId:5042;fromBlock:string;toBlock:string;fromTime:number;toTime:number;fromHash:string;toHash:string;transfers:Transfer[];nextOffset:number|null;capturedAt:number;cacheHit?:boolean};
 const PAGE_SIZE=50;
 const inFlight=new Map<string,Promise<StoredPage>>();
@@ -22,13 +23,14 @@ export async function addressHistory(address:`0x${string}`,since:number,until:nu
  if(cursor&&Number(fromHeader.timestamp)*1000>until)throw Error("Cursor is outside the requested range");
  const key=`arc-address/v1/${address}/${from}-${to}-${offset}.json.gz`;
  if(!inFlight.has(key))inFlight.set(key,(async()=>{
-   const saved=await get(key,{access:"private"});
+   const saved=await get(key,{access:"private",useCache:false});
    if(saved?.statusCode===200){const page=JSON.parse(gunzipSync(Buffer.from(await new Response(saved.stream).arrayBuffer())).toString()) as StoredPage;
      if(page.chainId===5042&&page.fromHash===fromHeader.hash&&page.toHash===toHeader.hash)return {...page,cacheHit:true};
    }
+   const query=(args:{from?:`0x${string}`;to?:`0x${string}`},lo:bigint,hi:bigint)=>rpc.getContractEvents({address:ARC.usdc,abi:erc20Abi,eventName:"Transfer",args,fromBlock:lo,toBlock:hi,strict:true});
    const [outgoing,incoming]=await Promise.all([
-     rpc.getContractEvents({address:ARC.usdc,abi:erc20Abi,eventName:"Transfer",args:{from:address},fromBlock:from,toBlock:to,strict:true}),
-     rpc.getContractEvents({address:ARC.usdc,abi:erc20Abi,eventName:"Transfer",args:{to:address},fromBlock:from,toBlock:to,strict:true})
+     boundedLogs((lo,hi)=>query({from:address},lo,hi),from,to),
+     boundedLogs((lo,hi)=>query({to:address},lo,hi),from,to)
    ]);
    const logs=[...new Map([...outgoing,...incoming].map(log=>[`${log.transactionHash}:${log.logIndex}`,log])).values()].sort((a,b)=>Number(b.blockNumber!-a.blockNumber!)||b.logIndex!-a.logIndex!);
    if(logs.length>50000||offset>logs.length)throw Error("Address range is too dense or cursor invalid");
