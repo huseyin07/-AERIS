@@ -7,7 +7,7 @@ import {compareTemporalHalves, concentrationSummary, detectTransferAnomalies, in
 
 export type AnswerEvidence = {text: string; address?: string; transferId?: string; txHash?: string; blockNumber?: string; provenance?: string};
 export type AgentContext = {address?: string | null; transferId?: string | null; previousAddress?: string | null; delta?: SnapshotDelta | null};
-export type AerisAnswer = {message: string; summary: string; evidence: AnswerEvidence[]; intent: VisualizationIntent; relatedAddresses: string[]; relatedTransferIds: string[]; scope: "current-window"; trace: AgentTrace};
+export type AerisAnswer = {message: string; summary: string; evidence: AnswerEvidence[]; intent: VisualizationIntent; relatedAddresses: string[]; relatedTransferIds: string[]; scope: "current-window"; trace: AgentTrace; hypothesis?: string; limitation?: string};
 export function withObservationStatus(result: AerisAnswer, status: "live" | "stale" | "connecting" | "unavailable"): AerisAnswer {
   if (status === "stale") {
     const summary = `Using the last successfully verified observation window. ${result.summary}`;
@@ -32,6 +32,20 @@ export function answerDeterministically(query: string, snapshot: IntelligenceSna
   const contextualTransfer = context.transferId ? transfers.find(item => item.id === context.transferId) ?? null : null;
   const contextualAddress = context.address ?? selectedAddress ?? contextualTransfer?.to ?? null;
   if (!snapshot.transferCount) return answer("No verified activity is available in the current observation window.");
+  if (/\bwhy\b|neden|niçin/.test(text) && /transfer|flow|transaction|işlem/.test(text)) {
+    const hash = text.match(/0x[\da-f]{64}/)?.[0];
+    const log = text.match(/\blog\s+(\d+)\b/)?.[1];
+    const flow = hash ? transfers.find(item => item.txHash.toLowerCase() === hash && (log === undefined || item.logIndex === Number(log))) : contextualTransfer;
+    if (!flow) return answer("Select a transfer or include its full transaction hash to investigate why it may have happened.");
+    const contract = flow.fromType === "contract" || flow.toType === "contract";
+    const related = transfers.filter(item => item.id !== flow.id && (item.from.toLowerCase() === flow.from.toLowerCase() || item.to.toLowerCase() === flow.to.toLowerCase())).slice(0, 3);
+    const facts = `${format(Number(flow.value))} USDC moved from ${short(flow.from)} (${flow.fromType}) to ${short(flow.to)} (${flow.toType}) in block ${flow.blockNumber}.`;
+    const hypothesis = contract ? "A contract endpoint makes an application interaction possible, but a Transfer event alone cannot identify a swap, deposit or payment." : "It may be a payment or a movement between wallets. The observed event does not establish ownership or purpose.";
+    return {...answer(facts, {type: "highlight-transfers", transferIds: [flow.id]}, [
+      {text: facts, transferId: flow.id, txHash: flow.txHash, blockNumber: flow.blockNumber, provenance: `Arc Mainnet · block ${flow.blockNumber} · log ${flow.logIndex}`},
+      ...related.map(item => ({text: `Related observed movement: ${format(Number(item.value))} USDC · ${short(item.from)} → ${short(item.to)}`, transferId: item.id, txHash: item.txHash, blockNumber: item.blockNumber})),
+    ], [flow.from, flow.to], [flow.id]), hypothesis, limitation: "Address identities and transaction intent are unverified. Related movements do not prove that the same funds continued along a path."};
+  }
   if (/map (the )?network|network around|graph around|isolate (this|the) network|show only (this|the) network/.test(text)) {
     const root = text.match(/0x[\da-f]{40}/)?.[0] ?? contextualAddress;
     if (!root) return answer("Select or provide an observed address before mapping its network.");

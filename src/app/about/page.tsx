@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type {Metadata} from "next";
-import {AgentWallet} from "@/components/agent-wallet";
 
 export const metadata: Metadata = {
   title: "AERIS — Product & evidence",
@@ -17,21 +16,20 @@ export default function AboutPage() {
       <div className="buildLinks"><Link href="/">Explore live activity ↗</Link><a href="https://github.com/huseyin07/-AERIS" target="_blank" rel="noopener noreferrer">Public source ↗</a><a href="https://x.com/AERIS_arc" target="_blank" rel="noopener noreferrer">Builder updates ↗</a></div>
     </section>
     <section className="buildCard reviewerPath">
-      <h2>Review AERIS in three steps</h2>
-      <ol><li><Link href="/">Inspect live activity</Link> — open Data Health, select a transfer and compare its Arc explorer evidence.</li><li><Link href="/payments">Prepare a personal transfer</Link> — connect your wallet, enter a recipient and amount, and review the USDC network fee.</li><li><Link href="/payments#settlement-evidence">Check settlement</Link> — after approving a transfer in your wallet, match its recipient, amount and confirmed receipt. Export the receipt for independent review.</li></ol>
+      <h2>Explore AERIS</h2>
+      <ol><li><Link href="/activity">Track an address</Link> — save a wallet or contract, inspect recorded USDC movements and current large-outflow alerts.</li><li><Link href="/check">Check any payment</Link> — enter a transaction hash without connecting a wallet.</li><li><Link href="/">Inspect live activity</Link> — open Data Health, select a transfer and compare its Arc explorer evidence.</li><li><Link href="/payments">Prepare a personal transfer</Link> — connect your wallet, enter a recipient and amount, and review the USDC network fee.</li><li><Link href="/payments#settlement-evidence">Check settlement</Link> — after approving a transfer in your wallet, match its recipient, amount and confirmed receipt. Export the receipt for independent review.</li></ol>
       <p className="buildMuted">No wallet connection is required to observe the network. Public transfers use each visitor’s own wallet. Circle treasury tools are a separate operator workflow.</p>
     </section>
     <details className="buildCard paymentDetails"><summary><span>How the evidence works</span><small>Observation, analysis and verification</small></summary>
       <h2>Observe → Analyze → Verify</h2>
       <p>Arc is the source of the product’s economic evidence: native USDC transfer events, contract calls, deployments, and wallet/contract classification. The observation window follows chain time, rather than a simulated clock.</p>
       <dl className="buildFacts">
-        <div><dt>Observe</dt><dd>Rolling 10-minute USDC window; coverage and stale-head diagnostics.</dd></div>
+        <div><dt>Observe</dt><dd>Rolling 10-minute live USDC window; recorded observations retained for seven days with explicit coverage intervals.</dd></div>
         <div><dt>Analyze</dt><dd>Deterministic signals, policy checks, proactive investigations and evidence strength.</dd></div>
         <div><dt>Verify</dt><dd>Transaction and block references, linked ledger selections, explorer evidence.</dd></div>
         <div><dt>Visualize</dt><dd>Responsive 2D/3D views. Flows ≥1,000 USDC are visualized; ingestion observes smaller transfers too.</dd></div>
       </dl>
     </details>
-    <details className="buildCard paymentDetails"><summary><span>Circle wallet identity</span><small>Live verification on Arc</small></summary><AgentWallet/></details>
     <section className="buildCard">
       <h2>Real data, explicit limits</h2>
       <p>When RPC access is unavailable, AERIS reports unavailable or partial data. Empty activity is never replaced by mock transactions.</p>
@@ -39,6 +37,7 @@ export default function AboutPage() {
     <section className="buildCard">
       <h2>What is demonstrated</h2>
       <div className="buildTableWrap"><table><thead><tr><th>Capability</th><th>Current scope</th><th>Acceptance evidence</th></tr></thead><tbody>
+        <tr><td>Personal address tracking</td><td>Saved addresses and retrospective history</td><td>Private server archive of public chain observations; seven-day retention, coverage gaps shown, local labels and alert rules. Desktop notifications only while the page is open.</td></tr>
         <tr><td>Arc intelligence</td><td>Implemented</td><td>Live RPC observation, ledger and evidence links; deployment health must be checked live.</td></tr>
         <tr><td>Personal USDC transfers</td><td>Browser wallets and wallet mobile browsers</td><td>User wallet approval, fresh balance/fee checks and exact Arc receipt verification. No hosted custody or automatic spending.</td></tr>
         <tr><td>History & pending requests</td><td>Arc recovery and portable notes</td><td>Validated backups, fresh receipts, bounded status polling and nonce-checked replacement/cancellation.</td></tr>

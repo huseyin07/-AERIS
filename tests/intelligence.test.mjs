@@ -504,3 +504,27 @@ test("agent transaction explanations use supplied verified data without identity
   assert.match(explanation.summary, /USDC moved from.*block 100/);
   assert.doesNotMatch(explanation.summary, /whale|institution|suspicious|exchange/i);
 });
+
+
+test("transfer purpose separates observed facts from unconfirmed explanations", () => {
+  const snapshot = buildIntelligenceSnapshot(transfers, 123);
+  const result = answerDeterministically(`Why did this transfer happen? ${hash("2")}`, snapshot, transfers);
+  assert.equal(result.relatedTransferIds[0], "2");
+  assert.match(result.summary, /20 USDC/);
+  assert.match(result.hypothesis, /cannot identify a swap/);
+  assert.match(result.limitation, /unverified/);
+  assert.equal(result.evidence[0].txHash, hash("2"));
+  assert.match(result.evidence[0].provenance, /log 2/);
+  const missing = answerDeterministically(`Why did this transfer happen? ${hash("99")}`, snapshot, transfers);
+  assert.equal(missing.hypothesis, undefined);
+  assert.match(missing.summary, /Select a transfer/);
+});
+
+
+test("purpose explanation selects the exact transfer event in a multi-event transaction", () => {
+  const sameTx = [transfers[0], {...transfers[1], txHash: transfers[0].txHash}];
+  const snapshot = buildIntelligenceSnapshot(sameTx, 123);
+  const result = answerDeterministically(`Why this transfer? ${hash("1")} · log 2`, snapshot, sameTx);
+  assert.equal(result.relatedTransferIds[0], "2");
+  assert.match(result.summary, /20 USDC/);
+});

@@ -340,6 +340,8 @@ export function PublicTransfers({
   }
   async function mobileConnect() {
     if (active.current || !connections?.projectId) return;
+    active.current = true;
+    setError("");
     setBusy("Open your wallet to connect…");
     try {
       const provider = await connectMobileWallet(
@@ -347,10 +349,12 @@ export function PublicTransfers({
         location.origin,
         setPairingUri,
       );
+      active.current = false;
       await connect({ id: "walletconnect", name: "Mobile wallet", provider });
     } catch (e) {
       setError(errorMessage(e));
     } finally {
+      active.current = false;
       setBusy("");
       setPairingUri("");
     }
@@ -427,6 +431,7 @@ export function PublicTransfers({
     setReview(null);
     const token = session.current;
     try {
+      if (!navigator.locks) throw new Error("Use a current browser with Web Locks support to send transfers.");
       if (chainId !== PAYMENT_CHAIN)
         throw new Error("Switch your wallet to Arc Mainnet first.");
       if ((await walletAccount(selected.provider)) !== payer)
@@ -472,6 +477,7 @@ export function PublicTransfers({
         signal: AbortSignal.timeout(30_000),
       });
       const value = await response.json();
+      if (!response.ok) throw new Error(value.message ?? "Receipt verification unavailable. Try again.");
       setEvidence((current) => ({ ...current, [item.id]: value }));
       if (typeof value.nonceProof === "string") {
         const values = readHistory().map((v) =>
@@ -891,6 +897,8 @@ export function PublicTransfers({
           <div className="transferReview">
             <h3>Check before you approve</h3>
             <dl className="buildFacts">
+              <div><dt>Network</dt><dd>Arc Mainnet · Chain {PAYMENT_CHAIN}</dd></div>
+              <div><dt>Asset</dt><dd>USDC · Mainnet</dd></div>
               <div>
                 <dt>From</dt>
                 <dd>{payer}</dd>
