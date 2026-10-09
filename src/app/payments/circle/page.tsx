@@ -17,7 +17,7 @@ export default function CircleWalletPage() {
         <nav aria-label="Product pages">
           <Link href="/payments">Payments</Link>
           <b aria-current="page">Circle wallet</b>
-          <Link href="/about">Evidence</Link>
+          <Link href="/about">About</Link>
         </nav>
         <span className="buildBadge">ARC MAINNET</span>
       </header>

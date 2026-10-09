@@ -144,7 +144,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
     <div className="agentGlow"/>
     <div className="agentIdentity">
       <Image className="agentPortrait" src="/aeris-agent.png" alt="AERIS Agent" width={90} height={110} priority/>
-      <div><div className="agentName">AERIS AGENT <span className={`agentLive ${agentStatus}`}><i/>{agentStatus.toUpperCase()}</span></div><p>Stateful Financial Agent</p><small>OBSERVE · ANALYZE · PLAN · POLICY · ACT · VERIFY · MEMORY</small></div>
+      <div><div className="agentName">AERIS AGENT <span className={`agentLive ${agentStatus}`}><i/>{agentStatus.toUpperCase()}</span></div><p>Understand Arc activity</p><small>ASK ABOUT FLOWS, ADDRESSES & UNUSUAL ACTIVITY</small></div>
       {expanded && <button className="agentClose" onClick={onClose} aria-label="Close AERIS Agent">×</button>}
     </div>
     {expanded && <div className="agentReport">

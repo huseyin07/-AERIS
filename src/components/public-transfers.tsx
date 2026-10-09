@@ -751,11 +751,11 @@ export function PublicTransfers({
                 </a>
               )}
             </div>
-            <p className="buildMuted">
+            {(choices.length > 0 || connections?.projectId || connections?.circle || !connections) && <p className="buildMuted">
               {choices.length
                 ? "Choose your browser wallet. On mobile, open this page inside your wallet’s browser."
                 : "Open this page in a wallet’s mobile browser or use a browser wallet extension, such as MetaMask or Rabby."}
-            </p>
+            </p>}
             {!choices.length && connections && !connections.projectId && !connections.circle && <div className="walletEmpty"><strong>No wallet detected in this browser.</strong><p>Install a browser wallet, or open this page from your wallet app’s built-in browser. Return here to connect.</p></div>}
           </>
         )}

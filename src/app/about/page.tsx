@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   return <main className="buildPage">
-    <header><Link href="/" className="brand">AERIS</Link><nav aria-label="Product pages"><Link href="/">Live</Link><Link href="/payments">Payments</Link><b aria-current="page">Evidence</b></nav><span className="buildBadge">ARC MAINNET</span></header>
+    <header><Link href="/" className="brand">AERIS</Link><nav aria-label="Product pages"><Link href="/">Live</Link><Link href="/payments">Payments</Link><b aria-current="page">About</b></nav><span className="buildBadge">ARC MAINNET</span></header>
     <section className="buildIntro">
       <small>PRODUCT & EVIDENCE</small>
       <h1>Follow the money. Check the decision.</h1>
