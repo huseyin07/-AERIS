@@ -1,16 +1,22 @@
-import {NextResponse} from "next/server";
+import {NextResponse,after} from "next/server";
+import {archiveConfigured,captureObservation} from "@/activity/archive";
 import {ARC} from "@/data/arc";
 import {getRecentActivity} from "@/data/arc-source";
 import {eventsToTransfers, OBSERVATION_WINDOW_MS} from "@/data/activity-engine";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 60;
 let lastHealthyLogAt = 0;
+let lastArchiveBucket = -1;
 
 export async function GET() {
   const startedAt = Date.now();
   try {
     const data = await getRecentActivity();
+    const bucket=Math.floor(Date.now()/300000);
+    if(archiveConfigured()&&data.diagnostics.status==="ok"&&bucket!==lastArchiveBucket){lastArchiveBucket=bucket;after(async()=>{try{await captureObservation();}catch{lastArchiveBucket=-1;}});}
+
     const durationMs = Date.now() - startedAt;
     if (data.diagnostics.status !== "ok" || durationMs > 5_000 || Date.now() - lastHealthyLogAt >= 60_000) {
       const record = JSON.stringify({event: "arc_activity", status: data.diagnostics.status, durationMs, headAgeMs: data.diagnostics.headAgeMs, windowCovered: data.diagnostics.windowCovered, blocksScanned: data.diagnostics.blocksScanned, rpcRequests: data.diagnostics.rpcRequestCount.total, ingestionMs: Math.round(data.diagnostics.stageTimingsMs.total), warningCount: data.diagnostics.rpcWarnings.length});
