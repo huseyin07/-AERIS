@@ -125,6 +125,8 @@ export function Dashboard() {
     : [];
   const analysisTransfers = useMemo(() => resolveTransferEndpointTypes(windowed.transfers, endpointTypes), [windowed.transfers, endpointTypes]);
   const addressSnapshot = useMemo(() => buildIntelligenceSnapshot(analysisTransfers, referenceTimestamp ?? Date.now(), windowed.events), [analysisTransfers, windowed.events, referenceTimestamp]);
+  const agentTransfers = useMemo(() => resolveTransferEndpointTypes(observedTransfers, endpointTypes), [observedTransfers, endpointTypes]);
+  const agentSnapshot = useMemo(() => buildIntelligenceSnapshot(agentTransfers, referenceTimestamp ?? Date.now(), observedEvents), [agentTransfers, observedEvents, referenceTimestamp]);
   const entity = selected ? getEntityIntelligence(addressSnapshot, selected) : null;
   const counterparties = useMemo(() => {
     const rows = new Map<string, {address: string; count: number; sent: number; received: number}>();
@@ -249,7 +251,7 @@ export function Dashboard() {
           </dl>
           <p className="panelNote">{status === "stale" ? "Using the last successfully verified observation window." : transfers.length ? `${health.windowCovered === false ? "USDC window partially covered" : "USDC window observed"}; contract events sample recent blocks.` : emptyMessage}</p>
         </>}
-        <IntelligencePanel snapshot={addressSnapshot} transfers={analysisTransfers} selected={selected} connection={status === "live" && statusLabel === "DEGRADED" ? "stale" : status} expanded={agentOpen} visualizationAvailable={!show2D} request={agentRequest} onExpand={() => setAgentOpen(true)} onClose={() => setAgentOpen(false)} onSelectAddress={address => {select(address); setSelectedTransferId(null);}} onSelectTransfer={id => {const transfer = transfers.find(item => item.id === id); setSelectedTransferId(transfer ? transferIdentity(transfer) : id);}}/>
+        <IntelligencePanel snapshot={agentSnapshot} transfers={agentTransfers} selected={selected} connection={status === "live" && statusLabel === "DEGRADED" ? "stale" : status} expanded={agentOpen} visualizationAvailable={!show2D} request={agentRequest} onExpand={() => setAgentOpen(true)} onClose={() => setAgentOpen(false)} onSelectAddress={address => {select(address); setSelectedTransferId(null);}} onSelectTransfer={id => {const transfer = transfers.find(item => item.id === id); setSelectedTransferId(transfer ? transferIdentity(transfer) : id);}}/>
       </section>
 
       {!transfers.length && !show2D && <div className="sceneEmpty"><span>{emptyMessage}</span><small>No simulated activity is shown</small></div>}
