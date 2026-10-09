@@ -6,13 +6,13 @@ import {ARC} from "@/data/arc";
 import {money, short} from "@/lib/format";
 import {emptyWatchState, evaluateWatchlist, MAX_WATCHES, parseUsdc, restoreWatchState, WATCHLIST_KEY, type Watch, type WatchState} from "@/watchlist/engine";
 
-export function Watchlist({transfers, reference, healthy, selected, onInspect}: {
+export function Watchlist({transfers, reference, healthy, selected, onInspect, initialOpen = false, onState}: {
   transfers: readonly Transfer[]; reference: number | null; healthy: boolean;
-  selected: string | null; onInspect: (address: string) => void;
+  selected: string | null; onInspect: (address: string) => void; initialOpen?: boolean; onState?: (state: WatchState) => void;
 }) {
   const [state, setState] = useState<WatchState>(emptyWatchState);
   const [ready, setReady] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [address, setAddress] = useState("");
   const [label, setLabel] = useState("");
   const [large, setLarge] = useState("10000");
@@ -22,6 +22,8 @@ export function Watchlist({transfers, reference, healthy, selected, onInspect}: 
   const [editing, setEditing] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [storageError, setStorageError] = useState(false);
+  const [notifications, setNotifications] = useState(false);
+  const notified = useRef<Set<string> | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const unread = state.alerts.filter(alert => !alert.read).length;
 
@@ -39,6 +41,19 @@ export function Watchlist({transfers, reference, healthy, selected, onInspect}: 
     if (!ready || reference === null) return;
     setState(current => evaluateWatchlist(current, transfers, reference, healthy));
   }, [ready, transfers, reference, healthy]);
+
+  useEffect(() => {if (ready) onState?.(state);}, [ready, state, onState]);
+  useEffect(() => {
+    if (!ready) return;
+    if (notified.current === null) {notified.current = new Set(state.alerts.map(a => a.id)); return;}
+    for (const alert of state.alerts) {
+      if (notified.current.has(alert.id)) continue;
+      notified.current.add(alert.id);
+      if (notifications && typeof Notification !== "undefined" && Notification.permission === "granted") {
+        try {new Notification("AERIS · address alert", {body: `${alert.label || short(alert.address)} · ${alert.kind === "large-outflow" ? "large outgoing USDC transfer" : "new recipients"}`, tag: alert.id});} catch {/* In-page evidence remains available on browsers without desktop notifications. */}
+      }
+    }
+  }, [ready, state.alerts, notifications]);
 
   const totals = useMemo(() => new Map(state.watches.map(watch => {
     const related = reference === null ? [] : transfers.filter(t => t.timestamp !== undefined && t.timestamp > reference - 600_000 && t.timestamp <= reference);
@@ -58,7 +73,6 @@ export function Watchlist({transfers, reference, healthy, selected, onInspect}: 
     if (!/^0x[\da-f]{40}$/.test(normalized)) {setError("Enter a full 0x wallet or contract address."); return;}
     if (state.watches.some(w => w.address === normalized && w.id !== editing)) {setError("This address is already tracked."); return;}
     if (!editing && state.watches.length >= MAX_WATCHES) {setError(`You can track up to ${MAX_WATCHES} addresses.`); return;}
-    if (!largeEnabled && !recipientEnabled) {setError("Enable at least one alert rule."); return;}
     if (largeEnabled && parseUsdc(large.trim()) === null) {setError("Enter a positive USDC amount with up to 6 decimals."); return;}
     const count = Number(recipientCount);
     if (recipientEnabled && (!Number.isInteger(count) || count < 2 || count > 50)) {setError("New recipient threshold must be between 2 and 50."); return;}
@@ -91,10 +105,17 @@ export function Watchlist({transfers, reference, healthy, selected, onInspect}: 
       <span className="watchlistMonitoring" role="status">{ready ? `${state.watches.filter(w => w.enabled).length} tracking · ${healthy ? "Live" : "Waiting for complete live data"}` : "Loading saved addresses…"}</span>
       <button className="watchlistButton" type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-controls="watchlist-content">{open ? "Close watchlist" : "Manage watchlist"}{unread > 0 ? ` · ${unread} unread` : ""}</button>
     </div>
-    {open && <p className="watchlistScope">Alerts run while this page is open. Saved on this browser only. No wallet connection needed.</p>}
+    {open && <p className="watchlistScope">Live alerts run while this page is open. Addresses and rules are saved on this browser only. My Activity also checks recorded history when you return. No wallet connection needed.</p>}
     <div className="watchlistAnnouncement" role="status" aria-live="polite">{unread > 0 ? `${unread} unread alert${unread === 1 ? "" : "s"}. Open the watchlist to inspect transaction evidence.` : ""}</div>
     {open && <div id="watchlist-content" className="watchlistContent">
       {storageError && <p className="watchlistError" role="alert">Browser storage is unavailable. Changes will last only for this page session.</p>}
+      <div className="watchlistActions"><button type="button" onClick={async () => {
+        if (typeof Notification === "undefined") {setError("Desktop notifications are unavailable in this browser. In-page alerts still work."); return;}
+        if (notifications) {setNotifications(false); return;}
+        const permission = await Notification.requestPermission();
+        if (permission === "granted") {notified.current = new Set(state.alerts.map(a => a.id)); setNotifications(true);}
+        else setError("Notifications were not enabled. In-page alerts remain available.");
+      }}>{notifications ? "Disable desktop notifications" : "Enable desktop notifications"}</button><span>While this page is open; no background push delivery.</span></div>
       <form ref={formRef} className="watchlistForm" onSubmit={submit}>
         <label>Address<input value={address} onChange={e => setAddress(e.target.value)} placeholder="0x… full address" autoComplete="off" spellCheck={false} maxLength={42} required/></label>
         <label>Label (optional)<input value={label} onChange={e => setLabel(e.target.value)} placeholder="Treasury, project, wallet…" maxLength={40}/></label>

@@ -174,7 +174,7 @@ export function Dashboard() {
     <LiveActivity/>
     <header>
       <div className="brand"><Image className="brandMark" src="/aeris-logo.jpg" alt="" width={18} height={18}/>AERIS</div>
-      <nav aria-label="Dashboard sections"><b aria-current="page">LIVE</b><button onClick={() => setAgentOpen(true)}>INSIGHTS</button><Link href="/payments">PAYMENTS</Link><Link href="/about">ABOUT</Link></nav>
+      <nav aria-label="Dashboard sections"><b aria-current="page">LIVE</b><button onClick={() => setAgentOpen(true)}>INSIGHTS</button><Link href="/activity">MY ACTIVITY</Link><Link href="/check">CHECK PAYMENT</Link><Link href="/payments">SEND USDC</Link><Link href="/about">ABOUT</Link></nav>
       <a className="headerSocial" href="https://x.com/AERIS_arc" target="_blank" rel="noopener noreferrer" aria-label="AERIS on X">X <span aria-hidden="true">↗</span></a>
       <input
         className="search"
@@ -187,7 +187,7 @@ export function Dashboard() {
     </header>
 
     <section className="dashboardIntro" aria-label="AERIS live intelligence">
-      <h1>Watch money move.</h1>
+      <h1>Watch money move.</h1><div className="personalEntrypoints"><Link href="/activity">Track your address →</Link><Link href="/check">Check a payment →</Link></div>
     </section>
 
     <div className="dataFreshness" role="status"><span>Arc Mainnet · {statusLabel}</span><span>{health.lastSuccessfulAt ? `Updated ${relativeActivityTime(health.lastSuccessfulAt, clock)}` : "Waiting for verified data"}</span><span>{health.windowCovered === undefined ? "Coverage pending" : health.windowCovered ? "USDC window complete" : "Partial USDC window"}</span>{statusLabel === "DEGRADED" && health.lastSuccessfulAt && <span>Showing the last verified window</span>}</div>

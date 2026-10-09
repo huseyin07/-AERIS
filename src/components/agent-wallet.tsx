@@ -27,8 +27,8 @@ export function AgentWallet() {
   }, [revision]);
 
   return <section className="buildCard" id="agent-wallet" aria-labelledby="wallet-heading">
-    <div className="buildCardHeading"><h2 id="wallet-heading">AERIS Agent Wallet</h2><span className="buildBadge">CIRCLE WALLETS</span></div>
-    <p>Observe a developer-controlled wallet on Arc. Verify its identity with Circle and its USDC balance against the chain.</p>
+    <div className="buildCardHeading"><h2 id="wallet-heading">Operator Circle Wallet</h2><span className="buildBadge">CIRCLE WALLETS</span></div>
+    <p>Operator tools: this is the AERIS treasury wallet, not a visitor’s personal wallet. Verify its identity with Circle and its USDC balance against the chain.</p>
     <div role="status" aria-live="polite">
       <strong>{loading ? "Verifying wallet…" : wallet?.status === "verified" ? "Wallet verified" : wallet?.status === "not-configured" ? "Setup pending" : "Verification unavailable"}</strong>
       {!loading && <p>{wallet?.message}</p>}
