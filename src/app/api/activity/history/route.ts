@@ -12,6 +12,6 @@ export async function GET(request:NextRequest){
   if(running>=8)return NextResponse.json({message:"History is busy. Retry shortly."},{status:503});
   running++;
   try{return NextResponse.json(await addressHistory(address as `0x${string}`,since,until,cursor),{headers:{"Cache-Control":"no-store"}});}
-  catch{return NextResponse.json({message:"Archived history is temporarily unavailable. No empty history has been inferred."},{status:503});}
+  catch(error){console.warn(JSON.stringify({event:"address_history_unavailable",errorName:error instanceof Error?error.name:"Unknown"}));return NextResponse.json({message:"Archived history is temporarily unavailable. No empty history has been inferred."},{status:503});}
   finally{running--;}
 }

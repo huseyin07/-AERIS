@@ -5,6 +5,7 @@ import {ARC,arcChain} from "@/data/arc";
 import {normalizeTransfer} from "@/data/normalize";
 import type {Transfer} from "@/data/types";
 type StoredPage={version:1;chainId:5042;fromBlock:string;toBlock:string;fromTime:number;toTime:number;fromHash:string;toHash:string;transfers:Transfer[];nextOffset:number|null;capturedAt:number;cacheHit?:boolean};
+const PAGE_SIZE=50;
 const inFlight=new Map<string,Promise<StoredPage>>();
 export async function addressHistory(address:`0x${string}`,since:number,until:number,cursor?:string){
  const rpc=createPublicClient({chain:arcChain,transport:http(ARC.rpcUrl,{timeout:8000,retryCount:0,fetchOptions:{cache:"no-store"}})});
@@ -31,12 +32,12 @@ export async function addressHistory(address:`0x${string}`,since:number,until:nu
    ]);
    const logs=[...new Map([...outgoing,...incoming].map(log=>[`${log.transactionHash}:${log.logIndex}`,log])).values()].sort((a,b)=>Number(b.blockNumber!-a.blockNumber!)||b.logIndex!-a.logIndex!);
    if(logs.length>50000||offset>logs.length)throw Error("Address range is too dense or cursor invalid");
-   const chosen=logs.slice(offset,offset+200),headers=new Map<string,typeof fromHeader>([[from.toString(),fromHeader],[to.toString(),toHeader]]);
+   const chosen=logs.slice(offset,offset+PAGE_SIZE),headers=new Map<string,typeof fromHeader>([[from.toString(),fromHeader],[to.toString(),toHeader]]);
    const blocks=[...new Set(chosen.map(l=>l.blockNumber!.toString()))].filter(n=>!headers.has(n));
-   for(let i=0;i<blocks.length;i+=4)await Promise.all(blocks.slice(i,i+4).map(async n=>headers.set(n,await rpc.getBlock({blockNumber:BigInt(n)}))));
+   for(let i=0;i<blocks.length;i+=2)await Promise.all(blocks.slice(i,i+2).map(async n=>headers.set(n,await rpc.getBlock({blockNumber:BigInt(n)}))));
    const transfers=chosen.map(log=>{const block=headers.get(log.blockNumber!.toString())!;if(log.blockHash!==block.hash)throw Error("Block changed during history lookup");const t=normalizeTransfer(log);if(!t)throw Error("Malformed transfer evidence");return {...t,timestamp:Number(block.timestamp)*1000};});
    const current=await rpc.getBlock({blockNumber:to});if(current.hash!==toHeader.hash)throw Error("History changed during lookup");
-   const page:StoredPage={version:1,chainId:5042,fromBlock:from.toString(),toBlock:to.toString(),fromTime:Number(fromHeader.timestamp)*1000,toTime:Number(toHeader.timestamp)*1000,fromHash:fromHeader.hash!,toHash:toHeader.hash!,transfers,nextOffset:offset+200<logs.length?offset+200:null,capturedAt:Date.now()};
+   const page:StoredPage={version:1,chainId:5042,fromBlock:from.toString(),toBlock:to.toString(),fromTime:Number(fromHeader.timestamp)*1000,toTime:Number(toHeader.timestamp)*1000,fromHash:fromHeader.hash!,toHash:toHeader.hash!,transfers,nextOffset:offset+PAGE_SIZE<logs.length?offset+PAGE_SIZE:null,capturedAt:Date.now()};
    // Canonical block hash is part of the record; reorgs replace the cached page.
    await put(key,gzipSync(JSON.stringify(page)),{access:"private",contentType:"application/gzip",addRandomSuffix:false,allowOverwrite:true});
    return page;
