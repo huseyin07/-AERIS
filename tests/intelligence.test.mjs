@@ -519,3 +519,12 @@ test("transfer purpose separates observed facts from unconfirmed explanations", 
   assert.equal(missing.hypothesis, undefined);
   assert.match(missing.summary, /Select a transfer/);
 });
+
+
+test("purpose explanation selects the exact transfer event in a multi-event transaction", () => {
+  const sameTx = [transfers[0], {...transfers[1], txHash: transfers[0].txHash}];
+  const snapshot = buildIntelligenceSnapshot(sameTx, 123);
+  const result = answerDeterministically(`Why this transfer? ${hash("1")} · log 2`, snapshot, sameTx);
+  assert.equal(result.relatedTransferIds[0], "2");
+  assert.match(result.summary, /20 USDC/);
+});

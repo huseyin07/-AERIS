@@ -34,7 +34,8 @@ export function answerDeterministically(query: string, snapshot: IntelligenceSna
   if (!snapshot.transferCount) return answer("No verified activity is available in the current observation window.");
   if (/\bwhy\b|neden|niçin/.test(text) && /transfer|flow|transaction|işlem/.test(text)) {
     const hash = text.match(/0x[\da-f]{64}/)?.[0];
-    const flow = hash ? transfers.find(item => item.txHash.toLowerCase() === hash) : contextualTransfer;
+    const log = text.match(/\blog\s+(\d+)\b/)?.[1];
+    const flow = hash ? transfers.find(item => item.txHash.toLowerCase() === hash && (log === undefined || item.logIndex === Number(log))) : contextualTransfer;
     if (!flow) return answer("Select a transfer or include its full transaction hash to investigate why it may have happened.");
     const contract = flow.fromType === "contract" || flow.toType === "contract";
     const related = transfers.filter(item => item.id !== flow.id && (item.from.toLowerCase() === flow.from.toLowerCase() || item.to.toLowerCase() === flow.to.toLowerCase())).slice(0, 3);
