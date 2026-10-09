@@ -41,7 +41,7 @@ export function AgentWallet() {
       <div><dt>Wallet</dt><dd><a href={wallet.explorerUrl} target="_blank" rel="noopener noreferrer">{wallet.address} ↗</a></dd></div>
     </dl>}
     <p className="buildMuted">The public server observes this wallet. Invoice payments are signed by Circle through the operator’s local runner.</p>
-    <p><a href="/payments">Open invoice payments →</a></p>
+    <p><a href="/payments/operator">Open operator payments →</a></p>
     <button className="buildButton" disabled={loading} onClick={() => setRevision(value => value + 1)}>Refresh verification</button>
   </section>;
 }
