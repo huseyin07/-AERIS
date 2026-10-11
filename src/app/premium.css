@@ -39,7 +39,7 @@ nav b:after {background:var(--premium-accent);box-shadow:none;height:2px}
 .premiumDashboard>.metrics .metricPrimary strong {color:var(--premium-accent)}
 .premiumDashboard .competitionObservatory {height:auto;min-height:620px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start;margin-top:24px;padding:0 0 20px;border-bottom:1px solid var(--premium-line);overflow:visible;background:none}
 .premiumDashboard .scene {position:relative;inset:auto;width:100%;height:620px;margin:0;overflow:hidden;border-radius:14px;background:radial-gradient(ellipse at center,#142c4233,transparent 65%)}
-.premiumDashboard .scene:before,.premiumDashboard .scene:after {display:none}
+.premiumDashboard .scene:before,.premiumDashboard .scene:after,.premiumDashboard .observatory:before {display:none}
 .premiumDashboard .entityPanel {position:relative;inset:auto;width:100%;min-height:0;max-height:none;order:initial;margin:0;padding:22px;border:1px solid var(--premium-line);border-radius:12px;background:var(--premium-surface);box-shadow:none;backdrop-filter:none;overflow:visible}
 .premiumDashboard .entityPanel:before {display:none}
 .panelKicker {color:var(--premium-muted);font-size:10px;letter-spacing:.13em}
@@ -54,7 +54,7 @@ nav b:after {background:var(--premium-accent);box-shadow:none;height:2px}
 .legendRow {flex-wrap:wrap;gap:12px}
 .legend .flowTypes {border-color:var(--premium-line)}
 .resetView,.modeSwitch {top:16px;border:1px solid var(--premium-line);border-radius:7px;background:#0c1524e8;color:var(--premium-muted);font-size:10px;min-height:36px;box-shadow:none}
-.resetView {right:16px}.modeSwitch {left:16px;right:auto}
+.resetView {right:16px}.modeSwitch {left:16px;right:auto;transform:none}
 .sceneEmpty {left:calc((100% - 320px)/2);top:310px;width:min(360px,55%);font-size:12px;line-height:1.7;letter-spacing:0}
 .sceneEmpty small {font-size:10px;color:var(--premium-muted)}
 .premiumDashboard .transferPanel {position:relative;inset:auto;transform:none;grid-column:1/-1;order:initial;width:100%;margin:0;padding:22px;border:1px solid #a5dcf74d;border-radius:12px;background:var(--premium-surface);box-shadow:none;animation:premium-panel-in .18s ease-out}
