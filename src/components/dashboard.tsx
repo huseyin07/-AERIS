@@ -149,7 +149,7 @@ export function Dashboard() {
     }
   }
 
-  return <main>
+  return <main className="premiumDashboard">
     <LiveActivity/>
     <header>
       <div className="brand"><Image className="brandMark" src="/aeris-logo.jpg" alt="" width={18} height={18}/>AERIS</div>
@@ -166,7 +166,7 @@ export function Dashboard() {
     </header>
 
     <section className="dashboardIntro" aria-label="AERIS live intelligence">
-      <h1>Watch money move.</h1>
+      <div><span className="introEyebrow">ARC NETWORK INTELLIGENCE</span><h1>Watch money move.</h1></div><button className="introAction" type="button" onClick={() => setAgentOpen(true)}>Ask AERIS <span aria-hidden="true">↗</span></button>
     </section>
 
     {query && <div className="searchFeedback" role="status"><span>{search.kind === "invalid" ? "Enter a full 0x address or transaction hash. The ledger below is unchanged." : search.matchedAddress || search.matchedEvent || filtered.length ? "Matching activity selected. View its details and receipt below." : "No match in this observation window. Try 10M or check the Arc explorer."}</span><button type="button" onClick={() => setQuery("")}>Clear search</button></div>}
@@ -178,6 +178,17 @@ export function Dashboard() {
       {health.rpcWarnings.length > 0 && <p className="healthWarnings">{health.rpcWarnings.join(" · ")}</p>}
     </section>}
 
+      <section className="metrics" aria-label="Live metrics">
+        <div className="metricsContext"><span>NETWORK OVERVIEW</span><small>{rangeMinutes}M WINDOW · ≥1,000 USDC</small></div>
+        
+        <Metric icon primary label="USDC FLOW" value={`$${money(String(volume))}`}/>
+        <Metric label="TRANSFERS" value={String(transfers.length)}/>
+        <Metric label="ACTIVE ADDRESSES" value={String(addresses)}/>
+        <Metric label="KNOWN CONTRACTS" value={String(contracts)}/>
+        <Metric icon label="LARGEST TRANSFER" value={largest ? `${money(largest.value)} USDC` : "—"}/>
+      </section>
+
+
     <section className="observatory competitionObservatory">
       <div className="scene" aria-label="Live Arc Mainnet entity network">
         {show2D ? <NetworkFallback transfers={transfers} endpointTypes={endpointTypes} selectedAddress={selected} selectedTransferId={activeTransferId} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId} reason={sceneFailed ? "unavailable" : "lightweight"}/> : <VisualizationBoundary onFailure={() => setSceneFailed(true)} fallback={<NetworkFallback transfers={transfers} endpointTypes={endpointTypes} selectedAddress={selected} selectedTransferId={activeTransferId} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId}/> }>
@@ -187,17 +198,8 @@ export function Dashboard() {
         {!show2D && <button className="resetView" type="button" onClick={() => setResetViewToken(token => token + 1)} aria-label="Reset globe camera view" title="Reset globe camera view">RESET VIEW <span aria-hidden="true">↺</span></button>}
       </div>
 
-      <section className="metrics" aria-label="Live metrics"><div className="panelKicker">LIVE NETWORK · {rangeMinutes}M</div>
-        <p className="eyebrow">VERIFIED {rangeMinutes}M ACTIVITY · ≥1,000 USDC</p>
-        <div className="assetHeading"><UsdcIcon/><span>ARC MAINNET USDC</span></div>
-        <Metric icon primary label="USDC FLOW" value={`$${money(String(volume))}`}/>
-        <Metric label="TRANSFERS" value={String(transfers.length)}/>
-        <Metric label="ACTIVE ADDRESSES" value={String(addresses)}/>
-        <Metric label="KNOWN CONTRACTS" value={String(contracts)}/>
-        <Metric icon label="LARGEST TRANSFER" value={largest ? `${money(largest.value)} USDC` : "—"}/>
-      </section>
 
-      <section className="entityPanel commandCenterShell" ref={entityPanelRef}><div className="panelKicker">COMMAND CENTER · EVIDENCE FIRST</div>
+      <section className="entityPanel commandCenterShell" ref={entityPanelRef}><div className="panelKicker">NETWORK & INSIGHTS</div>
         {selected ? <>
           <button className="close" onClick={() => select(null)} aria-label="Close selected entity">×</button>
           <small>ADDRESS · {entity?.type.toUpperCase() ?? "UNKNOWN"}</small>
@@ -217,7 +219,7 @@ export function Dashboard() {
           <button className="askAddress" onClick={() => {setAgentRequest(current => ({id: (current?.id ?? 0) + 1, query: "Explain this address"})); setAgentOpen(true);}}>ASK AERIS ABOUT THIS ADDRESS</button><a className="explorerLink" href={`${ARC.explorer}/address/${selected}`} target="_blank" rel="noreferrer">VIEW ON ARC EXPLORER ↗</a>
         </> : <>
           <small>ARC MAINNET</small>
-          <h2>Arc Mainnet</h2>
+          <h2>Network pulse</h2>
           <div className={`networkState ${statusLabel.toLowerCase()}`} title={healthDetails}><i/>{statusLabel}</div>
           <dl>
             <div><dt>CHAIN ID</dt><dd>5042</dd></div>
@@ -250,7 +252,7 @@ export function Dashboard() {
       <div className="timeControls" aria-label="Activity time range">
         <span className={`liveBadge ${statusLabel === "LIVE" ? "" : "observed"}`}>{statusLabel === "LIVE" ? "LIVE" : "OBSERVED"}</span>
         {([1, 5, 10] as const).map(minutes => <button type="button" key={minutes} className={rangeMinutes === minutes ? "active" : ""} aria-pressed={rangeMinutes === minutes} onClick={() => {setRangeMinutes(minutes); setSelectedTransferId(null); setInspectedSignalId(null); setIntent({type: "reset"});}}>{minutes}M</button>)}
-        <small>CHAIN-RELATIVE VERIFIED WINDOW · UP TO 10 MINUTES</small>
+        <small>OBSERVATION WINDOW</small>
       </div>
       <div className="signalRail"><button className="signal" disabled={!signal} onClick={inspectSignal} title={signal ? "Inspect verified evidence" : undefined}><small>AERIS SIGNAL · {signal?.title ?? "OBSERVING"}</small><p>{signal?.description ?? (status === "stale" ? "Using the last successfully verified observation window." : "No verified activity is available in the current observation window.")}</p></button>{snapshot.signals.length > 1 && <div className="signalSteps"><button onClick={() => {setInspectedSignalId(null); setSignalIndex(index => (index - 1 + snapshot.signals.length) % snapshot.signals.length);}} aria-label="Previous AERIS signal">‹</button><span>{signalIndex % snapshot.signals.length + 1}/{snapshot.signals.length}</span><button onClick={() => {setInspectedSignalId(null); setSignalIndex(index => (index + 1) % snapshot.signals.length);}} aria-label="Next AERIS signal">›</button></div>}</div>
     </section>
@@ -266,12 +268,12 @@ export function Dashboard() {
     <Watchlist transfers={observedTransfers} reference={referenceTimestamp} healthy={statusLabel === "LIVE" && health.windowCovered === true} selected={selected} onInspect={address => {setQuery(address); select(address); setSelectedTransferId(null);}}/>
 
     <section className="feed" id="live-ledger" ref={feedRef}>
-      <div className="feedHead"><div><small>VERIFIED {rangeMinutes}M LEDGER · MIN 1,000 USDC</small><h2>Recent verified transfers <span className="feedCount">{Math.min(filtered.length, 16)} / {filtered.length} shown</span></h2></div><span>{ARC.name} · USDC · {statusLabel === "LIVE" ? "REAL-TIME" : "LAST VERIFIED WINDOW"}</span></div>
+      <div className="feedHead"><div><small>VERIFIED {rangeMinutes}M LEDGER · MIN 1,000 USDC</small><h2>Transfer ledger <span className="feedCount">{Math.min(filtered.length, 16)} / {filtered.length} shown</span></h2></div><span>{ARC.name} · USDC · {statusLabel === "LIVE" ? "REAL-TIME" : "LAST VERIFIED WINDOW"}</span></div>
       {selectedTransfer && <div className="feedSelection" role="status">
         <div><small>SELECTED VERIFIED TRANSFER</small><strong>{money(selectedTransfer.value)} USDC</strong><span>{short(selectedTransfer.from)} → {short(selectedTransfer.to)} · {shortTransactionHash(selectedTransfer.txHash)}</span></div>
         <div className="feedSelectionActions"><a href={`${ARC.explorer}/tx/${selectedTransfer.txHash}`} target="_blank" rel="noopener noreferrer">ARCSCAN ↗</a><button type="button" onClick={() => setSelectedTransferId(null)} aria-label="Clear selected transfer">×</button></div>
       </div>}
-      <div className="feedColumns"><span>FROM</span><span>TO</span><span>AMOUNT</span><span>TYPE</span><span>BLOCK</span><span>TIME</span></div>
+      <div className="feedColumns"><span>FROM</span><span>TO</span><span className="amountHeading">AMOUNT</span><span>TYPE</span><span>BLOCK</span><span>TIME</span></div>
       {filtered.slice(0, 16).map(transfer => <button data-transfer-id={transferIdentity(transfer)} className={`feedRow ${activeTransferId === transferIdentity(transfer) ? "active" : ""}`} key={transferIdentity(transfer)} onMouseEnter={() => setHoveredTransferId(transferIdentity(transfer))} onMouseLeave={() => setHoveredTransferId(null)} onFocus={() => setHoveredTransferId(transferIdentity(transfer))} onBlur={() => setHoveredTransferId(null)} onClick={() => setSelectedTransferId(transferIdentity(transfer))} aria-pressed={selectedTransferId === transferIdentity(transfer)}>
         <span className={`party ${transfer.fromType === "unknown" ? endpointTypes[transfer.from.toLowerCase()] ?? "unknown" : transfer.fromType}`} title={transfer.from}><i/>{short(transfer.from)}</span><span className={`party ${transfer.toType === "unknown" ? endpointTypes[transfer.to.toLowerCase()] ?? "unknown" : transfer.toType}`} title={transfer.to}><i/>{short(transfer.to)}</span><b className="coinValue" title={`${transfer.value} USDC`}><UsdcIcon/>{money(transfer.value)} <em>USDC</em></b><span className="transferKind">{transferType(transfer, endpointTypes)}</span><small>{transfer.blockNumber}</small><time dateTime={transfer.timestamp ? new Date(transfer.timestamp).toISOString() : undefined}>{relativeActivityTime(transfer.timestamp, clock)}</time>
       </button>)}
