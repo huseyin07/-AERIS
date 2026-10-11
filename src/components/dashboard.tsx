@@ -180,7 +180,7 @@ export function Dashboard() {
 
       <section className="metrics" aria-label="Live metrics">
         <div className="metricsContext"><span>NETWORK OVERVIEW</span><small>{rangeMinutes}M WINDOW · ≥1,000 USDC</small></div>
-        
+
         <Metric icon primary label="USDC FLOW" value={`$${money(String(volume))}`}/>
         <Metric label="TRANSFERS" value={String(transfers.length)}/>
         <Metric label="ACTIVE ADDRESSES" value={String(addresses)}/>
