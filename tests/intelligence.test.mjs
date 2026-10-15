@@ -36,6 +36,19 @@ test("2D fallback draws only bounded verified flows and keeps a selected transfe
   assert.deepEqual(buildFallbackNetwork([], {}, null), {nodes: [], flows: []});
 });
 
+test("2D self-transfers remain visible and selectable as a loop", () => {
+  const self = transfer("45", a, a, "5000");
+  const {nodes, flows} = buildFallbackNetwork([self], {}, transferIdentity(self));
+  assert.equal(nodes.length, 1);
+  assert.equal(flows.length, 1);
+  assert.equal(flows[0].id, transferIdentity(self));
+  assert.match(flows[0].path, / C /);
+  const points = flows[0].path.match(/-?\d+(?:\.\d+)?/g).map(Number);
+  assert.notEqual(points[0], points[2]);
+  assert.notEqual(points[1], points[3]);
+  assert.deepEqual(points.slice(0, 2), points.slice(-2));
+});
+
 test("computes totals, concentration, rankings, and activity breakdown", () => {
   const snapshot = buildIntelligenceSnapshot(transfers, 123);
   assert.equal(snapshot.generatedAt, 123);
