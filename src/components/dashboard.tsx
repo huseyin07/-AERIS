@@ -54,6 +54,7 @@ export function Dashboard() {
   const intent = useActivity(state => state.visualizationIntent);
   const setIntent = useActivity(state => state.setVisualizationIntent);
   const [agentOpen, setAgentOpen] = useState(false);
+  const closeAgent = useCallback(() => setAgentOpen(false), []);
   const [agentRequest, setAgentRequest] = useState<{id: number; query: string} | null>(null);
   const [selectedTransferId, setSelectedTransferId] = useState<string | null>(null);
   const [hoveredTransferId, setHoveredTransferId] = useState<string | null>(null);
@@ -64,6 +65,7 @@ export function Dashboard() {
   const [sceneMode, setSceneMode] = useState<"auto" | "2d" | "3d">("auto");
   const [lowPower, setLowPower] = useState(false);
   const [healthOpen, setHealthOpen] = useState(false);
+  const [ledgerLimit, setLedgerLimit] = useState(16);
   const [clock, setClock] = useState(() => Date.now());
   const feedRef = useRef<HTMLElement>(null);
   const entityPanelRef = useRef<HTMLElement>(null);
@@ -89,16 +91,20 @@ export function Dashboard() {
     } else if (search.kind === "transaction") {
       const match = search.transfers[0];
       setSelectedTransferId(match ? transferIdentity(match) : null);
-      if (match) setIntent({type: "highlight-transfers", transferIds: [match.id]});
+      if (match) { select(null); setIntent({type: "highlight-transfers", transferIds: [match.id]}); }
       else if (search.matchedEvent) { select(search.matchedEvent.to); setIntent({type: "highlight-addresses", addresses: [search.matchedEvent.to]}); }
       else { select(null); setIntent({type: "reset"}); }
     } else if (search.kind === "address") {
       select(search.matchedAddress);
       setSelectedTransferId(null);
-      if (search.matchedAddress) setIntent({type: "highlight-addresses", addresses: [search.matchedAddress]});
+      setIntent(search.matchedAddress ? {type: "highlight-addresses", addresses: [search.matchedAddress]} : {type: "reset"});
+    } else if (search.kind === "invalid") {
+      select(null); setSelectedTransferId(null); setIntent({type: "reset"});
     }
     previousQuery.current = normalizedQuery;
   }, [normalizedQuery, search, select, setIntent]);
+
+  useEffect(() => { setLedgerLimit(16); setHoveredTransferId(null); }, [normalizedQuery, rangeMinutes]);
 
   useEffect(() => {
     const timer = setInterval(() => setClock(Date.now()), 15_000);
@@ -121,7 +127,7 @@ export function Dashboard() {
   }, [selectedTransferId]);
 
   const related = selected
-    ? transfers.filter(transfer => transfer.from === selected || transfer.to === selected)
+    ? transfers.filter(transfer => transfer.from.toLowerCase() === selected.toLowerCase() || transfer.to.toLowerCase() === selected.toLowerCase())
     : [];
   const entity = selected ? getEntityIntelligence(snapshot, selected) : null;
   const emptyMessage = status === "unavailable" ? "Live data temporarily unavailable" : status === "connecting" ? "Waiting for verified Arc Mainnet activity" : `No visualized flows ≥1,000 USDC in the last ${rangeMinutes} minutes · Sentinel still observes the full verified USDC window`;
@@ -150,12 +156,16 @@ export function Dashboard() {
   }
 
   return <main className="premiumDashboard">
+    <a className="skipLink" href="#live-ledger">Skip to transfer ledger</a>
     <LiveActivity/>
     <header>
       <div className="brand"><Image className="brandMark" src="/aeris-logo.jpg" alt="" width={18} height={18}/>AERIS</div>
       <nav aria-label="Dashboard sections"><b aria-current="page">LIVE</b><button onClick={() => setAgentOpen(true)}>INSIGHTS</button><Link href="/payments">PAYMENTS</Link><Link href="/about">ABOUT</Link></nav>
       <a className="headerSocial" href="https://x.com/AERIS_arc" target="_blank" rel="noopener noreferrer" aria-label="AERIS on X">X <span aria-hidden="true">↗</span></a>
       <input
+        type="search"
+        autoComplete="off"
+        spellCheck={false}
         className="search"
         value={query}
         onChange={event => setQuery(event.target.value)}
@@ -189,6 +199,14 @@ export function Dashboard() {
       </section>
 
 
+    <div className="observatoryToolbar"><div><span className="introEyebrow">LIVE OBSERVATORY</span><h2>Follow the flow</h2></div>
+      <div className="timeControls" aria-label="Activity time range">
+        <span className={`liveBadge ${statusLabel === "LIVE" ? "" : "observed"}`}>{statusLabel === "LIVE" ? "LIVE" : "OBSERVED"}</span>
+        {([1, 5, 10] as const).map(minutes => <button type="button" key={minutes} className={rangeMinutes === minutes ? "active" : ""} aria-pressed={rangeMinutes === minutes} onClick={() => {setRangeMinutes(minutes); setSelectedTransferId(null); setInspectedSignalId(null); setIntent({type: "reset"});}}>{minutes}M</button>)}
+        <small>OBSERVATION WINDOW</small>
+      </div>
+    </div>
+
     <section className="observatory competitionObservatory">
       <div className="scene" aria-label="Live Arc Mainnet entity network">
         {show2D ? <NetworkFallback transfers={transfers} endpointTypes={endpointTypes} selectedAddress={selected} selectedTransferId={activeTransferId} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId} reason={sceneFailed ? "unavailable" : "lightweight"}/> : <VisualizationBoundary onFailure={() => setSceneFailed(true)} fallback={<NetworkFallback transfers={transfers} endpointTypes={endpointTypes} selectedAddress={selected} selectedTransferId={activeTransferId} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId}/> }>
@@ -196,19 +214,23 @@ export function Dashboard() {
         </VisualizationBoundary>}
         {!sceneFailed && <button className="modeSwitch" type="button" onClick={() => setSceneMode(show2D ? "3d" : "2d")} aria-label={show2D ? "Switch to 3D network" : "Switch to 2D network"}>{show2D ? "TRY 3D" : "USE 2D"}</button>}
         {!show2D && <button className="resetView" type="button" onClick={() => setResetViewToken(token => token + 1)} aria-label="Reset globe camera view" title="Reset globe camera view">RESET VIEW <span aria-hidden="true">↺</span></button>}
+      {!transfers.length && !show2D && <div className="sceneEmpty"><span>{emptyMessage}</span><small>No simulated activity is shown</small></div>}
+      {!show2D && <div className="legend">
+        <div className="legendRow"><span><i className="wallet"/>WALLET</span><span><i className="contract"/>CONTRACT</span><span><i className="unknown"/>UNKNOWN</span><span><i className="flow"/>USDC ≥1K</span></div>
+        <div className="legendRow flowTypes" aria-label="Transfer endpoint colors"><span title="Wallet to wallet"><i className="pulseWallet"/>W→W</span><span title="Wallet to contract"><i className="pulseContractIn"/>W→C</span><span title="Contract to wallet"><i className="pulseContractOut"/>C→W</span><span title="Unclassified endpoint"><i className="pulseUnknown"/>UNKNOWN</span></div>
+      </div>}
       </div>
-
 
       <section className="entityPanel commandCenterShell" ref={entityPanelRef}><div className="panelKicker">NETWORK & INSIGHTS</div>
         {selected ? <>
-          <button className="close" onClick={() => select(null)} aria-label="Close selected entity">×</button>
+          <button className="close" onClick={() => {select(null); setIntent({type: "reset"});}} aria-label="Close selected entity">×</button>
           <small>ADDRESS · {entity?.type.toUpperCase() ?? "UNKNOWN"}</small>
           <h2>{short(selected)}</h2>
           <p className="address">{selected}</p>
           <small className="recentLabel">OBSERVED ACTIVITY</small>
           <dl className="entityIntelligence">
-            <div onMouseEnter={() => setIntent({type: "highlight-transfers", transferIds: related.filter(item => item.from === selected).map(item => item.id)})} onMouseLeave={() => setIntent({type: "reset"})}><dt>SENT</dt><dd>{money(String(entity?.sent ?? 0))} USDC</dd></div>
-            <div onMouseEnter={() => setIntent({type: "highlight-transfers", transferIds: related.filter(item => item.to === selected).map(item => item.id)})} onMouseLeave={() => setIntent({type: "reset"})}><dt>RECEIVED</dt><dd>{money(String(entity?.received ?? 0))} USDC</dd></div>
+            <div onMouseEnter={() => setIntent({type: "highlight-transfers", transferIds: related.filter(item => item.from.toLowerCase() === selected.toLowerCase()).map(item => item.id)})} onMouseLeave={() => setIntent({type: "reset"})}><dt>SENT</dt><dd>{money(String(entity?.sent ?? 0))} USDC</dd></div>
+            <div onMouseEnter={() => setIntent({type: "highlight-transfers", transferIds: related.filter(item => item.to.toLowerCase() === selected.toLowerCase()).map(item => item.id)})} onMouseLeave={() => setIntent({type: "reset"})}><dt>RECEIVED</dt><dd>{money(String(entity?.received ?? 0))} USDC</dd></div>
             <div><dt>NET FLOW</dt><dd>{(entity?.netFlow ?? 0) >= 0 ? "+" : ""}{money(String(entity?.netFlow ?? 0))} USDC</dd></div>
             <div><dt>TRANSFERS</dt><dd>{entity?.transferCount ?? related.length}</dd></div>
             <div><dt>COUNTERPARTIES</dt><dd>{entity?.uniqueCounterparties ?? 0}</dd></div>
@@ -225,14 +247,14 @@ export function Dashboard() {
             <div><dt>CHAIN ID</dt><dd>5042</dd></div>
             <div><dt>ASSET</dt><dd className="coinValue"><UsdcIcon/>USDC</dd></div>
             <div><dt>OBSERVED</dt><dd>{events.length} events</dd></div>
-            <div><dt>VISUALIZED</dt><dd>{Math.min(transfers.length, 44)} significant flows</dd></div>
+            <div><dt>QUALIFYING FLOWS</dt><dd>{transfers.length} transfers ≥1K</dd></div>
           </dl>
           <p className="panelNote">{status === "stale" ? "Using the last successfully verified observation window." : transfers.length ? `${health.windowCovered === false ? "USDC window partially covered" : "USDC window observed"}; contract events sample recent blocks.` : emptyMessage}</p>
         </>}
-        <IntelligencePanel snapshot={snapshot} transfers={transfers} selected={selected} connection={status} expanded={agentOpen} visualizationAvailable={!show2D} request={agentRequest} onExpand={() => setAgentOpen(true)} onClose={() => setAgentOpen(false)} onSelectAddress={address => {select(address); setSelectedTransferId(null);}} onSelectTransfer={id => {const transfer = transfers.find(item => item.id === id); setSelectedTransferId(transfer ? transferIdentity(transfer) : id);}}/>
+        <IntelligencePanel snapshot={snapshot} transfers={transfers} selected={selected} connection={status} expanded={agentOpen} visualizationAvailable={!show2D} request={agentRequest} onExpand={() => setAgentOpen(true)} onClose={closeAgent} onSelectAddress={address => {select(address); setSelectedTransferId(null);}} onSelectTransfer={id => {const transfer = transfers.find(item => item.id === id); setSelectedTransferId(transfer ? transferIdentity(transfer) : id);}}/>
       </section>
 
-      {!transfers.length && !show2D && <div className="sceneEmpty"><span>{emptyMessage}</span><small>No simulated activity is shown</small></div>}
+
 
       {selectedTransfer && <aside className="transferPanel" aria-label="Selected verified transfer">
         <button className="close" onClick={() => setSelectedTransferId(null)} aria-label="Close selected transfer">×</button>
@@ -241,19 +263,9 @@ export function Dashboard() {
         <button className="explainTransfer" onClick={() => {setAgentRequest(current => ({id: (current?.id ?? 0) + 1, query: `Explain transaction ${selectedTransfer.txHash}`})); setAgentOpen(true);}}>EXPLAIN VERIFIED TRANSFER</button>
         <a href={`${ARC.explorer}/tx/${selectedTransfer.txHash}`} target="_blank" rel="noopener noreferrer" aria-label={`View transaction ${selectedTransfer.txHash} on Arcscan`}>VIEW ON ARCSCAN ↗</a>
       </aside>}
-
-      {!show2D && <div className="legend">
-        <div className="legendRow"><span><i className="wallet"/>WALLET</span><span><i className="contract"/>CONTRACT</span><span><i className="unknown"/>UNKNOWN</span><span><i className="flow"/>USDC ≥1K</span></div>
-        <div className="legendRow flowTypes" aria-label="Transfer endpoint colors"><span title="Wallet to wallet"><i className="pulseWallet"/>W→W</span><span title="Wallet to contract"><i className="pulseContractIn"/>W→C</span><span title="Contract to wallet"><i className="pulseContractOut"/>C→W</span><span title="Unclassified endpoint"><i className="pulseUnknown"/>UNKNOWN</span></div>
-      </div>}
     </section>
 
     <section className="lowerBar">
-      <div className="timeControls" aria-label="Activity time range">
-        <span className={`liveBadge ${statusLabel === "LIVE" ? "" : "observed"}`}>{statusLabel === "LIVE" ? "LIVE" : "OBSERVED"}</span>
-        {([1, 5, 10] as const).map(minutes => <button type="button" key={minutes} className={rangeMinutes === minutes ? "active" : ""} aria-pressed={rangeMinutes === minutes} onClick={() => {setRangeMinutes(minutes); setSelectedTransferId(null); setInspectedSignalId(null); setIntent({type: "reset"});}}>{minutes}M</button>)}
-        <small>OBSERVATION WINDOW</small>
-      </div>
       <div className="signalRail"><button className="signal" disabled={!signal} onClick={inspectSignal} title={signal ? "Inspect verified evidence" : undefined}><small>AERIS SIGNAL · {signal?.title ?? "OBSERVING"}</small><p>{signal?.description ?? (status === "stale" ? "Using the last successfully verified observation window." : "No verified activity is available in the current observation window.")}</p></button>{snapshot.signals.length > 1 && <div className="signalSteps"><button onClick={() => {setInspectedSignalId(null); setSignalIndex(index => (index - 1 + snapshot.signals.length) % snapshot.signals.length);}} aria-label="Previous AERIS signal">‹</button><span>{signalIndex % snapshot.signals.length + 1}/{snapshot.signals.length}</span><button onClick={() => {setInspectedSignalId(null); setSignalIndex(index => (index + 1) % snapshot.signals.length);}} aria-label="Next AERIS signal">›</button></div>}</div>
     </section>
 
@@ -268,16 +280,17 @@ export function Dashboard() {
     <Watchlist transfers={observedTransfers} reference={referenceTimestamp} healthy={statusLabel === "LIVE" && health.windowCovered === true} selected={selected} onInspect={address => {setQuery(address); select(address); setSelectedTransferId(null);}}/>
 
     <section className="feed" id="live-ledger" ref={feedRef}>
-      <div className="feedHead"><div><small>VERIFIED {rangeMinutes}M LEDGER · MIN 1,000 USDC</small><h2>Transfer ledger <span className="feedCount">{Math.min(filtered.length, 16)} / {filtered.length} shown</span></h2></div><span>{ARC.name} · USDC · {statusLabel === "LIVE" ? "REAL-TIME" : "LAST VERIFIED WINDOW"}</span></div>
+      <div className="feedHead"><div><small>VERIFIED {rangeMinutes}M LEDGER · MIN 1,000 USDC</small><h2>Transfer ledger <span className="feedCount">{Math.min(filtered.length, ledgerLimit)} / {filtered.length} shown</span></h2></div><span>{ARC.name} · USDC · {statusLabel === "LIVE" ? "REAL-TIME" : "LAST VERIFIED WINDOW"}</span></div>
       {selectedTransfer && <div className="feedSelection" role="status">
         <div><small>SELECTED VERIFIED TRANSFER</small><strong>{money(selectedTransfer.value)} USDC</strong><span>{short(selectedTransfer.from)} → {short(selectedTransfer.to)} · {shortTransactionHash(selectedTransfer.txHash)}</span></div>
         <div className="feedSelectionActions"><a href={`${ARC.explorer}/tx/${selectedTransfer.txHash}`} target="_blank" rel="noopener noreferrer">ARCSCAN ↗</a><button type="button" onClick={() => setSelectedTransferId(null)} aria-label="Clear selected transfer">×</button></div>
       </div>}
       <div className="feedColumns"><span>FROM</span><span>TO</span><span className="amountHeading">AMOUNT</span><span>TYPE</span><span>BLOCK</span><span>TIME</span></div>
-      {filtered.slice(0, 16).map(transfer => <button data-transfer-id={transferIdentity(transfer)} className={`feedRow ${activeTransferId === transferIdentity(transfer) ? "active" : ""}`} key={transferIdentity(transfer)} onMouseEnter={() => setHoveredTransferId(transferIdentity(transfer))} onMouseLeave={() => setHoveredTransferId(null)} onFocus={() => setHoveredTransferId(transferIdentity(transfer))} onBlur={() => setHoveredTransferId(null)} onClick={() => setSelectedTransferId(transferIdentity(transfer))} aria-pressed={selectedTransferId === transferIdentity(transfer)}>
+      {filtered.slice(0, ledgerLimit).map(transfer => <button data-transfer-id={transferIdentity(transfer)} className={`feedRow ${activeTransferId === transferIdentity(transfer) ? "active" : ""}`} key={transferIdentity(transfer)} onMouseEnter={() => setHoveredTransferId(transferIdentity(transfer))} onMouseLeave={() => setHoveredTransferId(null)} onFocus={() => setHoveredTransferId(transferIdentity(transfer))} onBlur={() => setHoveredTransferId(null)} onClick={() => setSelectedTransferId(transferIdentity(transfer))} aria-pressed={selectedTransferId === transferIdentity(transfer)}>
         <span className={`party ${transfer.fromType === "unknown" ? endpointTypes[transfer.from.toLowerCase()] ?? "unknown" : transfer.fromType}`} title={transfer.from}><i/>{short(transfer.from)}</span><span className={`party ${transfer.toType === "unknown" ? endpointTypes[transfer.to.toLowerCase()] ?? "unknown" : transfer.toType}`} title={transfer.to}><i/>{short(transfer.to)}</span><b className="coinValue" title={`${transfer.value} USDC`}><UsdcIcon/>{money(transfer.value)} <em>USDC</em></b><span className="transferKind">{transferType(transfer, endpointTypes)}</span><small>{transfer.blockNumber}</small><time dateTime={transfer.timestamp ? new Date(transfer.timestamp).toISOString() : undefined}>{relativeActivityTime(transfer.timestamp, clock)}</time>
       </button>)}
       {!filtered.length && <p className="empty">{search.matchedEvent ? "Verified activity found; no matching USDC transfers." : search.kind === "address" || search.kind === "transaction" ? "No verified activity in the current observation window." : emptyMessage}</p>}
+      {filtered.length > ledgerLimit && <div className="ledgerMore"><span>{ledgerLimit} of {filtered.length} transfers</span><button type="button" onClick={() => setLedgerLimit(limit => limit + 16)}>Show more transfers <span aria-hidden="true">↓</span></button></div>}
     </section>
 
     <footer><b>AERIS</b><Link href="/about">Product & evidence ↗</Link><span>Observe the network. Never invent the data.</span></footer>
