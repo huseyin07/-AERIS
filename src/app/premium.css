@@ -170,3 +170,104 @@ footer {border-color:var(--premium-line);color:var(--premium-muted);font-size:11
   .agentInput input,.watchlistForm input:not([type="checkbox"]) {font-size:16px}
 }
 @media(max-width:420px) {.premiumDashboard .scene {height:420px}.observatoryToolbar .introEyebrow {font-size:8px}.observatoryToolbar .timeControls {padding:3px}.observatoryToolbar .timeControls button {min-width:32px}}
+
+/* Observatory refinement: one visual hierarchy from network to evidence. */
+:root {--premium-bg:#080e17;--premium-surface:#0e1826;--premium-line:#adc8e51c;--premium-accent:#9ce7de;--premium-muted:#9baec3}
+body {background-image:radial-gradient(ellipse at 15% 0%,#15454c21,transparent 48%)}
+.premiumDashboard {max-width:1600px}
+.premiumDashboard header {gap:24px}
+.premiumDashboard header nav b {color:var(--premium-accent)}
+.premiumDashboard header nav a,.premiumDashboard header nav button {transition:color .16s}
+.premiumDashboard .brandMark {border-radius:50%;width:28px;height:28px}
+.premiumDashboard .dashboardIntro {padding:34px 0 28px}
+.premiumDashboard .introEyebrow {color:var(--premium-accent);font-size:10px;letter-spacing:.2em}
+.premiumDashboard .dashboardIntro h1 {font-size:clamp(30px,3.5vw,48px);font-weight:550;letter-spacing:-.055em}
+.premiumDashboard .introAction {background:#9ce7de0c;border-color:#9ce7de38;color:#c9f8f0;gap:28px}
+.premiumDashboard .introAction:hover {background:#9ce7de18;border-color:#9ce7de66}
+.premiumDashboard>.metrics {background:linear-gradient(115deg,#122532,#0e1826 44%);border-radius:14px}
+.premiumDashboard>.metrics .metric {padding:24px 22px 26px}
+.premiumDashboard>.metrics .metricPrimary {background:#9ce7de04}
+.premiumDashboard>.metrics .metricPrimary strong {font-size:clamp(23px,2.1vw,31px);color:#b5f1e7}
+.premiumDashboard>.metrics .metric strong {font-weight:500;letter-spacing:-.04em}
+.metricsContext {background:#ffffff02;font-size:9px;letter-spacing:.14em}
+.premiumDashboard .competitionObservatory {grid-template-columns:minmax(0,1fr) 310px;gap:18px;min-height:0;align-items:stretch;border:0;padding:0;margin-top:22px}
+.networkStage {min-width:0;display:flex;flex-direction:column;border:1px solid var(--premium-line);border-radius:14px;overflow:hidden;background:linear-gradient(145deg,#0d1c2b,#0a1320);box-shadow:0 12px 40px #00000012}
+.stageHeading {display:flex;align-items:center;justify-content:space-between;gap:20px;padding:24px 26px;border-bottom:1px solid #adc8e511}
+.stageEyebrow {display:block;color:var(--premium-muted);font-size:9px;letter-spacing:.17em;margin-bottom:8px}
+.stageHeading h2 {margin:0;color:#edf5fc;font-size:22px;font-weight:500;letter-spacing:-.035em;display:flex;align-items:center;gap:12px}
+.stageDot {width:6px;height:6px;background:var(--premium-accent);border-radius:50%;box-shadow:0 0 14px #9ce7de50}
+.stageScope {color:var(--premium-muted);font-size:9px;letter-spacing:.1em;white-space:nowrap}.stageScope>span {color:#506274;margin:0 8px}
+.premiumDashboard .networkStage .scene {height:520px;flex:1;min-height:480px;border:0;border-radius:0;background:radial-gradient(ellipse at center,#16475420,transparent 65%)}
+.premiumDashboard .scene .legend {left:20px;right:20px;top:auto;bottom:16px;max-width:none;display:flex;flex-wrap:wrap;justify-content:center;gap:10px 22px;padding:10px;pointer-events:none}
+.premiumDashboard .scene .legend .flowTypes {border:0;padding:0;margin:0}
+.premiumDashboard .scene .sceneEmpty {left:50%;top:50%;width:min(360px,80%)}
+.stageFooter {display:flex;justify-content:space-between;gap:16px;padding:16px 24px;border-top:1px solid #adc8e511;font-size:10px;color:var(--premium-muted);line-height:1.5}
+.stageFooter>span:first-child {color:#a6c9cb}.stageFooter>span:first-child>span {margin-left:7px}
+.premiumDashboard .entityPanel {padding:22px;background:linear-gradient(160deg,#111e2d,#0c1522);border-radius:14px;align-self:start}
+.premiumDashboard .entityPanel .panelKicker {font-size:9px;letter-spacing:.15em;color:#a9c9d0}
+.premiumDashboard .entityPanel h2 {font-size:25px;letter-spacing:-.04em;margin-top:10px}
+.premiumDashboard .entityPanel dt {font-size:10px;letter-spacing:.05em}
+.premiumDashboard .entityPanel dd {font-size:12px}
+.premiumDashboard .entityPanel .agentModule.compact {margin:22px -22px -22px;padding:20px 22px;background:#080f182e}
+.premiumDashboard .agentModule.compact .agentPortrait {width:48px;height:60px;margin:0 10px 0 0}
+.premiumDashboard .agentModule.compact .agentIdentity {min-height:70px}
+.premiumDashboard .agentModule.compact .agentName {font-size:10px}
+.premiumDashboard .agentModule.compact .agentIdentity small {font-size:9px;line-height:1.6;letter-spacing:.03em}
+.premiumDashboard .agentCommands {grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.premiumDashboard .agentCommands button {white-space:normal;line-height:1.5;font-size:10px;padding:10px}
+.premiumDashboard .agentInput {margin-top:14px}.agentInput:focus-within {border-color:#9ce7de70}
+.premiumDashboard .agentFoot {font-size:10px;margin-top:14px}
+.premiumDashboard .lowerBar {margin-top:16px;padding:18px 22px;background:#0e1826;border:1px solid var(--premium-line);border-radius:12px;gap:24px}
+.premiumDashboard .timeControls button.active {background:#9ce7de12;color:var(--premium-accent)}
+.premiumDashboard .signal p {color:#adbed0}.premiumDashboard .watchlist {margin:18px 0}
+.premiumDashboard .feed {margin-top:18px;border-radius:14px;padding-top:26px}
+.premiumDashboard .feedHead small {font-size:9px;letter-spacing:.12em;color:#a9c9d0}
+.premiumDashboard .feedRow {min-height:66px}.premiumDashboard .feedRow:hover {background:#9ce7de08}
+.premiumDashboard .feedRow .party {font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;white-space:nowrap}
+.premiumDashboard .feedRow .transferKind {font-size:9px;letter-spacing:.04em;color:#9fb6c9}
+.ledgerMore {display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 10px 8px;font-size:11px;color:var(--premium-muted)}
+.ledgerMore button {border:1px solid var(--premium-line);border-radius:8px;background:#152537;color:#d4e8ee;padding:12px 16px;min-height:44px;cursor:pointer;font-size:12px}.ledgerMore button:hover {background:#20364a}.ledgerMore button span {margin-left:12px}
+.skipLink {position:fixed;top:10px;left:20px;z-index:100;background:#b5f1e7;color:#07111b;padding:12px 18px;border-radius:6px;transform:translateY(-200%)}.skipLink:focus {transform:none}
+.premiumDashboard .agentModule.expanded {background:#0e1928;border-color:#adc8e53b;box-shadow:0 0 0 100vmax #02070d70,-20px 0 80px #0008}
+.agentModule.expanded .agentIdentity {padding-right:30px}.agentModule.expanded .agentClose {color:#c4d5e3;font-size:26px}
+.agentModule.expanded .agentInput input {font-size:16px}.agentModule.expanded .agentCommands {grid-template-columns:repeat(2,minmax(0,1fr))}
+.buildCard {background:linear-gradient(135deg,#111e2d,#0e1826)}
+.buildCard input:focus-visible {border-color:var(--premium-accent)}
+@media(max-width:1100px) {
+ .premiumDashboard .competitionObservatory {grid-template-columns:minmax(0,1fr) 290px;gap:14px}.stageHeading {padding:22px 20px}.stageScope {display:none}.stageFooter {padding-inline:20px}
+ .premiumDashboard>.metrics .metric {padding:22px 16px}.premiumDashboard .networkStage .scene {min-height:500px}.premiumDashboard .agentCommands {grid-template-columns:1fr}
+}
+@media(max-width:760px) {
+ .premiumDashboard .competitionObservatory {grid-template-columns:minmax(0,1fr);gap:16px}.premiumDashboard .dashboardIntro {padding:28px 0 24px}.premiumDashboard .dashboardIntro h1 {font-size:clamp(28px,6vw,38px)}
+ .premiumDashboard>.metrics .metric {padding:20px 18px}.premiumDashboard>.metrics .metricPrimary strong {font-size:25px}.premiumDashboard>.metrics .metric strong {font-size:23px}
+ .stageHeading {padding:20px}.stageHeading h2 {font-size:21px}.stageEyebrow {font-size:8px}.stageScope {display:block;font-size:8px}
+ .premiumDashboard .networkStage .scene {height:440px;min-height:440px;flex:none}.stageFooter {padding:14px 16px;font-size:9px}
+ .premiumDashboard .entityPanel {display:grid;grid-template-columns:1fr 1fr;gap:0 20px;padding:20px}.premiumDashboard .entityPanel>.panelKicker,.premiumDashboard .entityPanel>.panelNote,.premiumDashboard .entityPanel>.agentModule,.premiumDashboard .entityPanel>.askAddress,.premiumDashboard .entityPanel>.entityWhy,.premiumDashboard .entityPanel>.recentLabel,.premiumDashboard .entityPanel>.recentEntityTransfers {grid-column:1/-1}
+ .premiumDashboard .entityPanel>dl {grid-column:2;grid-row:2/5;margin:0}.premiumDashboard .entityPanel>h2 {font-size:22px;overflow-wrap:anywhere}.premiumDashboard .entityPanel>.networkState {justify-self:start;align-self:start;margin:0}
+ .premiumDashboard .entityPanel .agentModule.compact {margin:20px -20px -20px;padding:18px 20px}.premiumDashboard .agentModule.compact .agentCommands {display:grid;grid-template-columns:1fr 1fr}.premiumDashboard .agentModule.compact .agentIdentity p {display:block}.premiumDashboard .agentModule.compact .agentIdentity small {display:none}
+ .premiumDashboard .lowerBar {padding:18px;gap:16px}.premiumDashboard .timeControls {flex-wrap:nowrap}.premiumDashboard .timeControls small {width:auto;margin-left:auto;display:block;font-size:8px}
+ .premiumDashboard .feed {padding:22px 10px 10px}.premiumDashboard .feedRow .party {font-size:10px}.premiumDashboard .agentModule.expanded .agentCommands {grid-template-columns:1fr 1fr}
+ .premiumDashboard .search {font-size:16px}.premiumDashboard .agentInput input {font-size:16px}.watchlistForm input:not([type="checkbox"]) {font-size:16px}
+ .ledgerMore {padding-inline:8px;gap:10px}.ledgerMore>span {font-size:10px}.ledgerMore button {font-size:11px;padding-inline:12px}
+}
+@media(max-width:420px) {
+ .premiumDashboard .introAction {gap:10px;white-space:nowrap}.stageHeading {padding:18px 16px}.stageScope {display:none}.stageFooter {gap:10px}.stageFooter>span:last-child {max-width:155px;text-align:right}
+ .premiumDashboard .networkStage .scene {height:400px;min-height:400px}.premiumDashboard>.metrics .metric {padding:18px 14px}.premiumDashboard>.metrics .metric strong {font-size:21px}.premiumDashboard .feedRow .party {font-size:9px}.premiumDashboard .timeControls small {display:none}
+}
+.premiumDashboard .scene .modeSwitch {left:auto;right:16px;top:16px;transform:none}
+.premiumDashboard .scene .resetView {right:112px;top:16px}
+.premiumDashboard .fallbackNetworkHead {left:22px;top:23px;font-size:9px}
+.premiumDashboard .fallbackNetworkMeta {right:20px;top:66px;font-size:9px}
+.premiumDashboard .fallbackTopFlows {left:20px;bottom:54px;width:245px;background:#0d1d2bed;border-color:var(--premium-line);box-shadow:0 10px 24px #0003}
+.premiumDashboard .fallbackNetworkFoot {left:22px;right:22px;font-size:9px}
+@media(max-width:760px) {
+ .premiumDashboard .fallbackNetworkHead {left:16px;font-size:8px}.premiumDashboard .fallbackNetworkHead b {display:none}.premiumDashboard .fallbackNetworkMeta {top:64px;right:16px;font-size:8px}
+ .premiumDashboard .fallbackTopFlows {left:14px;right:14px;bottom:42px;width:auto;grid-template-columns:repeat(3,minmax(0,1fr))}.premiumDashboard .fallbackTopFlows small {font-size:9px}.premiumDashboard .fallbackTopFlows small span {font-size:8px}
+ .premiumDashboard .fallbackNetworkFoot {left:14px;right:14px;bottom:13px;font-size:8px}.premiumDashboard .fallbackMap {top:42%;height:340px}
+}
+@media(max-width:420px) {
+ .premiumDashboard .fallbackTopFlows {grid-template-columns:repeat(2,minmax(0,1fr))}.premiumDashboard .fallbackTopFlows button:nth-of-type(n+3) {display:none}.premiumDashboard .fallbackMap {height:300px}
+}
+
+.premiumDashboard .stageHeading .timeControls {gap:4px;padding:4px;border:1px solid var(--premium-line);border-radius:9px;background:#0a1420}.stageHeading .timeControls small {display:none}.stageHeading .timeControls button {min-width:38px}.premiumDashboard .stageHeading .liveBadge {display:none}
+@media(max-width:420px){.stageHeading .timeControls button {min-width:32px;padding:6px}.premiumDashboard .stageHeading {gap:10px}.stageHeading h2 {font-size:19px}}
