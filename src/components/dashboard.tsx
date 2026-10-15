@@ -59,6 +59,7 @@ export function Dashboard() {
   const [hoveredTransferId, setHoveredTransferId] = useState<string | null>(null);
   const [resetViewToken, setResetViewToken] = useState(0);
   const [signalIndex, setSignalIndex] = useState(0);
+  const [ledgerLimit, setLedgerLimit] = useState(16);
   const [inspectedSignalId, setInspectedSignalId] = useState<string | null>(null);
   const [sceneFailed, setSceneFailed] = useState(false);
   const [sceneMode, setSceneMode] = useState<"auto" | "2d" | "3d">("auto");
@@ -87,6 +88,7 @@ export function Dashboard() {
     if (!normalizedQuery) {
       if (previousQuery.current) { select(null); setSelectedTransferId(null); setIntent({type: "reset"}); }
     } else if (search.kind === "transaction") {
+      select(null);
       const match = search.transfers[0];
       setSelectedTransferId(match ? transferIdentity(match) : null);
       if (match) setIntent({type: "highlight-transfers", transferIds: [match.id]});
@@ -95,10 +97,16 @@ export function Dashboard() {
     } else if (search.kind === "address") {
       select(search.matchedAddress);
       setSelectedTransferId(null);
-      if (search.matchedAddress) setIntent({type: "highlight-addresses", addresses: [search.matchedAddress]});
+      setIntent(search.matchedAddress ? {type: "highlight-addresses", addresses: [search.matchedAddress]} : {type: "reset"});
+    } else {
+      select(null);
+      setSelectedTransferId(null);
+      setIntent({type: "reset"});
     }
     previousQuery.current = normalizedQuery;
   }, [normalizedQuery, search, select, setIntent]);
+
+  useEffect(() => { setLedgerLimit(16); }, [normalizedQuery, rangeMinutes]);
 
   useEffect(() => {
     const timer = setInterval(() => setClock(Date.now()), 15_000);
@@ -121,7 +129,7 @@ export function Dashboard() {
   }, [selectedTransferId]);
 
   const related = selected
-    ? transfers.filter(transfer => transfer.from === selected || transfer.to === selected)
+    ? transfers.filter(transfer => transfer.from.toLowerCase() === selected.toLowerCase() || transfer.to.toLowerCase() === selected.toLowerCase())
     : [];
   const entity = selected ? getEntityIntelligence(snapshot, selected) : null;
   const emptyMessage = status === "unavailable" ? "Live data temporarily unavailable" : status === "connecting" ? "Waiting for verified Arc Mainnet activity" : `No visualized flows ≥1,000 USDC in the last ${rangeMinutes} minutes · Sentinel still observes the full verified USDC window`;
@@ -150,6 +158,7 @@ export function Dashboard() {
   }
 
   return <main className="premiumDashboard">
+    <a className="skipLink" href="#live-ledger">Skip to transfer ledger</a>
     <LiveActivity/>
     <header>
       <div className="brand"><Image className="brandMark" src="/aeris-logo.jpg" alt="" width={18} height={18}/>AERIS</div>
@@ -159,6 +168,9 @@ export function Dashboard() {
         className="search"
         value={query}
         onChange={event => setQuery(event.target.value)}
+        onKeyDown={event => {if (event.key === "Escape") setQuery("");}}
+        autoComplete="off"
+        spellCheck={false}
         placeholder="Search full address or transaction hash"
         aria-label="Search full address or transaction hash"
       />
@@ -190,14 +202,19 @@ export function Dashboard() {
 
 
     <section className="observatory competitionObservatory">
+      <div className="networkStage">
+        <div className="stageHeading"><div><span className="stageEyebrow">THE OBSERVATORY</span><h2>Capital in motion<span className="stageDot" aria-hidden="true"/></h2></div><span className="stageScope">USDC <span aria-hidden="true">/</span> ARC MAINNET</span></div>
       <div className="scene" aria-label="Live Arc Mainnet entity network">
         {show2D ? <NetworkFallback transfers={transfers} endpointTypes={endpointTypes} selectedAddress={selected} selectedTransferId={activeTransferId} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId} reason={sceneFailed ? "unavailable" : "lightweight"}/> : <VisualizationBoundary onFailure={() => setSceneFailed(true)} fallback={<NetworkFallback transfers={transfers} endpointTypes={endpointTypes} selectedAddress={selected} selectedTransferId={activeTransferId} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId}/> }>
           <NetworkScene transfers={transfers} endpointTypes={endpointTypes} annotations={annotations} selectedAddress={selected} selectedTransferId={activeTransferId} resetViewToken={resetViewToken} intent={intent} onSelectAddress={selectSceneAddress} onSelectTransfer={setSelectedTransferId}/>
         </VisualizationBoundary>}
         {!sceneFailed && <button className="modeSwitch" type="button" onClick={() => setSceneMode(show2D ? "3d" : "2d")} aria-label={show2D ? "Switch to 3D network" : "Switch to 2D network"}>{show2D ? "TRY 3D" : "USE 2D"}</button>}
         {!show2D && <button className="resetView" type="button" onClick={() => setResetViewToken(token => token + 1)} aria-label="Reset globe camera view" title="Reset globe camera view">RESET VIEW <span aria-hidden="true">↺</span></button>}
+        {!transfers.length && !show2D && <div className="sceneEmpty"><span>{emptyMessage}</span><small>No simulated activity is shown</small></div>}
+        {!show2D && <div className="legend"><div className="legendRow"><span><i className="wallet"/>WALLET</span><span><i className="contract"/>CONTRACT</span><span><i className="unknown"/>UNKNOWN</span><span><i className="flow"/>USDC ≥1K</span></div><div className="legendRow flowTypes" aria-label="Transfer endpoint colors"><span title="Wallet to wallet"><i className="pulseWallet"/>W→W</span><span title="Wallet to contract"><i className="pulseContractIn"/>W→C</span><span title="Contract to wallet"><i className="pulseContractOut"/>C→W</span></div></div>}
       </div>
-
+        <div className="stageFooter"><span>Verified on Arc <span aria-hidden="true">↗</span></span><span>{show2D ? "Select a flow or address to inspect" : "Drag to orbit · Select to inspect"}</span></div>
+      </div>
 
       <section className="entityPanel commandCenterShell" ref={entityPanelRef}><div className="panelKicker">NETWORK & INSIGHTS</div>
         {selected ? <>
@@ -225,14 +242,12 @@ export function Dashboard() {
             <div><dt>CHAIN ID</dt><dd>5042</dd></div>
             <div><dt>ASSET</dt><dd className="coinValue"><UsdcIcon/>USDC</dd></div>
             <div><dt>OBSERVED</dt><dd>{events.length} events</dd></div>
-            <div><dt>VISUALIZED</dt><dd>{Math.min(transfers.length, 44)} significant flows</dd></div>
+            <div><dt>NETWORK VIEW</dt><dd>{show2D ? "2D · lightweight" : "3D · interactive"}</dd></div>
           </dl>
           <p className="panelNote">{status === "stale" ? "Using the last successfully verified observation window." : transfers.length ? `${health.windowCovered === false ? "USDC window partially covered" : "USDC window observed"}; contract events sample recent blocks.` : emptyMessage}</p>
         </>}
         <IntelligencePanel snapshot={snapshot} transfers={transfers} selected={selected} connection={status} expanded={agentOpen} visualizationAvailable={!show2D} request={agentRequest} onExpand={() => setAgentOpen(true)} onClose={() => setAgentOpen(false)} onSelectAddress={address => {select(address); setSelectedTransferId(null);}} onSelectTransfer={id => {const transfer = transfers.find(item => item.id === id); setSelectedTransferId(transfer ? transferIdentity(transfer) : id);}}/>
       </section>
-
-      {!transfers.length && !show2D && <div className="sceneEmpty"><span>{emptyMessage}</span><small>No simulated activity is shown</small></div>}
 
       {selectedTransfer && <aside className="transferPanel" aria-label="Selected verified transfer">
         <button className="close" onClick={() => setSelectedTransferId(null)} aria-label="Close selected transfer">×</button>
@@ -242,10 +257,6 @@ export function Dashboard() {
         <a href={`${ARC.explorer}/tx/${selectedTransfer.txHash}`} target="_blank" rel="noopener noreferrer" aria-label={`View transaction ${selectedTransfer.txHash} on Arcscan`}>VIEW ON ARCSCAN ↗</a>
       </aside>}
 
-      {!show2D && <div className="legend">
-        <div className="legendRow"><span><i className="wallet"/>WALLET</span><span><i className="contract"/>CONTRACT</span><span><i className="unknown"/>UNKNOWN</span><span><i className="flow"/>USDC ≥1K</span></div>
-        <div className="legendRow flowTypes" aria-label="Transfer endpoint colors"><span title="Wallet to wallet"><i className="pulseWallet"/>W→W</span><span title="Wallet to contract"><i className="pulseContractIn"/>W→C</span><span title="Contract to wallet"><i className="pulseContractOut"/>C→W</span><span title="Unclassified endpoint"><i className="pulseUnknown"/>UNKNOWN</span></div>
-      </div>}
     </section>
 
     <section className="lowerBar">
@@ -267,16 +278,17 @@ export function Dashboard() {
 
     <Watchlist transfers={observedTransfers} reference={referenceTimestamp} healthy={statusLabel === "LIVE" && health.windowCovered === true} selected={selected} onInspect={address => {setQuery(address); select(address); setSelectedTransferId(null);}}/>
 
-    <section className="feed" id="live-ledger" ref={feedRef}>
-      <div className="feedHead"><div><small>VERIFIED {rangeMinutes}M LEDGER · MIN 1,000 USDC</small><h2>Transfer ledger <span className="feedCount">{Math.min(filtered.length, 16)} / {filtered.length} shown</span></h2></div><span>{ARC.name} · USDC · {statusLabel === "LIVE" ? "REAL-TIME" : "LAST VERIFIED WINDOW"}</span></div>
+    <section className="feed" id="live-ledger" ref={feedRef} tabIndex={-1} aria-label="Verified transfer ledger">
+      <div className="feedHead"><div><small>VERIFIED {rangeMinutes}M LEDGER · MIN 1,000 USDC</small><h2>Transfer ledger <span className="feedCount">{Math.min(filtered.length, ledgerLimit)} / {filtered.length} shown</span></h2></div><span>{ARC.name} · USDC · {statusLabel === "LIVE" ? "REAL-TIME" : "LAST VERIFIED WINDOW"}</span></div>
       {selectedTransfer && <div className="feedSelection" role="status">
         <div><small>SELECTED VERIFIED TRANSFER</small><strong>{money(selectedTransfer.value)} USDC</strong><span>{short(selectedTransfer.from)} → {short(selectedTransfer.to)} · {shortTransactionHash(selectedTransfer.txHash)}</span></div>
         <div className="feedSelectionActions"><a href={`${ARC.explorer}/tx/${selectedTransfer.txHash}`} target="_blank" rel="noopener noreferrer">ARCSCAN ↗</a><button type="button" onClick={() => setSelectedTransferId(null)} aria-label="Clear selected transfer">×</button></div>
       </div>}
       <div className="feedColumns"><span>FROM</span><span>TO</span><span className="amountHeading">AMOUNT</span><span>TYPE</span><span>BLOCK</span><span>TIME</span></div>
-      {filtered.slice(0, 16).map(transfer => <button data-transfer-id={transferIdentity(transfer)} className={`feedRow ${activeTransferId === transferIdentity(transfer) ? "active" : ""}`} key={transferIdentity(transfer)} onMouseEnter={() => setHoveredTransferId(transferIdentity(transfer))} onMouseLeave={() => setHoveredTransferId(null)} onFocus={() => setHoveredTransferId(transferIdentity(transfer))} onBlur={() => setHoveredTransferId(null)} onClick={() => setSelectedTransferId(transferIdentity(transfer))} aria-pressed={selectedTransferId === transferIdentity(transfer)}>
+      {filtered.slice(0, ledgerLimit).map(transfer => <button data-transfer-id={transferIdentity(transfer)} className={`feedRow ${activeTransferId === transferIdentity(transfer) ? "active" : ""}`} key={transferIdentity(transfer)} onMouseEnter={() => setHoveredTransferId(transferIdentity(transfer))} onMouseLeave={() => setHoveredTransferId(null)} onFocus={() => setHoveredTransferId(transferIdentity(transfer))} onBlur={() => setHoveredTransferId(null)} onClick={() => setSelectedTransferId(transferIdentity(transfer))} aria-pressed={selectedTransferId === transferIdentity(transfer)}>
         <span className={`party ${transfer.fromType === "unknown" ? endpointTypes[transfer.from.toLowerCase()] ?? "unknown" : transfer.fromType}`} title={transfer.from}><i/>{short(transfer.from)}</span><span className={`party ${transfer.toType === "unknown" ? endpointTypes[transfer.to.toLowerCase()] ?? "unknown" : transfer.toType}`} title={transfer.to}><i/>{short(transfer.to)}</span><b className="coinValue" title={`${transfer.value} USDC`}><UsdcIcon/>{money(transfer.value)} <em>USDC</em></b><span className="transferKind">{transferType(transfer, endpointTypes)}</span><small>{transfer.blockNumber}</small><time dateTime={transfer.timestamp ? new Date(transfer.timestamp).toISOString() : undefined}>{relativeActivityTime(transfer.timestamp, clock)}</time>
       </button>)}
+      {filtered.length > ledgerLimit && <div className="ledgerMore"><span>{Math.min(ledgerLimit, filtered.length)} of {filtered.length} verified transfers</span><button type="button" onClick={() => setLedgerLimit(limit => limit + 32)}>Show more transfers <span aria-hidden="true">↓</span></button></div>}
       {!filtered.length && <p className="empty">{search.matchedEvent ? "Verified activity found; no matching USDC transfers." : search.kind === "address" || search.kind === "transaction" ? "No verified activity in the current observation window." : emptyMessage}</p>}
     </section>
 

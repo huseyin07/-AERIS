@@ -36,7 +36,7 @@ export function buildFallbackNetwork(transfers: readonly Transfer[], endpointTyp
     const bend = ((stableHash(id) % 2) ? 1 : -1) * Math.min(25, length * .13);
     const x = (from.x + to.x) / 2 - dy / length * bend;
     const y = (from.y + to.y) / 2 + dx / length * bend;
-    return {id, transfer, from, to, path: `M ${from.x.toFixed(1)} ${from.y.toFixed(1)} Q ${x.toFixed(1)} ${y.toFixed(1)} ${to.x.toFixed(1)} ${to.y.toFixed(1)}`};
+    return {id, transfer, from, to, path: from.address === to.address ? `M ${from.x.toFixed(1)} ${from.y.toFixed(1)} C ${(from.x + 38).toFixed(1)} ${(from.y - 46).toFixed(1)} ${(from.x - 38).toFixed(1)} ${(from.y - 46).toFixed(1)} ${from.x.toFixed(1)} ${from.y.toFixed(1)}` : `M ${from.x.toFixed(1)} ${from.y.toFixed(1)} Q ${x.toFixed(1)} ${y.toFixed(1)} ${to.x.toFixed(1)} ${to.y.toFixed(1)}`};
   });
   return {nodes: [...nodes.values()], flows};
 }

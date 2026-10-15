@@ -38,6 +38,13 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
   const previousSnapshot = useRef<IntelligenceSnapshot | null>(null);
   const previousTransfers = useRef<Transfer[]>([]);
   const processing = useRef(false);
+  const panelRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!expanded) return;
+    const previousFocus = document.activeElement;
+    panelRef.current?.querySelector<HTMLInputElement>(".agentInput input")?.focus({preventScroll: true});
+    return () => { if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus({preventScroll: true}); };
+  }, [expanded]);
   const proactiveSnapshot = useRef<number | null>(null);
   const setIntent = useActivity(state => state.setVisualizationIntent);
   const intent = useActivity(state => state.visualizationIntent);
@@ -139,7 +146,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
   const memoryComparison=compareMemory(agentState,{signalSignature:currentSignal,subject:snapshot.signals[0]?.relatedAddresses[0]??null,observedVolume:snapshot.totalVolume,transferCount:snapshot.transferCount,counterpartyCount:snapshot.signals[0]?.relatedAddresses.length??0});
   const baselineRatio=context.dayAverageVolume>0?snapshot.totalVolume/context.dayAverageVolume:null;
 
-  return <section className={`agentModule ${expanded ? "expanded" : "compact"} ${analyzing ? "analyzing" : ""}`} aria-label="AERIS Agent">
+  return <section className={`agentModule ${expanded ? "expanded" : "compact"} ${analyzing ? "analyzing" : ""}`} aria-label="AERIS Agent" ref={panelRef} role={expanded ? "dialog" : undefined} aria-modal={expanded ? false : undefined} onKeyDown={event => {if (expanded && event.key === "Escape") {event.stopPropagation(); onClose();}}}>
     <div className="agentStream" aria-hidden="true">{fragments.map((fragment, index) => <span key={`${fragment}-${index}`} style={{"--row": index, "--speed": `${34 + index % 4 * 7}s`} as CSSProperties}>{fragment}</span>)}</div>
     <div className="agentGlow"/>
     <div className="agentIdentity">
