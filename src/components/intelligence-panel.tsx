@@ -26,6 +26,15 @@ const connectionCopy: Record<Connection, string> = {
 };
 
 export function IntelligencePanel({snapshot, transfers, selected, connection, expanded, visualizationAvailable, request, onExpand, onClose, onSelectAddress, onSelectTransfer}: Props) {
+  const panelRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!expanded) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    panelRef.current?.querySelector<HTMLInputElement>(".agentInput input")?.focus({preventScroll: true});
+    function closeOnEscape(event: KeyboardEvent) { if (event.key === "Escape") { event.preventDefault(); onClose(); } }
+    document.addEventListener("keydown", closeOnEscape);
+    return () => { document.removeEventListener("keydown", closeOnEscape); previousFocus?.focus({preventScroll: true}); };
+  }, [expanded, onClose]);
   const [query, setQuery] = useState("");
   const [pendingQuery, setPendingQuery] = useState("");
   const [answer, setAnswer] = useState<AerisAnswer | null>(null);
@@ -139,7 +148,7 @@ export function IntelligencePanel({snapshot, transfers, selected, connection, ex
   const memoryComparison=compareMemory(agentState,{signalSignature:currentSignal,subject:snapshot.signals[0]?.relatedAddresses[0]??null,observedVolume:snapshot.totalVolume,transferCount:snapshot.transferCount,counterpartyCount:snapshot.signals[0]?.relatedAddresses.length??0});
   const baselineRatio=context.dayAverageVolume>0?snapshot.totalVolume/context.dayAverageVolume:null;
 
-  return <section className={`agentModule ${expanded ? "expanded" : "compact"} ${analyzing ? "analyzing" : ""}`} aria-label="AERIS Agent">
+  return <section ref={panelRef} role={expanded ? "dialog" : undefined} className={`agentModule ${expanded ? "expanded" : "compact"} ${analyzing ? "analyzing" : ""}`} aria-label="AERIS Agent">
     <div className="agentStream" aria-hidden="true">{fragments.map((fragment, index) => <span key={`${fragment}-${index}`} style={{"--row": index, "--speed": `${34 + index % 4 * 7}s`} as CSSProperties}>{fragment}</span>)}</div>
     <div className="agentGlow"/>
     <div className="agentIdentity">
