@@ -26,7 +26,7 @@ export async function GET() {
       observationWindowMs: OBSERVATION_WINDOW_MS,
       fetchedAt: Date.now(),
       ...data.diagnostics,
-    }, {headers: {"Cache-Control": "no-store", "Vercel-CDN-Cache-Control": data.diagnostics.status === "ok" ? "public, s-maxage=6, stale-while-revalidate=3" : "no-store"}});
+    }, {headers: {"Cache-Control": "no-store", "Vercel-CDN-Cache-Control": data.diagnostics.status === "ok" ? "public, s-maxage=15, stale-while-revalidate=30" : "public, s-maxage=5"}});
   } catch (error) {
     console.error(JSON.stringify({event: "arc_activity", status: "error", durationMs: Date.now() - startedAt, error: error instanceof Error ? error.message.slice(0, 240) : "Unknown RPC failure"}));
     return NextResponse.json({
@@ -38,6 +38,6 @@ export async function GET() {
       status: "error",
       rpcWarnings: [error instanceof Error ? error.message.slice(0, 240) : "Unknown RPC failure"],
       fetchedAt: Date.now(),
-    }, {status: 503, headers: {"Cache-Control": "no-store"}});
+    }, {status: 503, headers: {"Cache-Control": "no-store", "Vercel-CDN-Cache-Control": "public, s-maxage=5"}});
   }
 }

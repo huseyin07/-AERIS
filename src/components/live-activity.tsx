@@ -4,10 +4,11 @@ import {useEffect} from "react";
 import type {ActivityResponse} from "@/data/types";
 import {useActivity} from "@/state/activity-store";
 
-const POLL_INTERVAL_MS = 6_000;
+const POLL_INTERVAL_MS = 15_000;
 const REQUEST_TIMEOUT_MS = 30_000;
-const MAX_RETRY_DELAY_MS = 20_000;
-const BACKGROUND_POLL_MS = 30_000;
+const MAX_RETRY_DELAY_MS = 60_000;
+// Hidden tabs don't need data; visibilitychange resumes polling immediately.
+const BACKGROUND_POLL_MS = 10 * 60_000;
 
 function isActivityResponse(value: unknown): value is ActivityResponse {
   if (!value || typeof value !== "object") return false;
